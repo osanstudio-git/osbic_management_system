@@ -572,9 +572,23 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
               </div>
 
               {/* Quotations History */}
-              {leadQuotations && leadQuotations.length > 0 && (
-                <div className="bg-white/5 border border-border/80 rounded-2xl p-5 space-y-4">
-                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Quotations ({leadQuotations.length})</h3>
+              <div className="bg-white/5 border border-border/80 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Quotations ({leadQuotations?.length || 0})
+                  </h3>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      navigate(`/employee/quotations/new?lead_id=${lead.id}`);
+                    }}
+                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/20 transition-colors"
+                  >
+                    <Plus size={12} /> New Quotation
+                  </button>
+                </div>
+                
+                {leadQuotations && leadQuotations.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
                     {leadQuotations.map((quote: any) => (
                       <div 
@@ -616,8 +630,21 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-4 text-xs text-muted-foreground bg-black/10 rounded-xl border border-dashed border-border/60">
+                    <p className="mb-2">No quotations generated yet for this lead.</p>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        navigate(`/employee/quotations/new?lead_id=${lead.id}`);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-primary text-[#0A0F1E] text-xs font-bold hover:shadow-md transition-all inline-flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Create First Quotation
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* 3. Follow-Up Schedule */}
               <div className="bg-white/5 border border-border/80 rounded-2xl p-5">

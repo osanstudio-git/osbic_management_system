@@ -80,15 +80,30 @@ const InvoiceBuilder = () => {
   const { data: nextInvoiceNumber } = useNextInvoiceNumber();
 
   useEffect(() => {
-    if (initialData && !isNew) {
-      setFormData(initialData);
-      if (initialData.metadata?.isSimple === false) {
-        setInvoiceMode('detailed');
-      } else {
-        setInvoiceMode('simple');
+    if (initialData) {
+      if (initialData.type === 'quotation') {
+        navigate(`/employee/quotations/${initialData.id}${window.location.search}`, { replace: true });
+        return;
+      }
+      if (!isNew) {
+        setFormData(initialData);
+        if (initialData.metadata?.isSimple === false) {
+          setInvoiceMode('detailed');
+        } else {
+          setInvoiceMode('simple');
+        }
       }
     }
   }, [initialData, isNew]);
+
+  useEffect(() => {
+    if (isNew) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('type') === 'quotation' || (params.get('lead_id') && !params.get('job_id'))) {
+        navigate(`/employee/quotations/new${window.location.search}`, { replace: true });
+      }
+    }
+  }, [isNew]);
 
   // Sync selected client and lead details into formData for the document preview
   useEffect(() => {

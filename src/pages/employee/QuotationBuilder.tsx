@@ -165,83 +165,56 @@ const QuotationBuilder = () => {
     }
   }, [initialData, isNew]);
 
-  // Handle Lead ID autofill from URL params
+  // Handle Lead ID autofill from URL params & selection
   useEffect(() => {
-    if (isNew) {
-      const params = new URLSearchParams(window.location.search);
-      const autofillLeadId = params.get('lead_id');
-      if (autofillLeadId) {
-        setFormData(prev => ({
-          ...prev,
-          lead_id: autofillLeadId,
-          type: 'quotation',
-          client_id: null,
-          notes: prev.notes === 'Thank you for your business.' ? 'BUSINESS SETUP' : prev.notes,
-          metadata: {
-            ...prev.metadata,
-            documents: prev.metadata?.documents || DEFAULT_QUOTATION_DOCUMENTS,
-            timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE,
-            showQuantity: prev.metadata?.showQuantity ?? false,
-            showTimeline: prev.metadata?.showTimeline ?? true,
-            showDocuments: prev.metadata?.showDocuments ?? true,
-            showKycProof: prev.metadata?.showKycProof ?? false
-          }
-        }));
-      }
-    }
-  }, [isNew]);
+    const params = new URLSearchParams(window.location.search);
+    const targetLeadId = (isNew ? params.get('lead_id') : null) || formData.lead_id;
+    
+    if (targetLeadId) {
+      const loadLeadAndServices = async () => {
+        let leadObj = leads?.find(l => l.id === targetLeadId);
+        if (!leadObj) {
+          const { data } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('id', targetLeadId)
+            .maybeSingle();
+          leadObj = data;
+        }
 
-  // Sync selected client and lead details into formData for the document preview
-  useEffect(() => {
-    if (formData.client_id) {
-      const selectedClient = clients?.find(c => c.id === formData.client_id);
-      if (selectedClient && formData.client?.id !== selectedClient.id) {
-        setFormData(prev => ({ ...prev, client: selectedClient, lead: null }));
-      }
-    } else if (formData.lead_id) {
-      const selectedLead = leads?.find(l => l.id === formData.lead_id);
-      if (selectedLead && formData.lead?.id !== selectedLead.id) {
+        if (!leadObj) return;
+
         const hasNoRealItems = !formData.items || formData.items.length === 0 || 
           (formData.items.length === 1 && !formData.items[0].description);
-        
-        if (hasNoRealItems && selectedLead.interested_services && selectedLead.interested_services.length > 0) {
-          const loadServicesAndSet = async () => {
-            let finalItems: InvoiceItem[] = [];
-            let activityName = 'BUSINESS SETUP';
 
-            for (const item of selectedLead.interested_services) {
-              if (item.type === 'package') {
-                activityName = item.name;
+        if (hasNoRealItems && leadObj.interested_services && leadObj.interested_services.length > 0) {
+          let finalItems: InvoiceItem[] = [];
+          let activityName = leadObj.company_name || 'BUSINESS SETUP';
 
-                try {
-                  const { data: junctionRows } = await supabase
-                    .from('package_services')
-                    .select('display_order, services(id, name_en, name_ar)')
-                    .eq('package_id', item.id) as any;
+          for (const item of leadObj.interested_services) {
+            if (item.type === 'package') {
+              activityName = item.name || activityName;
 
-                  const sorted = (junctionRows || [])
-                    .sort((a: any, b: any) => a.display_order - b.display_order)
-                    .map((row: any) => row.services)
-                    .filter(Boolean);
+              try {
+                const { data: junctionRows } = await supabase
+                  .from('package_services')
+                  .select('display_order, services(id, name_en, name_ar)')
+                  .eq('package_id', item.id) as any;
 
-                  if (sorted.length > 0) {
-                    const mapped = sorted.map((srv: any, idx: number) => ({
-                      description: srv.name_en,
-                      quantity: 1,
-                      unit_price: idx === 0 ? (item.price || 0) : 0,
-                      total: idx === 0 ? (item.price || 0) : 0
-                    }));
-                    finalItems = [...finalItems, ...mapped];
-                  } else {
-                    finalItems.push({
-                      description: item.name,
-                      quantity: 1,
-                      unit_price: item.price || 0,
-                      total: item.price || 0
-                    });
-                  }
-                } catch (err) {
-                  console.error('Error fetching package services:', err);
+                const sorted = (junctionRows || [])
+                  .sort((a: any, b: any) => a.display_order - b.display_order)
+                  .map((row: any) => row.services)
+                  .filter(Boolean);
+
+                if (sorted.length > 0) {
+                  const mapped = sorted.map((srv: any, idx: number) => ({
+                    description: srv.name_en,
+                    quantity: 1,
+                    unit_price: idx === 0 ? (item.price || 0) : 0,
+                    total: idx === 0 ? (item.price || 0) : 0
+                  }));
+                  finalItems = [...finalItems, ...mapped];
+                } else {
                   finalItems.push({
                     description: item.name,
                     quantity: 1,
@@ -249,7 +222,7 @@ const QuotationBuilder = () => {
                     total: item.price || 0
                   });
                 }
-              } else {
+              } catch (err) {
                 finalItems.push({
                   description: item.name,
                   quantity: 1,
@@ -257,34 +230,69 @@ const QuotationBuilder = () => {
                   total: item.price || 0
                 });
               }
+            } else {
+              finalItems.push({
+                description: item.name || item.name_en || 'Service',
+                quantity: 1,
+                unit_price: item.price || 0,
+                total: item.price || 0
+              });
             }
+          }
 
-            setFormData(prev => ({ 
-              ...prev, 
-              lead: selectedLead, 
-              client: null,
-              notes: prev.notes === 'BUSINESS SETUP' ? activityName : prev.notes,
-              items: finalItems,
-              subtotal: finalItems.reduce((acc, curr) => acc + (curr.total || 0), 0),
-              total_amount: finalItems.reduce((acc, curr) => acc + (curr.total || 0), 0)
-            }));
-          };
-          
-          loadServicesAndSet();
-        } else {
-          setFormData(prev => ({ 
-            ...prev, 
-            lead: selectedLead, 
-            client: null
+          if (finalItems.length === 0) {
+            finalItems = [{ description: '', quantity: 1, unit_price: 0, total: 0 }];
+          }
+
+          const calculatedTotal = finalItems.reduce((sum, item) => sum + (item.total || 0), 0);
+
+          setFormData(prev => ({
+            ...prev,
+            lead_id: targetLeadId,
+            lead: leadObj,
+            client_id: null,
+            client: null,
+            items: finalItems,
+            subtotal: calculatedTotal,
+            total_amount: calculatedTotal,
+            notes: prev.notes === 'BUSINESS SETUP' || !prev.notes ? activityName : prev.notes,
+            metadata: {
+              ...prev.metadata,
+              documents: prev.metadata?.documents || DEFAULT_QUOTATION_DOCUMENTS,
+              timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE,
+              showQuantity: prev.metadata?.showQuantity ?? false,
+              showTimeline: prev.metadata?.showTimeline ?? true,
+              showDocuments: prev.metadata?.showDocuments ?? true,
+              showKycProof: prev.metadata?.showKycProof ?? false
+            }
           }));
+        } else {
+          setFormData(prev => {
+            if (prev.lead?.id === leadObj.id && prev.lead_id === targetLeadId) return prev;
+            return {
+              ...prev,
+              lead_id: targetLeadId,
+              lead: leadObj,
+              client_id: null,
+              client: null
+            };
+          });
         }
-      }
-    } else {
-      if (formData.client || formData.lead) {
-        setFormData(prev => ({ ...prev, client: null, lead: null }));
+      };
+
+      loadLeadAndServices();
+    }
+  }, [isNew, formData.lead_id, leads]);
+
+  // Sync selected client details into formData for the document preview
+  useEffect(() => {
+    if (formData.client_id) {
+      const selectedClient = clients?.find(c => c.id === formData.client_id);
+      if (selectedClient && formData.client?.id !== selectedClient.id) {
+        setFormData(prev => ({ ...prev, client: selectedClient, lead: null, lead_id: null }));
       }
     }
-  }, [formData.client_id, formData.lead_id, clients, leads]);
+  }, [formData.client_id, clients]);
 
   // Handle URL Params and selection changes for Auto-Drafting from a Job
   useEffect(() => {
