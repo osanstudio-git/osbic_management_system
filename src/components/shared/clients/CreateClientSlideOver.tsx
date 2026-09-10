@@ -32,7 +32,7 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
   });
 
   useEffect(() => {
-    if (clientToEdit && clientToEdit.phone) {
+    if (clientToEdit) {
       let cCode = '+968';
       let pNum = clientToEdit.phone || '';
       if (pNum.startsWith('+')) {
@@ -44,10 +44,15 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
       }
       setFormData(prev => ({
         ...prev,
+        full_name: clientToEdit.full_name || '',
+        email: clientToEdit.email || '',
+        nationality: clientToEdit.nationality || 'Oman',
         phone: pNum,
+        whatsapp: clientToEdit.whatsapp || '',
         countryCode: ['+968', '+971', '+966', '+974', '+973', '+965', '+91', '+92', '+20'].includes(cCode) ? cCode : 'Other',
         customCountryCode: !['+968', '+971', '+966', '+974', '+973', '+965', '+91', '+92', '+20'].includes(cCode) ? cCode : '',
       }));
+      setWhatsappSameAsPhone(Boolean(clientToEdit.phone && clientToEdit.whatsapp === clientToEdit.phone));
     }
   }, [clientToEdit]);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(clientToEdit ? clientToEdit.whatsapp === clientToEdit.phone : false);
@@ -55,6 +60,25 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
   const { profile } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [createdClient, setCreatedClient] = useState<any>(null);
+
+  const applyDomain = (domain: string) => {
+    setFormData(prev => {
+      let email = (prev.email || '').trim();
+      if (domain.startsWith('@')) {
+        if (email.includes('@')) {
+          const username = email.split('@')[0];
+          return { ...prev, email: `${username}${domain}` };
+        } else {
+          return { ...prev, email: `${email}${domain}` };
+        }
+      } else if (domain.startsWith('.')) {
+        if (!email.endsWith(domain)) {
+          return { ...prev, email: `${email}${domain}` };
+        }
+      }
+      return prev;
+    });
+  };
 
   const createClientMutation = useCreateClient();
   const updateClientMutation = useUpdateClient();
@@ -169,18 +193,36 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
 
                   {/* Email */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Username / Email</label>
+                    <div className="flex items-center justify-between ml-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Username / Email</label>
+                      {isEditing && (
+                        <span className="text-[10px] text-primary font-medium">Editable</span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
-                        required={!isEditing}
-                        disabled={isEditing}
+                        required
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         placeholder="client@example.com"
-                        className="w-full bg-background border border-border rounded-xl py-3 pl-12 pr-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50 disabled:opacity-50"
+                        className="w-full bg-background border border-border rounded-xl py-3 pl-12 pr-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50"
                       />
+                    </div>
+                    {/* Quick Domain Helpers */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-muted-foreground/70 font-medium">Quick:</span>
+                      {['@gmail.com', '@outlook.com', '@hotmail.com', '@icloud.com', '.com', '.om'].map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => applyDomain(chip)}
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-muted/60 hover:bg-primary/20 hover:text-primary text-muted-foreground border border-border/50 transition-colors"
+                        >
+                          {chip}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -196,16 +238,16 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                           onChange={(e) => setFormData(prev => ({ ...prev, countryCode: e.target.value }))}
                           className="w-20 bg-background/50 border border-border rounded-xl px-1 py-3 text-xs text-foreground focus:outline-none focus:border-primary/50 transition-colors cursor-pointer text-center appearance-none"
                         >
-                          <option value="+968" className="bg-[#0A0F1E]">+968</option>
-                          <option value="+971" className="bg-[#0A0F1E]">+971</option>
-                          <option value="+966" className="bg-[#0A0F1E]">+966</option>
-                          <option value="+974" className="bg-[#0A0F1E]">+974</option>
-                          <option value="+973" className="bg-[#0A0F1E]">+973</option>
-                          <option value="+965" className="bg-[#0A0F1E]">+965</option>
-                          <option value="+91" className="bg-[#0A0F1E]">+91</option>
-                          <option value="+92" className="bg-[#0A0F1E]">+92</option>
-                          <option value="+20" className="bg-[#0A0F1E]">+20</option>
-                          <option value="Other" className="bg-[#0A0F1E]">Other</option>
+                          <option value="+968" className="bg-card text-foreground">+968</option>
+                          <option value="+971" className="bg-card text-foreground">+971</option>
+                          <option value="+966" className="bg-card text-foreground">+966</option>
+                          <option value="+974" className="bg-card text-foreground">+974</option>
+                          <option value="+973" className="bg-card text-foreground">+973</option>
+                          <option value="+965" className="bg-card text-foreground">+965</option>
+                          <option value="+91" className="bg-card text-foreground">+91</option>
+                          <option value="+92" className="bg-card text-foreground">+92</option>
+                          <option value="+20" className="bg-card text-foreground">+20</option>
+                          <option value="Other" className="bg-card text-foreground">Other</option>
                         </select>
                         {formData.countryCode === 'Other' && (
                           <input

@@ -14,7 +14,7 @@ export interface Lead {
   source_id?: string;
   assigned_to?: string;
   assigned_by?: string;
-  status: 'new' | 'contacted' | 'interested' | 'qualified' | 'quoted' | 'negotiating' | 'converted' | 'lost' | 'on_hold';
+  status: 'new' | 'contacted' | 'interested' | 'on_progress' | 'qualified' | 'quoted' | 'negotiating' | 'converted' | 'cancelled' | 'lost' | 'on_hold';
   lost_reason?: string;
   next_follow_up_at?: string;
   follow_up_notes?: string;

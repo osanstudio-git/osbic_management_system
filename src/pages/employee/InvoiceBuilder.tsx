@@ -190,16 +190,27 @@ const InvoiceBuilder = () => {
   useEffect(() => {
     if (!formData.items) return;
     
-    const subtotal = formData.items.reduce((sum, item) => sum + (item.total || 0), 0);
-    const tax_amount = (subtotal - formData.discount_amount) * (formData.tax_percentage / 100);
-    const total_amount = subtotal - formData.discount_amount + tax_amount;
+    const subtotal = formData.items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    const discount = Number(formData.discount_amount) || 0;
+    const taxRate = Number(formData.tax_percentage) || 0;
+    const tax_amount = Math.max(0, subtotal - discount) * (taxRate / 100);
+    const total_amount = Math.max(0, subtotal - discount) + tax_amount;
 
-    setFormData(prev => ({
-      ...prev,
-      subtotal,
-      tax_amount,
-      total_amount
-    }));
+    setFormData(prev => {
+      if (
+        prev.subtotal === subtotal &&
+        prev.tax_amount === tax_amount &&
+        prev.total_amount === total_amount
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        subtotal,
+        tax_amount,
+        total_amount
+      };
+    });
   }, [formData.items, formData.tax_percentage, formData.discount_amount]);
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
@@ -502,10 +513,10 @@ const InvoiceBuilder = () => {
                     }}
                     className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
                   >
-                    <option value="">Select recipient...</option>
-                    <optgroup label="Registered Clients" className="bg-[#1e293b]">
+                    <option value="" className="bg-card text-foreground">Select recipient...</option>
+                    <optgroup label="Registered Clients" className="bg-card text-foreground">
                       {activeClients.map(c => (
-                        <option key={c.id} value={`client:${c.id}`} className="bg-[#1e293b]">{c.full_name}</option>
+                        <option key={c.id} value={`client:${c.id}`} className="bg-card text-foreground">{c.full_name}</option>
                       ))}
                     </optgroup>
                   </select>
@@ -697,7 +708,7 @@ const InvoiceBuilder = () => {
                 <span className="text-xs font-bold text-foreground">Invoice Presentation Mode</span>
                 <p className="text-[9px] text-muted-foreground mt-0.5">Toggle between line-by-line itemized detail and flat package summary</p>
               </div>
-              <div className="flex bg-[#0d121f] p-1 border border-border rounded-xl">
+              <div className="flex bg-muted/40 p-1 border border-border rounded-xl">
                  <button
                    onClick={() => setInvoiceMode('detailed')}
                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${

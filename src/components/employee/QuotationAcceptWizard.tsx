@@ -222,7 +222,7 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                 </div>
               </div>
 
-              <div className="p-5 border border-border bg-[#131824]/60 rounded-2xl space-y-3">
+              <div className="p-5 border border-border bg-muted/20 rounded-2xl space-y-3">
                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Lead Details Summary</p>
                 <div className="text-xs space-y-2">
                   <p><span className="text-muted-foreground">Name:</span> <span className="font-semibold">{quotation.lead?.contact_name || 'N/A'}</span></p>
@@ -252,8 +252,8 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
 
               {/* Ministry Fee Payment Method Selector */}
               <div className={cn(
-                "bg-[#131824]/40 border rounded-2xl p-5 transition-all",
-                clientPaysMinistryFee ? 'border-blue-500/30 bg-blue-500/5' : 'border-border/60'
+                "bg-card border rounded-2xl p-5 transition-all shadow-sm",
+                clientPaysMinistryFee ? 'border-blue-500/30 bg-blue-500/5' : 'border-border'
               )}>
                 <div className="flex items-start gap-3 mb-4">
                   <div className={cn(
@@ -277,7 +277,7 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                       "flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all",
                       !clientPaysMinistryFee
                         ? 'border-primary/50 bg-primary/5'
-                        : 'border-border/60 bg-black/10 hover:border-border'
+                        : 'border-border bg-muted/20 hover:border-border/80'
                     )}
                   >
                     <div className={cn(
@@ -300,7 +300,7 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                       "flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all",
                       clientPaysMinistryFee
                         ? 'border-blue-500/50 bg-blue-500/10'
-                        : 'border-border/60 bg-black/10 hover:border-border'
+                        : 'border-border bg-muted/20 hover:border-border/80'
                     )}
                   >
                     <div className={cn(
@@ -319,7 +319,7 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
 
               {/* Service Assignments */}
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-[#131824]/40 p-4 border border-border/60 rounded-2xl">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-card p-4 border border-border rounded-2xl shadow-sm">
                   <div>
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-1.5"><Users size={14}/> Delegate Tasks</h3>
                     <p className="text-[9px] text-muted-foreground mt-0.5">{taskAssignments.length} Operational Services</p>
@@ -334,11 +334,11 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                         setTaskAssignments(prev => prev.map(t => ({ ...t, opsEmployeeId: employeeId })));
                         e.target.value = "";
                       }}
-                      className="bg-[#0d121f] border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary transition-all font-semibold"
+                      className="bg-muted/40 border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary transition-all font-semibold"
                     >
-                      <option value="">-- Select Worker --</option>
+                      <option value="" className="bg-card text-foreground">-- Select Worker --</option>
                       {employees?.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                        <option key={emp.id} value={emp.id} className="bg-card text-foreground">{emp.full_name}</option>
                       ))}
                     </select>
                   </div>
@@ -346,8 +346,8 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
 
                 <div className="space-y-3">
                   {taskAssignments.map((asg, idx) => (
-                    <div key={idx} className="p-4 bg-[#131824]/40 border border-border/80 rounded-2xl space-y-3.5">
-                      <div className="flex items-center gap-2 border-b border-border/20 pb-2">
+                    <div key={idx} className="p-4 bg-card border border-border rounded-2xl space-y-3.5 shadow-sm">
+                      <div className="flex items-center gap-2 border-b border-border/40 pb-2">
                         <span className="text-[10px] w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">{idx + 1}</span>
                         <span className="text-xs font-bold text-foreground">{asg.serviceName}</span>
                       </div>
@@ -359,11 +359,11 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                           <select
                             value={asg.serviceId}
                             onChange={e => handleAssignmentChange(idx, 'serviceId', e.target.value)}
-                            className="w-full bg-[#0d121f] border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-all"
+                            className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-all"
                           >
-                            <option value="">-- Custom / Unmapped Service --</option>
+                            <option value="" className="bg-card text-foreground">-- Custom / Unmapped Service --</option>
                             {allServices?.filter(s => s.is_active).map(s => (
-                              <option key={s.id} value={s.id}>{s.name_en}</option>
+                              <option key={s.id} value={s.id} className="bg-card text-foreground">{s.name_en}</option>
                             ))}
                           </select>
                         </div>
@@ -374,11 +374,11 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                           <select
                             value={asg.opsEmployeeId}
                             onChange={e => handleAssignmentChange(idx, 'opsEmployeeId', e.target.value)}
-                            className="w-full bg-[#0d121f] border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-all"
+                            className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-all"
                           >
-                            <option value="">-- Choose Worker --</option>
+                            <option value="" className="bg-card text-foreground">-- Choose Worker --</option>
                             {employees?.map(e => (
-                              <option key={e.id} value={e.id}>{e.full_name} ({e.role})</option>
+                              <option key={e.id} value={e.id} className="bg-card text-foreground">{e.full_name} ({e.role})</option>
                             ))}
                           </select>
                         </div>

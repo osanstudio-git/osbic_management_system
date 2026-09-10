@@ -201,7 +201,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                     <button
                       type="button"
                       onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
-                      className="w-full bg-[#131824] border border-border rounded-xl px-4 py-2.5 text-left text-foreground focus:outline-none focus:border-gold transition-colors flex items-center justify-between text-sm"
+                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-left text-foreground focus:outline-none focus:border-gold transition-colors flex items-center justify-between text-sm"
                     >
                       <span>{selectedSourceName || 'Select lead source'}</span>
                       <ChevronDown size={16} className="text-muted-foreground" />
@@ -213,7 +213,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                           className="fixed inset-0 z-40" 
                           onClick={() => setIsSourceDropdownOpen(false)} 
                         />
-                        <div className="absolute left-0 right-0 mt-1.5 bg-[#131824] border border-border rounded-xl shadow-2xl overflow-hidden z-50 py-1 max-h-48 overflow-y-auto">
+                        <div className="absolute left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-50 py-1 max-h-48 overflow-y-auto">
                           {sources?.map(source => (
                             <button
                               key={source.id}
@@ -222,7 +222,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                                 setFormData({ ...formData, source_id: source.id, custom_source_text: '' });
                                 setIsSourceDropdownOpen(false);
                               }}
-                              className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-white/5 hover:text-gold transition-colors block"
+                              className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors block"
                             >
                               {source.name}
                             </button>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard } from 'lucide-react';
+import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders } from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
@@ -14,6 +13,38 @@ import { useReactToPrint } from 'react-to-print';
 import toast from 'react-hot-toast';
 import QuotationAcceptWizard from '../../components/employee/QuotationAcceptWizard';
 import { AnimatePresence } from 'framer-motion';
+
+export interface TimelineStep {
+  task: string;
+  days: string;
+}
+
+export const STANDARD_TIMELINE_ITEMS: TimelineStep[] = [
+  { task: 'Share Transfer', days: '4-6 Working Days' },
+  { task: 'CR Renewal', days: '1 Working Day' },
+  { task: 'Activity License Renewal', days: '1 Working Day' },
+  { task: 'KYC Verification', days: '1-2 Working Days' },
+  { task: 'CR Certificate Issue', days: '1-2 Working Days' },
+  { task: 'OCCI Registration', days: '1 Working Day' },
+  { task: 'Tax Card Issue', days: '1-2 Working Days' },
+  { task: 'Activity License Issue', days: '1 Working Day' },
+  { task: 'Feasibility Study', days: '1 Working Day' },
+  { task: 'Investment License', days: '3-4 Working Days' },
+  { task: 'Customs Clearance', days: '3-4 Working Days' },
+  { task: 'Visa Processing', days: '2-3 Working Days (Depends on Nationality)' },
+  { task: 'Attestation Services', days: '2-3 Working Days' }
+];
+
+export const STANDARD_DOCUMENT_ITEMS = [
+  'COLOR PASSPORT COPIES OF SHAREHOLDERS',
+  'COLOR PHOTO OF THE SHARE HOLDER',
+  'EMAIL ID',
+  'CONTACT NUMBER',
+  'DOCUMENTS PROVIDING PREVIOUS EXPERIENCE IN THE SAME LINE OF BUSINESS OR EDUCATION CERTIFICATE',
+  'SUGGESTION OF 5 NAMES FOR THE NEW COMPANY (PREFERABLY ARABIC)',
+  'SELFIE WITH PASSPORT',
+  'PASSPORT SIZE PHOTO'
+];
 
 const DEFAULT_QUOTATION_DOCUMENTS = `SELFIE WITH PASSPORT
 PASSPORT SIZE PHOTO
@@ -37,6 +68,29 @@ Investment License:3-4 Working Days
 Customs Clearance:3-4 Working Days
 Visa Processing:2-3 Working Days (Depends on Nationality)
 Attestation Services:2-3 Working Days`;
+
+export const parseTimelineHelper = (timelineVal: any): TimelineStep[] => {
+  if (Array.isArray(timelineVal)) {
+    return timelineVal.filter(t => t && t.task);
+  }
+  if (typeof timelineVal === 'string') {
+    return timelineVal.split('\n').filter(Boolean).map(line => {
+      const [task, ...rest] = line.split(':');
+      return { task: task?.trim() || '', days: rest.join(':')?.trim() || '' };
+    }).filter(t => t.task);
+  }
+  return STANDARD_TIMELINE_ITEMS;
+};
+
+export const parseDocumentsHelper = (docsVal: any): string[] => {
+  if (Array.isArray(docsVal)) {
+    return docsVal.map(d => typeof d === 'string' ? d.trim() : d?.name?.trim()).filter(Boolean);
+  }
+  if (typeof docsVal === 'string') {
+    return docsVal.split('\n').map(s => s.trim()).filter(Boolean);
+  }
+  return STANDARD_DOCUMENT_ITEMS;
+};
 
 const QuotationBuilder = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,10 +118,17 @@ const QuotationBuilder = () => {
 
   const { data: allServices } = useAdminServices();
 
-
   const printRef = useRef<HTMLDivElement>(null);
   const [isAcceptWizardOpen, setIsAcceptWizardOpen] = useState(false);
   const [quotationMode, setQuotationMode] = useState<'detailed' | 'simple'>('detailed');
+
+  // Interactive Checklist states
+  const [timelineTab, setTimelineTab] = useState<'checklist' | 'raw'>('checklist');
+  const [customTaskName, setCustomTaskName] = useState('');
+  const [customTaskDays, setCustomTaskDays] = useState('1-2 Working Days');
+
+  const [documentsTab, setDocumentsTab] = useState<'checklist' | 'raw'>('checklist');
+  const [customDocName, setCustomDocName] = useState('');
 
   const [formData, setFormData] = useState<Invoice>({
     client_id: '',
@@ -85,7 +146,11 @@ const QuotationBuilder = () => {
     items: [],
     metadata: {
       documents: DEFAULT_QUOTATION_DOCUMENTS,
-      timeline: DEFAULT_QUOTATION_TIMELINE
+      timeline: DEFAULT_QUOTATION_TIMELINE,
+      showQuantity: false,
+      showTimeline: true,
+      showDocuments: true,
+      showKycProof: false
     }
   });
 
@@ -115,7 +180,11 @@ const QuotationBuilder = () => {
           metadata: {
             ...prev.metadata,
             documents: prev.metadata?.documents || DEFAULT_QUOTATION_DOCUMENTS,
-            timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE
+            timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE,
+            showQuantity: prev.metadata?.showQuantity ?? false,
+            showTimeline: prev.metadata?.showTimeline ?? true,
+            showDocuments: prev.metadata?.showDocuments ?? true,
+            showKycProof: prev.metadata?.showKycProof ?? false
           }
         }));
       }
@@ -315,7 +384,6 @@ const QuotationBuilder = () => {
     const tax_amount = (subtotal - formData.discount_amount) * (formData.tax_percentage / 100);
     const total_amount = subtotal - formData.discount_amount + tax_amount;
 
-    // Check if we need to update state to prevent infinite loop
     const subtotalDiff = Math.abs((formData.subtotal || 0) - subtotal) > 0.0001;
     const totalDiff = Math.abs((formData.total_amount || 0) - total_amount) > 0.0001;
 
@@ -336,7 +404,6 @@ const QuotationBuilder = () => {
 
     if (field === 'description') {
       targetItem.description = value;
-      // Try to find matching service in db to pre-fill ministry fee
       const matched = allServices?.find(
         s => s.name_en.toLowerCase() === value.toLowerCase() ||
              s.name_ar === value
@@ -345,9 +412,11 @@ const QuotationBuilder = () => {
         targetItem.ministry_fee = matched.ministry_fee || 0;
       }
     } else if (field === 'service_fee') {
-      targetItem.service_fee = value;
+      targetItem.service_fee = parseFloat(value) || 0;
     } else if (field === 'ministry_fee') {
-      targetItem.ministry_fee = value;
+      targetItem.ministry_fee = parseFloat(value) || 0;
+    } else if (field === 'quantity') {
+      targetItem.quantity = Math.max(1, parseInt(value) || 1);
     } else {
       targetItem[field] = value;
     }
@@ -370,7 +439,19 @@ const QuotationBuilder = () => {
     targetItem.total = (targetItem.quantity || 1) * targetItem.unit_price;
 
     newItems[index] = targetItem;
-    setFormData({ ...formData, items: newItems });
+    
+    // Auto recalculate subtotal & total immediately
+    const newSubtotal = newItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
+    const newTaxAmount = (newSubtotal - (formData.discount_amount || 0)) * ((formData.tax_percentage || 0) / 100);
+    const newTotalAmount = newSubtotal - (formData.discount_amount || 0) + newTaxAmount;
+
+    setFormData({
+      ...formData,
+      items: newItems,
+      subtotal: newSubtotal,
+      tax_amount: newTaxAmount,
+      total_amount: newTotalAmount
+    });
   };
 
   const addItem = () => {
@@ -384,6 +465,98 @@ const QuotationBuilder = () => {
     const newItems = [...(formData.items || [])];
     newItems.splice(index, 1);
     setFormData({ ...formData, items: newItems });
+  };
+
+  // Timeline helper handlers
+  const currentTimelineList = parseTimelineHelper(formData.metadata?.timeline);
+
+  const toggleTimelineStep = (task: string, defaultDays: string) => {
+    const exists = currentTimelineList.some(t => t.task === task);
+    let updated: TimelineStep[];
+    if (exists) {
+      updated = currentTimelineList.filter(t => t.task !== task);
+    } else {
+      updated = [...currentTimelineList, { task, days: defaultDays }];
+    }
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, timeline: updated }
+    }));
+  };
+
+  const updateTimelineStepDays = (task: string, newDays: string) => {
+    const updated = currentTimelineList.map(t => t.task === task ? { ...t, days: newDays } : t);
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, timeline: updated }
+    }));
+  };
+
+  const selectAllTimeline = () => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, timeline: STANDARD_TIMELINE_ITEMS }
+    }));
+  };
+
+  const clearAllTimeline = () => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, timeline: [] }
+    }));
+  };
+
+  const addCustomTimelineStep = () => {
+    if (!customTaskName.trim()) return toast.error('Please enter step name');
+    const updated = [...currentTimelineList, { task: customTaskName.trim(), days: customTaskDays.trim() || '1-2 Working Days' }];
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, timeline: updated }
+    }));
+    setCustomTaskName('');
+    toast.success('Added timeline step');
+  };
+
+  // Documents helper handlers
+  const currentDocsList = parseDocumentsHelper(formData.metadata?.documents);
+
+  const toggleDocument = (docName: string) => {
+    const exists = currentDocsList.includes(docName);
+    let updated: string[];
+    if (exists) {
+      updated = currentDocsList.filter(d => d !== docName);
+    } else {
+      updated = [...currentDocsList, docName];
+    }
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, documents: updated }
+    }));
+  };
+
+  const selectAllDocuments = () => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, documents: STANDARD_DOCUMENT_ITEMS }
+    }));
+  };
+
+  const clearAllDocuments = () => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, documents: [] }
+    }));
+  };
+
+  const addCustomDocument = () => {
+    if (!customDocName.trim()) return toast.error('Please enter document name');
+    const updated = [...currentDocsList, customDocName.trim().toUpperCase()];
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, documents: updated }
+    }));
+    setCustomDocName('');
+    toast.success('Added required document');
   };
 
   const handleSave = async () => {
@@ -516,7 +689,7 @@ const QuotationBuilder = () => {
         
         {/* LEFT: FORM BUILDER (Hidden in Print and View Mode) */}
         {!viewMode && (
-          <div className="w-full lg:w-[45%] space-y-6 print:hidden">
+          <div className="w-full lg:w-[48%] space-y-6 print:hidden">
           
           <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-6">
              <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
@@ -587,7 +760,7 @@ const QuotationBuilder = () => {
                        <div className="space-y-1">
                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Contact Phone</label>
                          <input 
-                           type="text"
+                           type="text" 
                            value={formData.lead.contact_phone || ''}
                            onChange={e => setFormData({
                              ...formData,
@@ -599,7 +772,7 @@ const QuotationBuilder = () => {
                        <div className="space-y-1">
                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Contact Email</label>
                          <input 
-                           type="text"
+                           type="text" 
                            value={formData.lead.contact_email || ''}
                            onChange={e => setFormData({
                              ...formData,
@@ -614,10 +787,63 @@ const QuotationBuilder = () => {
                </div>
              )}
 
+             {/* Quotation Configuration Toggles */}
+             <div className="bg-muted/15 border border-border/60 rounded-xl p-4 space-y-3">
+               <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                 <Sliders size={14} className="text-primary" /> Document Settings & Toggles
+               </h3>
+               <div className="grid grid-cols-2 gap-3 pt-1">
+                 {/* Show Quantity Toggle */}
+                 <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
+                   <input 
+                     type="checkbox"
+                     checked={!!formData.metadata?.showQuantity}
+                     onChange={e => setFormData({
+                       ...formData,
+                       metadata: { ...formData.metadata, showQuantity: e.target.checked }
+                     })}
+                     className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                   />
+                   <div>
+                     <span className="text-xs font-bold text-foreground block">Show Quantity</span>
+                     <span className="text-[9px] text-muted-foreground block">Display Qty column on quote</span>
+                   </div>
+                 </label>
+
+                 {/* Include KYC Photo Proof Toggle */}
+                 <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
+                   <input 
+                     type="checkbox"
+                     checked={!!formData.metadata?.showKycProof}
+                     onChange={e => {
+                       const checked = e.target.checked;
+                       let docs = currentDocsList;
+                       if (checked) {
+                         if (!docs.includes('SELFIE WITH PASSPORT')) docs.push('SELFIE WITH PASSPORT');
+                         if (!docs.includes('PASSPORT SIZE PHOTO')) docs.push('PASSPORT SIZE PHOTO');
+                       }
+                       setFormData({
+                         ...formData,
+                         metadata: { ...formData.metadata, showKycProof: checked, documents: docs }
+                       });
+                     }}
+                     className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                   />
+                   <div>
+                     <span className="text-xs font-bold text-foreground block">KYC Photo Proof</span>
+                     <span className="text-[9px] text-muted-foreground block">Include selfie guide on Page 2</span>
+                   </div>
+                 </label>
+               </div>
+             </div>
+
               {/* Line Items */}
               <div className="space-y-4 border-t border-border pt-6">
                  <div className="flex justify-between items-center">
-                   <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Service Fee Items</h3>
+                   <div>
+                     <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Service Fee Items</h3>
+                     <p className="text-[9px] text-muted-foreground">Auto-calculated: (Gov Fee + Service Fee) × Quantity</p>
+                   </div>
                    <button 
                      onClick={addItem}
                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/20 text-primary text-xs font-bold hover:bg-primary/5 transition-all"
@@ -634,9 +860,11 @@ const QuotationBuilder = () => {
                     );
                     const dbMinFee = matchedService?.ministry_fee ?? 0;
                     const curMinFee = item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee;
-                    // Default service fee to 0, never negative
                     const rawSrvFee = item.service_fee !== undefined ? item.service_fee : (item.unit_price - curMinFee);
                     const curSrvFee = Math.max(0, rawSrvFee);
+                    const curUnitPrice = curMinFee + curSrvFee;
+                    const curQty = Math.max(1, parseInt(item.quantity) || 1);
+                    const curTotal = curQty * curUnitPrice;
 
                     return (
                       <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40 space-y-3">
@@ -651,14 +879,14 @@ const QuotationBuilder = () => {
                               className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
                             />
                           </div>
-                          <div className="w-16 space-y-1.5 shrink-0">
+                          <div className="w-20 space-y-1.5 shrink-0">
                             <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block text-center">Qty</label>
                             <input 
                               type="number" 
                               min="1"
-                              value={item.quantity}
-                              onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value) || 0)}
-                              className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:border-primary outline-none transition-all text-center"
+                              value={item.quantity || 1}
+                              onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
+                              className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:border-primary outline-none transition-all text-center font-bold font-mono"
                             />
                           </div>
                           
@@ -681,7 +909,7 @@ const QuotationBuilder = () => {
                               min="0"
                               step="0.001"
                               value={curMinFee}
-                              onChange={e => handleItemChange(idx, 'ministry_fee', parseFloat(e.target.value) || 0)}
+                              onChange={e => handleItemChange(idx, 'ministry_fee', e.target.value)}
                               className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
                             />
                           </div>
@@ -692,14 +920,16 @@ const QuotationBuilder = () => {
                               min="0"
                               step="0.001"
                               value={curSrvFee}
-                              onChange={e => handleItemChange(idx, 'service_fee', parseFloat(e.target.value) || 0)}
+                              onChange={e => handleItemChange(idx, 'service_fee', e.target.value)}
                               className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
                             />
                           </div>
                           <div className="flex flex-col justify-end">
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Total Unit Price</span>
-                            <div className="h-[34px] flex items-center px-3 bg-muted/30 border border-border/40 rounded-lg text-xs font-bold text-foreground font-mono">
-                              OMR {(curMinFee + curSrvFee).toFixed(3)}
+                            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                              Total ({curQty > 1 ? `${curQty}×` : ''}OMR {curUnitPrice.toFixed(3)})
+                            </span>
+                            <div className="h-[34px] flex items-center px-3 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold text-primary font-mono">
+                              OMR {curTotal.toFixed(3)}
                             </div>
                           </div>
                         </div>
@@ -709,7 +939,7 @@ const QuotationBuilder = () => {
                 </div>
              </div>
 
-             {/* Discount, Tax & Notes */}
+             {/* Discount & Tax */}
              <div className="space-y-4 border-t border-border pt-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -720,7 +950,7 @@ const QuotationBuilder = () => {
                       step="0.001"
                       value={formData.discount_amount}
                       onChange={e => setFormData({...formData, discount_amount: parseFloat(e.target.value) || 0})}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
+                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
                     />
                   </div>
                   <div className="space-y-2">
@@ -731,33 +961,278 @@ const QuotationBuilder = () => {
                       max="100"
                       value={formData.tax_percentage}
                       onChange={e => setFormData({...formData, tax_percentage: parseFloat(e.target.value) || 0})}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
+                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
                     />
                   </div>
                 </div>
 
+                {/* INTERACTIVE DOCUMENTS REQUIRED SECTION */}
                 <div className="space-y-4 border-t border-border pt-6">
-                   <h3 className="text-sm font-bold text-foreground flex items-center gap-2"><FileText size={16}/> Quotation Details</h3>
-                   
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Documents Required (One per line)</label>
-                     <textarea 
-                       rows={6}
-                       value={typeof formData.metadata?.documents === 'string' ? formData.metadata.documents : (formData.metadata?.documents?.join('\n') || '')}
-                       onChange={e => setFormData({...formData, metadata: { ...formData.metadata, documents: e.target.value }})}
-                       className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
-                     />
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                       <FileText size={16} className="text-primary"/>
+                       <h3 className="text-sm font-bold text-foreground">Documents Required</h3>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <button
+                         type="button"
+                         onClick={() => setDocumentsTab(documentsTab === 'checklist' ? 'raw' : 'checklist')}
+                         className="text-[10px] font-bold text-primary hover:underline"
+                       >
+                         {documentsTab === 'checklist' ? 'Edit Raw Text' : 'Checklist View'}
+                       </button>
+                     </div>
                    </div>
 
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Timeline (Format: Task:Days - One per line)</label>
-                     <textarea 
-                       rows={6}
-                       value={typeof formData.metadata?.timeline === 'string' ? formData.metadata.timeline : (formData.metadata?.timeline?.map((t: any) => `${t.task}:${t.days}`).join('\n') || '')}
-                       onChange={e => setFormData({...formData, metadata: { ...formData.metadata, timeline: e.target.value }})}
-                       className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
-                     />
+                   {documentsTab === 'checklist' ? (
+                     <div className="space-y-3 bg-muted/10 p-4 rounded-xl border border-border/40">
+                       <div className="flex justify-between items-center pb-2 border-b border-border/40">
+                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                           Selected ({currentDocsList.length} items)
+                         </span>
+                         <div className="flex gap-2">
+                           <button
+                             type="button"
+                             onClick={selectAllDocuments}
+                             className="text-[9px] font-bold text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-background border border-border/50"
+                           >
+                             Select All
+                           </button>
+                           <button
+                             type="button"
+                             onClick={clearAllDocuments}
+                             className="text-[9px] font-bold text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-background border border-border/50"
+                           >
+                             Clear All
+                           </button>
+                         </div>
+                       </div>
+
+                       <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                         {STANDARD_DOCUMENT_ITEMS.map((doc, idx) => {
+                           const isChecked = currentDocsList.includes(doc);
+                           return (
+                             <label 
+                               key={idx} 
+                               className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                                 isChecked 
+                                   ? 'bg-primary/5 border-primary/30 text-foreground font-medium' 
+                                   : 'bg-background/40 border-border/40 text-muted-foreground hover:bg-muted/30'
+                               }`}
+                             >
+                               <input 
+                                 type="checkbox"
+                                 checked={isChecked}
+                                 onChange={() => toggleDocument(doc)}
+                                 className="w-3.5 h-3.5 mt-0.5 rounded text-primary border-border focus:ring-primary shrink-0"
+                               />
+                               <span className="leading-tight text-[11px]">{doc}</span>
+                             </label>
+                           );
+                         })}
+
+                         {/* Custom added documents */}
+                         {currentDocsList.filter(d => !STANDARD_DOCUMENT_ITEMS.includes(d)).map((customDoc, idx) => (
+                           <div key={`custom-${idx}`} className="flex items-center justify-between p-2 rounded-lg bg-primary/5 border border-primary/30 text-xs">
+                             <div className="flex items-center gap-2">
+                               <CheckSquare size={14} className="text-primary shrink-0" />
+                               <span className="font-medium text-[11px] text-foreground">{customDoc}</span>
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => toggleDocument(customDoc)}
+                               className="text-muted-foreground hover:text-destructive p-1"
+                             >
+                               <Trash2 size={12} />
+                             </button>
+                           </div>
+                         ))}
+                       </div>
+
+                       {/* Add custom document input */}
+                       <div className="flex gap-2 pt-2 border-t border-border/40">
+                         <input 
+                           type="text"
+                           placeholder="Add custom required document..."
+                           value={customDocName}
+                           onChange={e => setCustomDocName(e.target.value)}
+                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomDocument(); } }}
+                           className="flex-1 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none"
+                         />
+                         <button
+                           type="button"
+                           onClick={addCustomDocument}
+                           className="px-3 py-1.5 bg-card border border-border hover:bg-muted text-foreground text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                         >
+                           <Plus size={14} /> Add
+                         </button>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Documents Required (One per line)</label>
+                       <textarea 
+                         rows={6}
+                         value={typeof formData.metadata?.documents === 'string' ? formData.metadata.documents : (formData.metadata?.documents?.join('\n') || '')}
+                         onChange={e => setFormData({...formData, metadata: { ...formData.metadata, documents: e.target.value }})}
+                         className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
+                       />
+                     </div>
+                   )}
+                </div>
+
+                {/* INTERACTIVE TIMELINE SECTION */}
+                <div className="space-y-4 border-t border-border pt-6">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                       <Calendar size={16} className="text-primary"/>
+                       <h3 className="text-sm font-bold text-foreground">Processing Timeline</h3>
+                     </div>
+                     <div className="flex items-center gap-3">
+                       <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-muted-foreground">
+                         <input 
+                           type="checkbox"
+                           checked={formData.metadata?.showTimeline !== false}
+                           onChange={e => setFormData({
+                             ...formData,
+                             metadata: { ...formData.metadata, showTimeline: e.target.checked }
+                           })}
+                           className="w-3.5 h-3.5 rounded text-primary border-border focus:ring-primary"
+                         />
+                         <span>Include</span>
+                       </label>
+                       <button
+                         type="button"
+                         onClick={() => setTimelineTab(timelineTab === 'checklist' ? 'raw' : 'checklist')}
+                         className="text-[10px] font-bold text-primary hover:underline"
+                       >
+                         {timelineTab === 'checklist' ? 'Edit Raw Text' : 'Checklist View'}
+                       </button>
+                     </div>
                    </div>
+
+                   {formData.metadata?.showTimeline !== false && (
+                     timelineTab === 'checklist' ? (
+                       <div className="space-y-3 bg-muted/10 p-4 rounded-xl border border-border/40">
+                         <div className="flex justify-between items-center pb-2 border-b border-border/40">
+                           <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                             Selected Timeline Steps ({currentTimelineList.length})
+                           </span>
+                           <div className="flex gap-2">
+                             <button
+                               type="button"
+                               onClick={selectAllTimeline}
+                               className="text-[9px] font-bold text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-background border border-border/50"
+                             >
+                               Select All
+                             </button>
+                             <button
+                               type="button"
+                               onClick={clearAllTimeline}
+                               className="text-[9px] font-bold text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-background border border-border/50"
+                             >
+                               Clear All (Select only needed)
+                             </button>
+                           </div>
+                         </div>
+
+                         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                           {STANDARD_TIMELINE_ITEMS.map((item, idx) => {
+                             const matched = currentTimelineList.find(t => t.task === item.task);
+                             const isChecked = !!matched;
+                             return (
+                               <div 
+                                 key={idx} 
+                                 className={`flex items-center justify-between gap-2 p-2 rounded-lg border text-xs transition-all ${
+                                   isChecked 
+                                     ? 'bg-primary/5 border-primary/30 text-foreground' 
+                                     : 'bg-background/40 border-border/40 text-muted-foreground'
+                                 }`}
+                               >
+                                 <label className="flex items-center gap-2 cursor-pointer flex-1">
+                                   <input 
+                                     type="checkbox"
+                                     checked={isChecked}
+                                     onChange={() => toggleTimelineStep(item.task, item.days)}
+                                     className="w-3.5 h-3.5 rounded text-primary border-border focus:ring-primary"
+                                   />
+                                   <span className={`text-[11px] ${isChecked ? 'font-bold text-foreground' : ''}`}>{item.task}</span>
+                                 </label>
+                                 
+                                 {isChecked && (
+                                   <input 
+                                     type="text"
+                                     value={matched.days}
+                                     onChange={e => updateTimelineStepDays(item.task, e.target.value)}
+                                     className="w-40 bg-background border border-border/60 rounded px-2 py-1 text-[11px] text-foreground font-mono"
+                                     placeholder="e.g. 1-2 Working Days"
+                                   />
+                                 )}
+                               </div>
+                             );
+                           })}
+
+                           {/* Custom timeline steps */}
+                           {currentTimelineList.filter(t => !STANDARD_TIMELINE_ITEMS.some(s => s.task === t.task)).map((customStep, idx) => (
+                             <div key={`custom-timeline-${idx}`} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/5 border border-primary/30 text-xs">
+                               <div className="flex items-center gap-2 flex-1">
+                                 <CheckSquare size={14} className="text-primary shrink-0" />
+                                 <span className="font-bold text-[11px] text-foreground">{customStep.task}</span>
+                               </div>
+                               <input 
+                                 type="text"
+                                 value={customStep.days}
+                                 onChange={e => updateTimelineStepDays(customStep.task, e.target.value)}
+                                 className="w-40 bg-background border border-border/60 rounded px-2 py-1 text-[11px] text-foreground font-mono"
+                               />
+                               <button
+                                 type="button"
+                                 onClick={() => toggleTimelineStep(customStep.task, '')}
+                                 className="text-muted-foreground hover:text-destructive p-1"
+                               >
+                                 <Trash2 size={12} />
+                               </button>
+                             </div>
+                           ))}
+                         </div>
+
+                         {/* Add custom timeline step */}
+                         <div className="grid grid-cols-12 gap-2 pt-2 border-t border-border/40">
+                           <input 
+                             type="text"
+                             placeholder="Step Name (e.g. Special Clearance)..."
+                             value={customTaskName}
+                             onChange={e => setCustomTaskName(e.target.value)}
+                             className="col-span-6 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none"
+                           />
+                           <input 
+                             type="text"
+                             placeholder="Days (e.g. 2-3 Working Days)..."
+                             value={customTaskDays}
+                             onChange={e => setCustomTaskDays(e.target.value)}
+                             className="col-span-4 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none font-mono"
+                           />
+                           <button
+                             type="button"
+                             onClick={addCustomTimelineStep}
+                             className="col-span-2 px-2 py-1.5 bg-card border border-border hover:bg-muted text-foreground text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                           >
+                             <Plus size={14} /> Add
+                           </button>
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Timeline (Format: Task:Days - One per line)</label>
+                         <textarea 
+                           rows={6}
+                           value={typeof formData.metadata?.timeline === 'string' ? formData.metadata.timeline : (formData.metadata?.timeline?.map((t: any) => `${t.task}:${t.days}`).join('\n') || '')}
+                           onChange={e => setFormData({...formData, metadata: { ...formData.metadata, timeline: e.target.value }})}
+                           className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
+                         />
+                       </div>
+                     )
+                   )}
                 </div>
 
                  {/* Payment Schedule Selector */}
@@ -865,7 +1340,7 @@ const QuotationBuilder = () => {
                      <div className="space-y-3 bg-muted/10 p-4 rounded-xl border border-border/40">
                        <div className="space-y-1">
                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Advance Milestone</label>
-                         <input
+                         <input 
                            type="text"
                            value={formData.metadata?.advanceMilestone || 'Upon signing the quotation'}
                            onChange={e => setFormData({
@@ -881,7 +1356,7 @@ const QuotationBuilder = () => {
                        {(formData.metadata?.paymentScheduleType === 'custom') && (
                          <div className="space-y-1">
                            <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Balance Milestone</label>
-                           <input
+                           <input 
                              type="text"
                              value={formData.metadata?.balanceMilestone || 'Upon completion of Visa'}
                              onChange={e => setFormData({
@@ -915,14 +1390,14 @@ const QuotationBuilder = () => {
         )}
 
         {/* RIGHT: DOCUMENT PREVIEW (Visible in Print) */}
-        <div className={viewMode ? "w-full max-w-[210mm] mx-auto print:w-full print:block print:static" : "w-full lg:w-[55%] print:w-full print:block print:static"}>
+        <div className={viewMode ? "w-full max-w-[210mm] mx-auto print:w-full print:block print:static" : "w-full lg:w-[52%] print:w-full print:block print:static"}>
            {/* Mode Selector (Hidden in Print) */}
            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-card border border-border rounded-[2rem] mb-6 print:hidden items-center justify-between shadow-xl">
               <div>
                 <span className="text-xs font-bold text-foreground">Quotation Presentation Mode</span>
                 <p className="text-[9px] text-muted-foreground mt-0.5">Toggle between detailed itemized prices and flat package summary</p>
               </div>
-              <div className="flex bg-[#0d121f] p-1 border border-border rounded-xl">
+              <div className="flex bg-muted/40 p-1 border border-border rounded-xl">
                  <button
                    onClick={() => setQuotationMode('detailed')}
                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -964,8 +1439,12 @@ const QuotationBuilder = () => {
                   invoice={{
                     ...formData,
                     client: clients?.find(c => c.id === formData.client_id),
+                    lead: leads?.find(l => l.id === formData.lead_id),
                     job: jobs?.find(j => j.id === formData.job_id),
-                    metadata: { ...formData.metadata, isSimple: quotationMode === 'simple' }
+                    metadata: { 
+                      ...formData.metadata, 
+                      isSimple: quotationMode === 'simple'
+                    }
                   }} 
                   isSimple={quotationMode === 'simple'}
                 />

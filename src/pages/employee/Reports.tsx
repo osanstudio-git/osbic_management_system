@@ -314,6 +314,45 @@ export default function EmployeeReports() {
         p.job?.status?.toUpperCase() || 'N/A'
       ]);
       filename = `Payments_Report_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    } else if (reportType === 'sales') {
+      if (!filteredLeads.length) return;
+      headers = [
+        'Lead Code',
+        'Contact Name',
+        'Phone Number',
+        'Email Address',
+        'Company Name',
+        'Lead Source',
+        'Status',
+        'Interested Services',
+        'Quotes Count',
+        'Total Quotations (OMR)',
+        'Next Follow-up',
+        'Created Date'
+      ];
+      csvData = filteredLeads.map(lead => {
+        const leadQuotes = (filteredQuotations || []).filter(q => q.lead_id === lead.id);
+        const quotesTotal = leadQuotes.reduce((sum, q) => sum + Number(q.total_amount || 0), 0);
+        const interestedServices = (lead.interested_services || [])
+          .map((s: any) => s.name || s.name_en || s)
+          .join('; ') || 'N/A';
+
+        return [
+          lead.lead_code || 'N/A',
+          lead.contact_name || 'N/A',
+          lead.contact_phone || 'N/A',
+          lead.contact_email || 'N/A',
+          lead.company_name || 'N/A',
+          lead.lead_sources?.name || 'Direct / Unknown',
+          lead.status?.toUpperCase() || 'N/A',
+          interestedServices,
+          leadQuotes.length.toString(),
+          quotesTotal.toFixed(3),
+          lead.next_follow_up_at ? format(new Date(lead.next_follow_up_at), 'yyyy-MM-dd') : 'N/A',
+          format(new Date(lead.created_at), 'yyyy-MM-dd HH:mm')
+        ];
+      });
+      filename = `Leads_Sales_Report_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     } else {
       if (!filteredJobs.length) return;
       headers = [
@@ -345,7 +384,7 @@ export default function EmployeeReports() {
 
     const csvContent = [
       headers.join(','),
-      ...csvData.map((row: any[]) => row.map((cell: any) => `"${cell}"`).join(','))
+      ...csvData.map((row: any[]) => row.map((cell: any) => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -451,7 +490,12 @@ export default function EmployeeReports() {
               className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 shrink-0"
             >
               <Download size={16} />
-              {isRtl ? 'تصدير CSV' : 'Export CSV'}
+              {reportType === 'sales'
+                ? (isRtl ? 'تصدير العملاء المحتملين (CSV)' : 'Export Leads CSV')
+                : reportType === 'payments'
+                  ? (isRtl ? 'تصدير المدفوعات (CSV)' : 'Export Payments CSV')
+                  : (isRtl ? 'تصدير الوظائف (CSV)' : 'Export Jobs CSV')
+              }
             </button>
           </div>
         </div>

@@ -188,11 +188,11 @@ export default function PackageGroupDetail() {
                         assignOpsMutation.mutate({ jobId: job.id, opsEmployeeId: empId });
                       }
                     }}
-                    className="w-full bg-[#131824] border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:border-gold transition-colors appearance-none pr-8"
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:border-gold transition-colors appearance-none pr-8 cursor-pointer"
                   >
-                    <option value="">Unassigned (Draft)</option>
+                    <option value="" className="bg-card text-foreground">Unassigned (Draft)</option>
                     {opsEmployees?.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                      <option key={emp.id} value={emp.id} className="bg-card text-foreground">{emp.full_name}</option>
                     ))}
                   </select>
                 </div>

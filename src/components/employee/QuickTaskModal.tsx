@@ -87,7 +87,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                       placeholder="e.g. Ahmed Ali"
                       value={formData.customerName}
                       onChange={e => setFormData({ ...formData, customerName: e.target.value })}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
+                      className="w-full bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
 
@@ -98,7 +98,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                       placeholder="e.g. 968 1234 5678"
                       value={formData.customerPhone}
                       onChange={e => setFormData({ ...formData, customerPhone: e.target.value })}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
+                      className="w-full bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -111,7 +111,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                     placeholder="e.g. Document Typing"
                     value={formData.description}
                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
+                    className="w-full bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
                   />
                 </div>
 
@@ -126,7 +126,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                       placeholder="0.000"
                       value={formData.amount}
                       onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
+                      className="w-full bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
                   
@@ -135,7 +135,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                     <select
                       value={formData.paymentMethod}
                       onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
-                      className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
+                      className="w-full bg-muted/30 border border-border text-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors"
                     >
                       <option value="cash">Cash</option>
                       <option value="pos">POS / Card</option>
@@ -150,7 +150,7 @@ export const QuickTaskModal = ({ isOpen, onClose, onJobCreated }: { isOpen: bool
                   <select
                     value={formData.status}
                     onChange={e => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors font-bold"
+                    className="w-full bg-muted/30 border border-border text-foreground rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors font-bold"
                   >
                     <option value="draft">Draft (Payment Pending)</option>
                     <option value="active">Active (In Progress)</option>

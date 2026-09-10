@@ -139,6 +139,27 @@ const ApplicantCard = ({
         jobId: job.id,
         updates: { assigned_to: empId || null }
       });
+      
+      // Dispatch notification if assigned to another team member
+      if (empId && empId !== profile?.id) {
+        const stepObj = js.steps?.find((s: any) => s.id === stepId);
+        const stepTitle = stepObj?.step_name || 'Workflow Step';
+        await supabase.from('notifications').insert({
+          recipient_id: empId,
+          sender_id: profile?.id || null,
+          job_id: job.id,
+          type: 'action_required',
+          title_en: `New Step Assigned: ${stepTitle}`,
+          title_ar: `تم تعيين خطوة جديدة: ${stepTitle}`,
+          body_en: `${profile?.full_name || 'A team member'} assigned you a step in job ${job.job_code || ''} (${js.service_name || 'Service'}).`,
+          body_ar: `قام ${profile?.full_name || 'عضو الفريق'} بتعيين خطوة لك في المعاملة ${job.job_code || ''}.`,
+          action_url: `/employee/jobs/${job.id}`,
+          is_read: false,
+          action_required: true,
+          created_at: new Date().toISOString()
+        } as any);
+      }
+
       toast.success('Step assignee updated');
       onUpdated();
     } catch (err: any) {
@@ -1393,7 +1414,7 @@ const ServiceStatusSheet = ({
                         className={`text-[9px] px-2.5 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 font-medium select-none ${
                           isAdded 
                             ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/20 opacity-55 cursor-not-allowed"
-                            : "bg-[#131824] hover:bg-primary/10 text-muted-foreground hover:text-primary border-border/40 cursor-pointer"
+                            : "bg-muted/30 hover:bg-primary/10 text-muted-foreground hover:text-primary border-border/60 cursor-pointer"
                         }`}
                         disabled={isAdded || isAddingDoc}
                       >
@@ -1517,7 +1538,7 @@ const ServiceStatusSheet = ({
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="relative w-full max-w-md bg-[#0F172A] border border-gold/30 rounded-2xl p-6 shadow-2xl space-y-4"
+                className="relative w-full max-w-md bg-card border border-gold/30 rounded-2xl p-6 shadow-2xl space-y-4"
               >
                 <h3 className="text-base font-bold text-foreground font-syne flex items-center gap-2 text-gold">
                   ⚠️ Confirm Task Assignment
@@ -1541,7 +1562,7 @@ const ServiceStatusSheet = ({
                     onChange={(e) => setForwardReason(e.target.value)}
                     rows={3}
                     placeholder="Type a handoff message or reason for assignment..."
-                    className="w-full bg-[#131824] border border-border focus:border-primary rounded-xl px-4 py-2.5 text-xs text-foreground outline-none transition-all resize-none"
+                    className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-all resize-none"
                     required={isOpsOnly}
                   />
                 </div>
@@ -1650,9 +1671,21 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
                   {allDone ? <CheckCircle2 size={16} /> : <Activity size={16} />}
                 </div>
                 <div>
-                  <p className="font-syne font-bold text-foreground text-sm">
-                    {isRtl ? (firstItem.service?.name_ar || firstItem.service_name) : firstItem.service_name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-syne font-bold text-foreground text-sm">
+                      {isRtl ? (firstItem.service?.name_ar || firstItem.service_name) : firstItem.service_name}
+                    </p>
+                    {job?.package?.name_en && (
+                      <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                        {job.package.name_en}
+                      </span>
+                    )}
+                    {job?.custom_name && !job?.package?.name_en && (
+                      <span className="text-[9px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                        {job.custom_name}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-muted-foreground">
                     {isRtl ? `${items.length} طلب` : `${items.length} applicant${items.length !== 1 ? 's' : ''}`}
                   </p>

@@ -285,7 +285,7 @@ const CreateClient = () => {
       </div>
 
       {/* Right Column: Pricing Setup */}
-      <div className={cn("bg-[#0F1629] border rounded-2xl p-6 shadow-xl space-y-6 transition-all", selectedService ? "border-gold/20" : "border-white/5 opacity-50 pointer-events-none")}>
+      <div className={cn("bg-card border border-border rounded-2xl p-6 shadow-xl space-y-6 transition-all", selectedService ? "border-gold/30" : "border-border/40 opacity-50 pointer-events-none")}>
          <div>
           <h3 className="text-lg font-syne font-bold text-foreground mb-1">Financial Setup</h3>
           <p className="text-xs text-[#94A3B8] mb-4">Define total fees and OSBIC profit bounds</p>
@@ -377,7 +377,7 @@ const CreateClient = () => {
         <p className="text-[#94A3B8]">Please review the final details before initiating the job pipeline.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#0F1629] p-6 rounded-2xl shadow-xl border border-white/5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-card p-6 rounded-2xl shadow-xl border border-border">
          
          <div className="space-y-5">
            <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-white/10 pb-2 flex items-center gap-2"><UserCircle2 size={16} className="text-primary" /> Client Identity</h3>
@@ -440,7 +440,7 @@ const CreateClient = () => {
   if (showSuccess && createdResponse) {
     return (
       <div className="h-[calc(100vh-120px)] flex items-center justify-center">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#0F1629] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center relative overflow-hidden">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card border border-border rounded-2xl p-8 max-w-md w-full shadow-2xl text-center relative overflow-hidden">
            
            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-6">
               <CheckCircle2 size={40} />

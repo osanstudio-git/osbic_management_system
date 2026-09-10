@@ -528,7 +528,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                 </div>
               </div>
             ) : (
-              <div className="bg-[#0e1424]/40 border border-border/80 rounded-3xl p-6 space-y-6">
+              <div className="bg-card border border-border rounded-3xl p-6 space-y-6 shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-border/40 pb-4">
                   <h5 className="text-sm font-bold text-foreground flex items-center gap-2">
                     <DollarSign size={16} className="text-primary" /> Record Client Payment

@@ -82,14 +82,14 @@ html.light, body.light, .light {
   scrollbar-width: none !important;
 }
 
-/* Global select and option styles to ensure readability in dark mode */
+/* Global select and option styles to ensure readability in dark and light mode */
 select, option {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
 }
 
 select option:disabled {
-  color: #64748b !important;
+  color: var(--muted-foreground) !important;
 }
 
 /* Hide number input spinners globally */

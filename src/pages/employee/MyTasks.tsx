@@ -668,10 +668,10 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
   };
 
   return (
-    <div className="bg-[#111726]/40 border border-border/40 rounded-xl overflow-hidden hover:border-primary/20 transition-all">
+    <div className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all shadow-sm">
       {/* Top compact row */}
       <div
-        className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-[#111726]/80 transition-all"
+        className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-all"
         onClick={() => setShowDocs(!showDocs)}
       >
         <div className="min-w-0 flex-1 w-full">
@@ -788,7 +788,7 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
 
       {/* Detail notes */}
       {task.notes && (
-        <div className="px-4 pb-2 text-[10px] text-muted-foreground border-t border-border/10 pt-2 bg-[#0F1422]/20">
+        <div className="px-4 pb-2 text-[10px] text-muted-foreground border-t border-border/20 pt-2 bg-muted/20">
           <span className="font-bold text-foreground">Notes:</span> {task.notes}
         </div>
       )}
@@ -808,7 +808,7 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-border/20 bg-muted/5 px-4 py-3 space-y-4 overflow-hidden"
+            className="border-t border-border/20 bg-muted/10 px-4 py-3 space-y-4 overflow-hidden"
           >
             {/* Inputs Checklist */}
             <div className="space-y-1.5">
@@ -819,7 +819,7 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
                 {inputs.map((doc: any) => {
                   const hasFile = !!doc.file_path;
                   return (
-                    <div key={doc.id} className="flex items-center justify-between p-2 bg-[#0F1422]/40 border border-border/20 rounded-lg text-[10px]">
+                    <div key={doc.id} className="flex items-center justify-between p-2 bg-card border border-border/40 rounded-lg text-[10px]">
                       <div className="min-w-0 pr-2">
                         <p className="font-bold text-foreground truncate">{doc.document_name}</p>
                         {hasFile ? (
@@ -861,7 +861,7 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
 
               <div className="space-y-1">
                 {outputs.map((doc: any) => (
-                  <div key={doc.id} className="flex items-center justify-between p-2 bg-[#0F1422]/40 border border-border/20 rounded-lg text-[10px]">
+                  <div key={doc.id} className="flex items-center justify-between p-2 bg-card border border-border/40 rounded-lg text-[10px]">
                     <div className="min-w-0 pr-2">
                       <p className="font-bold text-foreground truncate">{doc.document_name}</p>
                       <p className="text-[8px] text-emerald-400 font-bold truncate">✓ {doc.file_name}</p>

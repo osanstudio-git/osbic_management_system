@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Phone, Calendar, Info, Search, 
   ChevronRight, AlertCircle, RefreshCw, Zap,
-  Compass, LayoutGrid, List, SlidersHorizontal
+  Compass, LayoutGrid, List, SlidersHorizontal, Download
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -39,7 +40,7 @@ export default function EmployeeLeads() {
   const { useLeadsList, useLeadSourcesList } = useLeads(profile?.id);
   const { data: leads, isLoading, refetch } = useLeadsList();
   const { data: sources } = useLeadSourcesList();
-  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'new' | 'converted'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'new' | 'on_progress' | 'converted'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -56,6 +57,9 @@ export default function EmployeeLeads() {
   const filteredLeads = (leads || []).filter(lead => {
     // 1. Tab filter
     if (activeTab === 'new' && lead.status !== 'new') return false;
+    if (activeTab === 'on_progress') {
+      if (!['contacted', 'interested', 'on_progress', 'qualified', 'quoted', 'negotiating'].includes(lead.status)) return false;
+    }
     if (activeTab === 'converted' && lead.status !== 'converted') return false;
     if (activeTab === 'today') {
       if (!lead.next_follow_up_at) return false;
@@ -117,6 +121,62 @@ export default function EmployeeLeads() {
     );
   });
 
+  const exportLeadsToCSV = () => {
+    if (!filteredLeads.length) {
+      toast.error('No leads found for export');
+      return;
+    }
+
+    const headers = [
+      'Lead Code',
+      'Contact Name',
+      'Phone Number',
+      'Email Address',
+      'Company Name',
+      'Lead Source',
+      'Status',
+      'Interested Services',
+      'Next Follow-up',
+      'Created Date'
+    ];
+
+    const csvData = filteredLeads.map(lead => {
+      const sourceName = sources?.find(s => s.id === lead.source_id)?.name || 'Direct / Unknown';
+      const interestedServices = (lead.interested_services || [])
+        .map((s: any) => s.name || s.name_en || s)
+        .join('; ') || 'N/A';
+
+      return [
+        lead.lead_code || 'N/A',
+        lead.contact_name || 'N/A',
+        lead.contact_phone || 'N/A',
+        lead.contact_email || 'N/A',
+        lead.company_name || 'N/A',
+        sourceName,
+        lead.status?.toUpperCase() || 'N/A',
+        interestedServices,
+        lead.next_follow_up_at ? format(new Date(lead.next_follow_up_at), 'yyyy-MM-dd') : 'N/A',
+        format(new Date(lead.created_at), 'yyyy-MM-dd HH:mm')
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Leads_Export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${filteredLeads.length} leads to CSV`);
+  };
+
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'new':
@@ -126,12 +186,16 @@ export default function EmployeeLeads() {
       case 'interested':
       case 'qualified':
         return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+      case 'on_progress':
+        return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
       case 'quoted':
         return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
       case 'negotiating':
         return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
       case 'converted':
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      case 'cancelled':
+        return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
       case 'lost':
         return 'bg-red-500/10 text-red-400 border-red-500/20';
       case 'on_hold':
@@ -162,8 +226,17 @@ export default function EmployeeLeads() {
           <button 
             onClick={() => refetch()}
             className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border"
+            title="Refresh Leads"
           >
             <RefreshCw size={18} />
+          </button>
+          <button
+            onClick={exportLeadsToCSV}
+            className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border flex items-center gap-2 text-xs font-bold"
+            title="Export Filtered Leads (CSV)"
+          >
+            <Download size={18} />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
           <button
             onClick={() => setIsAddOpen(true)}
@@ -179,7 +252,7 @@ export default function EmployeeLeads() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/50 border border-border rounded-2xl p-4">
         {/* Filter Tabs */}
         <div className="flex overflow-x-auto no-scrollbar gap-1.5 p-1 bg-muted/30 rounded-xl border border-border/40 w-fit">
-          {(['all', 'today', 'new', 'converted'] as const).map(tab => (
+          {(['all', 'today', 'new', 'on_progress', 'converted'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -190,7 +263,7 @@ export default function EmployeeLeads() {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {tab === 'today' ? "Today's Follow-ups" : tab}
+              {tab === 'today' ? "Today's Follow-ups" : tab === 'on_progress' ? "On Progress" : tab}
             </button>
           ))}
         </div>
@@ -307,12 +380,14 @@ export default function EmployeeLeads() {
                   <option value="all">All Statuses</option>
                   <option value="followup">With Follow-up Scheduled</option>
                   <option value="new">New</option>
+                  <option value="on_progress">On Progress</option>
                   <option value="contacted">Contacted</option>
                   <option value="interested">Interested</option>
                   <option value="qualified">Qualified</option>
                   <option value="quoted">Quoted</option>
                   <option value="negotiating">Negotiating</option>
                   <option value="converted">Converted</option>
+                  <option value="cancelled">Cancelled</option>
                   <option value="lost">Lost</option>
                   <option value="on_hold">On Hold</option>
                 </select>

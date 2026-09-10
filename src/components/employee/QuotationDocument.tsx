@@ -13,6 +13,10 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
   const lightBg = '#f0f9ff'; // sky-50
 
   const resolvedIsSimple = isSimple !== undefined ? isSimple : !!invoice.metadata?.isSimple;
+  const showQuantity = invoice.metadata?.showQuantity ?? false;
+  const showTimeline = invoice.metadata?.showTimeline !== false;
+  const showKycProof = invoice.metadata?.showKycProof ?? false;
+  const showDocuments = invoice.metadata?.showDocuments !== false;
 
   return (
     <div ref={ref} className="bg-white text-black p-10 min-h-[1056px] w-[794px] max-w-full mx-auto shadow-2xl relative overflow-hidden font-sans text-[11px] leading-relaxed print:w-[210mm] print:min-h-[297mm] print:m-0 print:shadow-none print:p-10">
@@ -63,9 +67,11 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
               const minFee = Math.max(0, parseFloat(item.ministry_fee) || 0);
               const rawSrv = item.service_fee !== undefined
                 ? parseFloat(item.service_fee)
-                : item.unit_price - minFee;
+                : (item.unit_price !== undefined ? item.unit_price - minFee : 0);
               const srvFee = Math.max(0, rawSrv || 0);
-              const totalFee = minFee + srvFee;
+              const unitPrice = minFee + srvFee;
+              const qty = Math.max(1, parseInt(item.quantity) || 1);
+              const lineTotal = item.total !== undefined ? parseFloat(item.total) : (qty * unitPrice);
 
               return (
                 <div key={idx} className="flex justify-between items-start border-b border-gray-100 pb-1.5">
@@ -73,11 +79,16 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
                     <span className="font-bold" style={{ color: themeColor }}>{idx + 1}.</span>
                     <div>
                       <span className="font-semibold text-gray-900 text-xs block">{item.description}</span>
+                      {showQuantity && (
+                        <span className="text-[9px] text-gray-500 font-medium block">
+                          Qty: {qty} {qty > 1 && !resolvedIsSimple && `× OMR ${unitPrice.toFixed(3)}`}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {!resolvedIsSimple && (
                     <span className="font-bold text-gray-900 font-mono text-xs text-right shrink-0 mt-0.5 ml-4">
-                      OMR {totalFee.toFixed(3)}
+                      OMR {lineTotal.toFixed(3)}
                     </span>
                   )}
                 </div>
@@ -96,51 +107,67 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
       </div>
 
       {/* Documents Required Section */}
-      <div className="mb-6">
-        <div className="py-1 px-3 mb-3 font-bold text-white uppercase tracking-widest text-[10px]" style={{ backgroundColor: themeColor }}>
-          Documents Required
+      {showDocuments && (
+        <div className="mb-6">
+          <div className="py-1 px-3 mb-3 font-bold text-white uppercase tracking-widest text-[10px]" style={{ backgroundColor: themeColor }}>
+            Documents Required
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 px-2 text-[10px] text-gray-800 font-medium">
+            {(() => {
+              let docs = invoice.metadata?.documents;
+              if (typeof docs === 'string') {
+                docs = docs.split('\n').map((s: string) => s.trim()).filter(Boolean);
+              } else if (Array.isArray(docs)) {
+                docs = docs.map((d: any) => typeof d === 'string' ? d.trim() : d?.name?.trim()).filter(Boolean);
+              }
+              
+              if (!showKycProof && docs) {
+                docs = docs.filter((d: string) => !d.toUpperCase().includes('SELFIE') && !d.toUpperCase().includes('PASSPORT SIZE PHOTO'));
+              }
+
+              if (!docs || docs.length === 0) return <p className="text-gray-400 italic">No documents specified.</p>;
+              return docs.map((doc: string, idx: number) => (
+                <div key={idx} className="flex gap-2">
+                  <span className="font-bold" style={{ color: themeColor }}>{idx + 1}.</span> {doc}
+                </div>
+              ));
+            })()}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 px-2 text-[10px] text-gray-800 font-medium">
-          {(() => {
-            let docs = invoice.metadata?.documents;
-            if (typeof docs === 'string') {
-              docs = docs.split('\n').map((s: string) => s.trim()).filter(Boolean);
-            }
-            if (!docs || docs.length === 0) return <p className="text-gray-400 italic">No documents specified.</p>;
-            return docs.map((doc: string, idx: number) => (
-              <div key={idx} className="flex gap-2">
-                <span className="font-bold" style={{ color: themeColor }}>{idx + 1}.</span> {doc}
-              </div>
-            ));
-          })()}
-        </div>
-      </div>
+      )}
 
       {/* Processing Timeline */}
-      <div className="mb-6">
-        <div className="py-1 px-3 mb-2 font-bold text-white uppercase tracking-widest text-[10px]" style={{ backgroundColor: themeColor }}>
-          Processing Timeline
+      {showTimeline && (
+        <div className="mb-6">
+          <div className="py-1 px-3 mb-2 font-bold text-white uppercase tracking-widest text-[10px]" style={{ backgroundColor: themeColor }}>
+            Processing Timeline
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 px-2 text-[10px]">
+            {(() => {
+               let timeline = invoice.metadata?.timeline;
+               let items: { task: string; days: string }[] = [];
+               
+               if (Array.isArray(timeline)) {
+                 items = timeline.filter((item: any) => item && (item.task || item.days));
+               } else if (typeof timeline === 'string') {
+                 items = timeline.split('\n').filter(Boolean).map((line: string) => {
+                   const [task, ...rest] = line.split(':');
+                   return { task: task?.trim() || '', days: rest.join(':')?.trim() || '' };
+                 });
+               }
+               
+               if (!items || items.length === 0) return <p className="text-gray-400 italic pt-1">No timeline specified.</p>;
+               
+               return items.map((item: any, idx: number) => (
+                 <div key={idx} className="flex justify-between border-b border-gray-100 pb-1">
+                   <span className="font-medium text-gray-800">{item.task}</span>
+                   <span className="font-bold" style={{ color: themeColor }}>{item.days}</span>
+                 </div>
+               ));
+            })()}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 px-2 text-[10px]">
-          {(() => {
-             let timeline = invoice.metadata?.timeline;
-             if (typeof timeline === 'string') {
-               timeline = timeline.split('\n').filter(Boolean).map((line: string) => {
-                 const [task, ...rest] = line.split(':');
-                 return { task: task?.trim() || '', days: rest.join(':')?.trim() || '' };
-               });
-             }
-             if (!timeline || timeline.length === 0) return <p className="text-gray-400 italic pt-1">No timeline specified.</p>;
-             
-             return timeline.map((item: any, idx: number) => (
-               <div key={idx} className="flex justify-between border-b border-gray-100 pb-1">
-                 <span className="font-medium text-gray-800">{item.task}</span>
-                 <span className="font-bold" style={{ color: themeColor }}>{item.days}</span>
-               </div>
-             ));
-          })()}
-        </div>
-      </div>
+      )}
 
       {/* Payment Schedule */}
       <div className="mb-6">
@@ -203,7 +230,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
       <div className="break-before-page pt-10">
         
         {/* Page 2 Header */}
-        <div className="flex justify-between items-center mb-10">
+        <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-black tracking-widest uppercase opacity-50" style={{ color: themeColor }}>OSBIC</h1>
           <div className="text-right opacity-50" style={{ color: themeColor }}>
             <p className="font-bold text-sm">OSBIC International LLC</p>
@@ -211,23 +238,20 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
           </div>
         </div>
 
-        {/* Selfie with Passport Section */}
-        <div className="mb-10">
-          <div className="py-2 px-3 mb-6 font-bold text-white uppercase tracking-widest text-[11px]" style={{ backgroundColor: themeColor }}>
-            Example of Acceptable Selfie With Passport
-          </div>
-          <div className="flex justify-center items-center h-48 w-full bg-gray-50 border border-gray-200 rounded-xl overflow-hidden p-4">
-            {/* Using a placeholder for now - user can replace the src with their actual image */}
-            <div className="text-center text-gray-400">
-               {/* 
-                 For production, place the actual image in the public folder (e.g. /selfie-guide.png)
-                 and uncomment the img tag below:
-               */}
-               <img src="/selfie-guide.png" alt="Selfie Guide" className="max-h-full object-contain mx-auto" onError={(e) => e.currentTarget.style.display = 'none'} />
-               <p className="mt-2 text-xs">(Please upload selfie-guide.png to the public folder)</p>
+        {/* Selfie with Passport Section (Only when showKycProof is enabled) */}
+        {showKycProof && (
+          <div className="mb-8">
+            <div className="py-2 px-3 mb-4 font-bold text-white uppercase tracking-widest text-[11px]" style={{ backgroundColor: themeColor }}>
+              Example of Acceptable Selfie With Passport
+            </div>
+            <div className="flex justify-center items-center h-48 w-full bg-gray-50 border border-gray-200 rounded-xl overflow-hidden p-4">
+              <div className="text-center text-gray-400">
+                 <img src="/selfie-guide.png" alt="Selfie Guide" className="max-h-full object-contain mx-auto" onError={(e) => e.currentTarget.style.display = 'none'} />
+                 <p className="mt-2 text-xs text-gray-500 font-medium">Valid ID & Clear Face Verification Guide</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Bank Details Section */}
         <div className="mb-6">

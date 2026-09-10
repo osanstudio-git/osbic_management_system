@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAdminServices } from "../../hooks/admin/useAdminServices";
-import { X, Zap, User, Phone, Search, Shield, Users, Plus, Trash2, CreditCard, Check } from "lucide-react";
+import { useAdminClients } from "../../hooks/admin/useAdminClients";
+import { X, Zap, User, Phone, Search, Shield, Users, Plus, Trash2, CreditCard, Check, FolderKanban } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface WalkInModalProps {
@@ -15,7 +16,16 @@ interface WalkInModalProps {
 export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps) => {
   const { profile } = useAuth();
   const { data: services } = useAdminServices();
+  const { data: allClients } = useAdminClients();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Client Selection Mode: New vs Existing
+  const [clientMode, setClientMode] = useState<'new' | 'existing'>('new');
+  const [existingClientSearch, setExistingClientSearch] = useState('');
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [clientActiveJobs, setClientActiveJobs] = useState<any[]>([]);
+  const [selectedTargetJobId, setSelectedTargetJobId] = useState<string>('new');
+  const [loadingClientJobs, setLoadingClientJobs] = useState(false);
 
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -30,6 +40,37 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
   const [posDescription, setPosDescription] = useState("");
   const [posAmount, setPosAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+
+  const filteredClients = (allClients || []).filter(c => {
+    const q = existingClientSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (c.full_name || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q) ||
+      (c.client_code || '').toLowerCase().includes(q)
+    );
+  }).slice(0, 10);
+
+  const handleSelectClient = async (c: any) => {
+    setSelectedClient(c);
+    setClientName(c.full_name);
+    setClientPhone(c.phone || '');
+    setLoadingClientJobs(true);
+    try {
+      const { data: jobsData } = await supabase
+        .from('jobs')
+        .select('id, job_code, status, total_fee, work_fee, ministry_fee, custom_name, created_at, services:service_id(name_en)')
+        .eq('client_id', c.id)
+        .in('status', ['active', 'awaiting_govt', 'draft'])
+        .order('created_at', { ascending: false });
+      setClientActiveJobs(jobsData || []);
+      setSelectedTargetJobId('new');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingClientJobs(false);
+    }
+  };
 
   const toggleService = (s: any) => {
     if (s.isPosPlaceholder) {
@@ -103,7 +144,6 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
       const isPos = selectedServices.length === 1 && selectedServices[0].isPosPlaceholder;
 
       if (isPos) {
-        // POS / Simple Task Flow
         if (!posDescription.trim() || !posAmount) {
           toast.error("Description and amount are required for simple task");
           setIsSubmitting(false);
@@ -123,59 +163,60 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
         if (rpcErr) throw rpcErr;
         toast.success(`Quick Task completed for ${clientName}!`);
       } else {
-        // Catalog & Custom Services Flow
-        // 1. Create a walk-in client profile
-        // Create a temporary auth user first to satisfy profiles foreign key constraints
-        const dummyEmail = `walkin_${Date.now()}_${Math.floor(Math.random() * 1000)}@osbic.local`;
-        const dummyPassword = `Walkin_${Math.random().toString(36).slice(-8)}!`;
+        let resolvedClientId = selectedClient?.id;
 
-        const { createClient } = await import('@supabase/supabase-js');
-        const authClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY,
-          {
-            auth: {
-              persistSession: false,
-              autoRefreshToken: false,
-              detectSessionInUrl: false
+        if (!resolvedClientId) {
+          const dummyEmail = `walkin_${Date.now()}_${Math.floor(Math.random() * 1000)}@osbic.local`;
+          const dummyPassword = `Walkin_${Math.random().toString(36).slice(-8)}!`;
+
+          const { createClient } = await import('@supabase/supabase-js');
+          const authClient = createClient(
+            import.meta.env.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+              }
             }
-          }
-        );
+          );
 
-        const { data: authData, error: authError } = await authClient.auth.signUp({
-          email: dummyEmail,
-          password: dummyPassword,
-          options: {
-            data: {
-              full_name: clientName.trim(),
-              role: 'client'
-            }
-          }
-        });
-
-        if (authError) throw authError;
-        if (!authData.user) throw new Error("Failed to register walk-in customer auth credentials.");
-
-        const clientCode = `CLT-${Date.now().toString().slice(-7)}`;
-
-        const { data: client, error: cErr } = await (supabase
-          .from("profiles")
-          .upsert({
-            id: authData.user.id,
-            full_name: clientName.trim(),
+          const { data: authData, error: authError } = await authClient.auth.signUp({
             email: dummyEmail,
-            phone: clientPhone.trim() || null,
-            role: "client",
-            client_code: clientCode,
-            is_active: true,
-            branch_id: profile?.branch_id,
-          }, { onConflict: 'id' })
-          .select()
-          .single() as any);
+            password: dummyPassword,
+            options: {
+              data: {
+                full_name: clientName.trim(),
+                role: 'client'
+              }
+            }
+          });
 
-        if (cErr) throw cErr;
+          if (authError) throw authError;
+          if (!authData.user) throw new Error("Failed to register walk-in customer auth credentials.");
 
-        // Calculate totals across all selected services
+          const clientCode = `CLT-${Date.now().toString().slice(-7)}`;
+
+          const { data: client, error: cErr } = await (supabase
+            .from("profiles")
+            .upsert({
+              id: authData.user.id,
+              full_name: clientName.trim(),
+              email: dummyEmail,
+              phone: clientPhone.trim() || null,
+              role: "client",
+              client_code: clientCode,
+              is_active: true,
+              branch_id: profile?.branch_id,
+            }, { onConflict: 'id' })
+            .select()
+            .single() as any);
+
+          if (cErr) throw cErr;
+          resolvedClientId = client.id;
+        }
+
         let totalWorkFee = 0;
         let totalMinistryFee = 0;
         let totalFeeToOsan = 0;
@@ -189,95 +230,123 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
           totalFeeToOsan += (item.workFee + minToOsan) * qty;
         }
 
-        // Determine the main service_id to associate with the job
         const catalogService = selectedServices.find(item => !item.isCustom);
         let mainServiceId = catalogService?.id;
 
         if (!mainServiceId) {
-          const quickTaskService = services?.find(s => s.name_en === 'Quick Task (POS)');
-          mainServiceId = quickTaskService?.id || services?.[0]?.id;
-        }
-
-        if (!mainServiceId) {
-          const { data: dbS } = await supabase
-            .from('services')
-            .select('id')
-            .eq('name_en', 'Quick Task (POS)')
-            .maybeSingle();
+          const { data: dbS } = await supabase.from('services').select('id').eq('name_en', 'Quick Task (POS)').maybeSingle();
           mainServiceId = dbS?.id;
-
-          if (!mainServiceId) {
-            const { data: anyS } = await supabase
-              .from('services')
-              .select('id')
-              .limit(1)
-              .maybeSingle();
-            mainServiceId = anyS?.id;
-          }
         }
 
         const clientPaysMinistryFee = selectedServices.some(item => item.paidByClientCard);
 
-        // 2. Create the job record
-        const { data: job, error: jErr } = await (supabase.from("jobs").insert({
-          job_code: `WI-${Math.floor(Math.random() * 100000)}`,
-          client_id: client.id,
-          employee_id: profile?.id,
-          assigned_by: profile?.id,
-          service_id: mainServiceId,
-          status: "active",
-          total_fee: totalFeeToOsan,
-          work_fee: totalWorkFee,
-          ministry_fee: totalMinistryFee,
-          ministry_fee_type: "fixed",
-          client_pays_ministry_fee: clientPaysMinistryFee,
-          advance_percentage: 0,
-          advance_amount: 0,
-          remaining_amount: totalFeeToOsan,
-          advance_paid: false,
-          remaining_paid: false,
-          entry_type: "walkin",
-          sales_employee_id: profile?.id,
-          ops_employee_id: profile?.id,
-          branch_id: profile?.branch_id,
-        } as any).select().single() as any);
-        if (jErr) throw jErr;
+        if (clientMode === 'existing' && selectedTargetJobId && selectedTargetJobId !== 'new') {
+          const targetJob = clientActiveJobs.find(j => j.id === selectedTargetJobId);
+          const targetJobId = selectedTargetJobId;
 
-        // 3. Create job_services rows
-        const rows = [];
-        for (const item of selectedServices) {
-          for (let i = 0; i < item.quantity; i++) {
-            rows.push({
-              job_id: job.id,
-              service_id: item.isCustom ? mainServiceId : item.id,
-              service_name: item.name,
-              display_order: rows.length + 1,
-              quantity: item.quantity,
-              item_number: i + 1,
-              status: "pending",
-              work_fee: item.workFee,
-              ministry_fee: item.ministryFee,
-              total_fee: item.workFee + item.ministryFee,
-              // If paid by client card, mark as fully allocated and unlocked immediately!
-              ministry_fee_allocated: item.paidByClientCard ? item.ministryFee : 0,
-              is_funded: item.paidByClientCard ? true : false,
-              ops_employee_id: profile?.id,
-              assigned_by: profile?.id,
-              assigned_at: new Date().toISOString(),
-              notes: item.paidByClientCard ? `[PAID BY CLIENT CARD] ${notes || ''}` : (notes || null),
-            });
+          const rows = [];
+          for (const item of selectedServices) {
+            for (let i = 0; i < item.quantity; i++) {
+              rows.push({
+                job_id: targetJobId,
+                service_id: item.isCustom ? mainServiceId : item.id,
+                service_name: item.name,
+                display_order: rows.length + 1,
+                quantity: item.quantity,
+                item_number: i + 1,
+                status: "pending",
+                work_fee: item.workFee,
+                ministry_fee: item.ministryFee,
+                total_fee: item.paidByClientCard ? item.workFee : (item.workFee + item.ministryFee),
+                ministry_fee_allocated: item.paidByClientCard ? item.ministryFee : 0,
+                is_funded: item.paidByClientCard ? true : false,
+                ops_employee_id: profile?.id,
+                assigned_by: profile?.id,
+                assigned_at: new Date().toISOString(),
+                notes: item.paidByClientCard ? `[PAID BY CLIENT CARD] ${notes || ''}` : (notes || null),
+              });
+            }
           }
+
+          const { error: sErr } = await (supabase.from("job_services").insert(rows as any) as any);
+          if (sErr) throw sErr;
+
+          if (targetJob) {
+            const newTotalFee = (targetJob.total_fee || 0) + totalFeeToOsan;
+            const newWorkFee = (targetJob.work_fee || 0) + totalWorkFee;
+            const newMinistryFee = (targetJob.ministry_fee || 0) + totalMinistryFee;
+            await supabase.from("jobs").update({
+              total_fee: newTotalFee,
+              work_fee: newWorkFee,
+              ministry_fee: newMinistryFee,
+              remaining_amount: (targetJob.remaining_amount || 0) + totalFeeToOsan,
+              client_pays_ministry_fee: targetJob.client_pays_ministry_fee || clientPaysMinistryFee
+            } as any).eq('id', targetJobId);
+          }
+
+          toast.success(`Services added to active project ${targetJob?.job_code || ''}!`);
+        } else {
+          const { data: job, error: jErr } = await (supabase.from("jobs").insert({
+            job_code: `WI-${Math.floor(Math.random() * 100000)}`,
+            client_id: resolvedClientId,
+            employee_id: profile?.id,
+            assigned_by: profile?.id,
+            service_id: mainServiceId,
+            status: "active",
+            total_fee: totalFeeToOsan,
+            work_fee: totalWorkFee,
+            ministry_fee: totalMinistryFee,
+            ministry_fee_type: "fixed",
+            client_pays_ministry_fee: clientPaysMinistryFee,
+            advance_percentage: 0,
+            advance_amount: 0,
+            remaining_amount: totalFeeToOsan,
+            advance_paid: false,
+            remaining_paid: false,
+            entry_type: "walkin",
+            sales_employee_id: profile?.id,
+            ops_employee_id: profile?.id,
+            branch_id: profile?.branch_id,
+          } as any).select().single() as any);
+          if (jErr) throw jErr;
+
+          const rows = [];
+          for (const item of selectedServices) {
+            for (let i = 0; i < item.quantity; i++) {
+              rows.push({
+                job_id: job.id,
+                service_id: item.isCustom ? mainServiceId : item.id,
+                service_name: item.name,
+                display_order: rows.length + 1,
+                quantity: item.quantity,
+                item_number: i + 1,
+                status: "pending",
+                work_fee: item.workFee,
+                ministry_fee: item.ministryFee,
+                total_fee: item.paidByClientCard ? item.workFee : (item.workFee + item.ministryFee),
+                ministry_fee_allocated: item.paidByClientCard ? item.ministryFee : 0,
+                is_funded: item.paidByClientCard ? true : false,
+                ops_employee_id: profile?.id,
+                assigned_by: profile?.id,
+                assigned_at: new Date().toISOString(),
+                notes: item.paidByClientCard ? `[PAID BY CLIENT CARD] ${notes || ''}` : (notes || null),
+              });
+            }
+          }
+
+          const { error: sErr } = await (supabase.from("job_services").insert(rows as any) as any);
+          if (sErr) throw sErr;
+
+          toast.success(`Walk-in job created for ${clientName}!`);
         }
-
-        const { error: sErr } = await (supabase.from("job_services").insert(rows as any) as any);
-        if (sErr) throw sErr;
-
-        toast.success(`Walk-in job created for ${clientName}!`);
       }
 
-      // Reset states
       setClientName("");
       setClientPhone("");
+      setSelectedClient(null);
+      setClientActiveJobs([]);
+      setSelectedTargetJobId('new');
+      setExistingClientSearch('');
       setPosDescription("");
       setPosAmount("");
       setSelectedServices([]);
@@ -318,13 +387,15 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
     dropdownOptions.push({
       id: "virtual_custom_task",
       name_en: `✨ Press Enter to add custom task: "${serviceSearch.trim()}"`,
-      isCustomVirtual: true,
+      name_ar: `إضافة خدمة مخصصة: "${serviceSearch.trim()}"`,
       work_fee: 0,
-      ministry_fee: 0
+      ministry_fee: 0,
+      requires_pro: false,
+      isPosPlaceholder: false,
+      isCustomVirtual: true
     } as any);
   }
 
-  // Reset active highlighted index when search terms change
   useEffect(() => {
     setActiveSearchIndex(0);
   }, [serviceSearch]);
@@ -367,7 +438,6 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -376,14 +446,12 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           />
 
-          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-lg bg-[#1a2130] border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-10"
           >
-            {/* Header */}
             <div className="p-6 pb-4 flex items-center justify-between border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center text-gold">
@@ -399,36 +467,143 @@ export const WalkInModal = ({ isOpen, onClose, onJobCreated }: WalkInModalProps)
               </button>
             </div>
 
-            {/* Body */}
             <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-              {/* Client Info */}
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Client Info</p>
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-                    <input
-                      type="text"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      placeholder="Full Name *"
-                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl pl-9 pr-3 py-3 text-sm text-white outline-none transition-all placeholder:text-white/20"
-                    />
-                  </div>
-                  <div className="flex-1 relative">
-                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-                    <input
-                      type="tel"
-                      value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
-                      placeholder="Phone (optional)"
-                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl pl-9 pr-3 py-3 text-sm text-white outline-none transition-all placeholder:text-white/20"
-                    />
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Client & File Details</p>
+                  <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientMode('new');
+                        setSelectedClient(null);
+                        setClientActiveJobs([]);
+                        setSelectedTargetJobId('new');
+                      }}
+                      className={`px-3 py-1 rounded-lg transition-colors ${clientMode === 'new' ? 'bg-gold text-[#0A0F1E]' : 'text-white/60 hover:text-white'}`}
+                    >
+                      New Walk-in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientMode('existing')}
+                      className={`px-3 py-1 rounded-lg transition-colors ${clientMode === 'existing' ? 'bg-gold text-[#0A0F1E]' : 'text-white/60 hover:text-white'}`}
+                    >
+                      Existing Client & Files
+                    </button>
                   </div>
                 </div>
+
+                {clientMode === 'new' ? (
+                  <div className="flex gap-3">
+                    <div className="flex-1 relative">
+                      <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                      <input
+                        type="text"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder="Full Name *"
+                        className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl pl-9 pr-3 py-3 text-sm text-white outline-none transition-all placeholder:text-white/20"
+                      />
+                    </div>
+                    <div className="flex-1 relative">
+                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                      <input
+                        type="tel"
+                        value={clientPhone}
+                        onChange={(e) => setClientPhone(e.target.value)}
+                        placeholder="Phone (optional)"
+                        className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl pl-9 pr-3 py-3 text-sm text-white outline-none transition-all placeholder:text-white/20"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {!selectedClient ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                          <input
+                            type="text"
+                            value={existingClientSearch}
+                            onChange={(e) => setExistingClientSearch(e.target.value)}
+                            placeholder="Search registered clients by name, phone, or code..."
+                            className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl pl-9 pr-3 py-2.5 text-xs text-white outline-none transition-all placeholder:text-white/30"
+                          />
+                        </div>
+                        <div className="max-h-36 overflow-y-auto bg-black/40 border border-white/10 rounded-xl divide-y divide-white/5">
+                          {filteredClients.length > 0 ? (
+                            filteredClients.map((c: any) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => handleSelectClient(c)}
+                                className="w-full text-left px-3.5 py-2 hover:bg-gold/10 transition-colors flex items-center justify-between"
+                              >
+                                <div>
+                                  <p className="text-xs font-bold text-white">{c.full_name}</p>
+                                  <p className="text-[10px] text-white/40">{c.phone || 'No phone'} • {c.client_code || 'CLT'}</p>
+                                </div>
+                                <span className="text-[9px] font-bold text-gold uppercase tracking-wider">Select</span>
+                              </button>
+                            ))
+                          ) : (
+                            <p className="p-3 text-center text-xs text-white/30">No clients found matching search</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gold/10 border border-gold/30 rounded-xl p-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-mono font-bold bg-gold/20 text-gold px-2 py-0.5 rounded border border-gold/30">
+                              {selectedClient.client_code || 'CLIENT'}
+                            </span>
+                            <h4 className="text-xs font-bold text-white">{selectedClient.full_name}</h4>
+                            <span className="text-[10px] text-white/50">({selectedClient.phone || 'No phone'})</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClient(null);
+                              setClientName('');
+                              setClientPhone('');
+                              setClientActiveJobs([]);
+                              setSelectedTargetJobId('new');
+                            }}
+                            className="text-[10px] text-red-400 hover:underline font-bold"
+                          >
+                            Change Client
+                          </button>
+                        </div>
+
+                        <div className="space-y-1 pt-1 border-t border-gold/20">
+                          <label className="text-[9px] font-bold text-gold/80 uppercase tracking-widest block">
+                            Target Project / Job File
+                          </label>
+                          {loadingClientJobs ? (
+                            <p className="text-[10px] text-white/40 animate-pulse">Loading active client projects...</p>
+                          ) : (
+                            <select
+                              value={selectedTargetJobId}
+                              onChange={(e) => setSelectedTargetJobId(e.target.value)}
+                              className="w-full bg-[#141b26] border border-gold/30 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-gold"
+                            >
+                              <option value="new">📁 Create as New Walk-in File</option>
+                              {clientActiveJobs.map((j: any) => (
+                                <option key={j.id} value={j.id}>
+                                  🔗 Attach to Active File: {j.job_code} - {j.services?.name_en || j.custom_name || 'Project'} (Status: {j.status})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Service Selection */}
               <div className="space-y-2 relative">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest block">Select or Create Task *</label>

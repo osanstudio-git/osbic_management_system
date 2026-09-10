@@ -469,11 +469,11 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     <select
                       value={selectedItemId}
                       onChange={e => setSelectedItemId(e.target.value)}
-                      className="w-full bg-[#131824] border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
+                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
                     >
-                      <option value="">Select service...</option>
+                      <option value="" className="bg-card text-foreground">Select service...</option>
                       {services?.filter(s => s.is_active).map(s => (
-                        <option key={s.id} value={s.id}>{s.name_en} (OMR {((s.work_fee || 0) + (s.ministry_fee || 0)).toFixed(3)})</option>
+                        <option key={s.id} value={s.id} className="bg-card text-foreground">{s.name_en} (OMR {((s.work_fee || 0) + (s.ministry_fee || 0)).toFixed(3)})</option>
                       ))}
                     </select>
                   )}
@@ -482,14 +482,14 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     <select
                       value={selectedItemId}
                       onChange={e => setSelectedItemId(e.target.value)}
-                      className="w-full bg-[#131824] border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
+                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
                     >
-                      <option value="">Select package...</option>
+                      <option value="" className="bg-card text-foreground">Select package...</option>
                       {packages?.filter(p => p.is_active).map(p => {
                         const totalServicesFee = p.services?.reduce((sum: number, s: any) => sum + (s.work_fee || 0) + (s.ministry_fee || 0), 0) || 0;
                         const finalPrice = totalServicesFee * (1 - (p.discount_percentage || 0) / 100);
                         return (
-                          <option key={p.id} value={p.id}>{p.name_en} (OMR {finalPrice.toFixed(3)})</option>
+                          <option key={p.id} value={p.id} className="bg-card text-foreground">{p.name_en} (OMR {finalPrice.toFixed(3)})</option>
                         );
                       })}
                     </select>
@@ -502,14 +502,14 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                         placeholder="Description..."
                         value={customName}
                         onChange={e => setCustomName(e.target.value)}
-                        className="col-span-2 bg-[#131824] border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
+                        className="col-span-2 bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
                       />
                       <input
                         type="number"
                         placeholder="Price..."
                         value={customPrice}
                         onChange={e => setCustomPrice(e.target.value)}
-                        className="bg-[#131824] border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold transition-colors"
+                        className="bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
                       />
                     </div>
                   )}
@@ -531,17 +531,19 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                   value={status}
                   disabled={lead.status === 'converted'}
                   onChange={e => handleUpdateStatus(e.target.value)}
-                  className="w-full bg-[#131824] border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="interested">Interested</option>
-                  <option value="qualified">Qualified</option>
-                  <option value="quoted">Quoted</option>
-                  <option value="negotiating">Negotiating</option>
-                  <option value="converted">Converted</option>
-                  <option value="lost">Lost</option>
-                  <option value="on_hold">On Hold</option>
+                  <option value="new" className="bg-card text-foreground">New</option>
+                  <option value="on_progress" className="bg-card text-foreground">On Progress</option>
+                  <option value="contacted" className="bg-card text-foreground">Contacted</option>
+                  <option value="interested" className="bg-card text-foreground">Interested</option>
+                  <option value="qualified" className="bg-card text-foreground">Qualified</option>
+                  <option value="quoted" className="bg-card text-foreground">Quoted</option>
+                  <option value="negotiating" className="bg-card text-foreground">Negotiating</option>
+                  <option value="converted" className="bg-card text-foreground">Converted</option>
+                  <option value="cancelled" className="bg-card text-foreground">Cancelled</option>
+                  <option value="lost" className="bg-card text-foreground">Lost</option>
+                  <option value="on_hold" className="bg-card text-foreground">On Hold</option>
                 </select>
 
                 {lead.status === 'converted' && (
@@ -581,7 +583,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                           onClose();
                           navigate(`/employee/quotations/${quote.id}`);
                         }}
-                        className="flex items-center justify-between p-3 bg-[#131824]/40 border border-border/60 hover:border-gold/30 rounded-xl cursor-pointer hover:bg-muted/30 transition-all"
+                        className="flex items-center justify-between p-3 bg-card border border-border/80 hover:border-gold/30 rounded-xl cursor-pointer hover:bg-muted/30 transition-all shadow-sm"
                       >
                         <div>
                           <p className="text-xs font-bold text-foreground hover:text-primary transition-colors">{quote.invoice_number || 'Draft Quotation'}</p>
@@ -675,7 +677,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                 </div>
 
                 {showLogForm && (
-                  <form onSubmit={handleLogInteractionSubmit} className="bg-[#131824] border border-border/80 rounded-2xl p-5 space-y-4">
+                  <form onSubmit={handleLogInteractionSubmit} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] text-muted-foreground/60 font-bold uppercase mb-1">Type</label>

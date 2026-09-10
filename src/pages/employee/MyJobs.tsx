@@ -232,11 +232,11 @@ const MyJobs = () => {
               onChange={(e) => setFilter(e.target.value as any)}
               className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
             >
-              <option value="active" className="bg-[#0A0F1E] text-slate-100 py-1">Active Workload</option>
-              <option value="awaiting_govt" className="bg-[#0A0F1E] text-slate-100 py-1">Awaiting Govt</option>
-              <option value="completed" className="bg-[#0A0F1E] text-slate-100 py-1">Completed</option>
-              <option value="on_hold" className="bg-[#0A0F1E] text-slate-100 py-1">On Hold</option>
-              <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">All Tasks</option>
+              <option value="active" className="bg-card text-foreground py-1">Active Workload</option>
+              <option value="awaiting_govt" className="bg-card text-foreground py-1">Awaiting Govt</option>
+              <option value="completed" className="bg-card text-foreground py-1">Completed</option>
+              <option value="on_hold" className="bg-card text-foreground py-1">On Hold</option>
+              <option value="all" className="bg-card text-foreground py-1">All Tasks</option>
             </select>
           </div>
 
@@ -249,9 +249,9 @@ const MyJobs = () => {
               onChange={(e) => setServiceFilter(e.target.value)}
               className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer max-w-[140px] truncate"
             >
-              <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">All Services</option>
+              <option value="all" className="bg-card text-foreground py-1">All Services</option>
               {availableServices.map((svc, i) => (
-                <option key={i} value={svc} className="bg-[#0A0F1E] text-slate-100 py-1">{svc}</option>
+                <option key={i} value={svc} className="bg-card text-foreground py-1">{svc}</option>
               ))}
             </select>
           </div>
@@ -264,9 +264,9 @@ const MyJobs = () => {
               onChange={(e) => setPaymentFilter(e.target.value as any)}
               className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
             >
-              <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">All Payments</option>
-              <option value="paid" className="bg-[#0A0F1E] text-slate-100 py-1">Fully Paid</option>
-              <option value="pending" className="bg-[#0A0F1E] text-slate-100 py-1">Pending Payment</option>
+              <option value="all" className="bg-card text-foreground py-1">All Payments</option>
+              <option value="paid" className="bg-card text-foreground py-1">Fully Paid</option>
+              <option value="pending" className="bg-card text-foreground py-1">Pending Payment</option>
             </select>
           </div>
 
@@ -279,10 +279,10 @@ const MyJobs = () => {
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
             >
-              <option value="newest" className="bg-[#0A0F1E] text-slate-100 py-1">Newest First</option>
-              <option value="oldest" className="bg-[#0A0F1E] text-slate-100 py-1">Oldest First</option>
-              <option value="fee_desc" className="bg-[#0A0F1E] text-slate-100 py-1">Highest Fee</option>
-              <option value="progress_desc" className="bg-[#0A0F1E] text-slate-100 py-1">Highest Progress %</option>
+              <option value="newest" className="bg-card text-foreground py-1">Newest First</option>
+              <option value="oldest" className="bg-card text-foreground py-1">Oldest First</option>
+              <option value="fee_desc" className="bg-card text-foreground py-1">Highest Fee</option>
+              <option value="progress_desc" className="bg-card text-foreground py-1">Highest Progress %</option>
             </select>
           </div>
 

@@ -328,11 +328,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 onChange={(e) => setStatusFilter(e.target.value as any)}
                 className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
               >
-                <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'جميع الحالات' : 'All Statuses'}</option>
-                <option value="active" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'المهام النشطة' : 'Active Workload'}</option>
-                <option value="awaiting_govt" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'بانتظار الجهات الحكومية' : 'Awaiting Govt'}</option>
-                <option value="completed" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'مكتملة' : 'Completed'}</option>
-                <option value="on_hold" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'قيد الانتظار' : 'On Hold'}</option>
+                <option value="all" className="bg-card text-foreground py-1">{isRtl ? 'جميع الحالات' : 'All Statuses'}</option>
+                <option value="active" className="bg-card text-foreground py-1">{isRtl ? 'المهام النشطة' : 'Active Workload'}</option>
+                <option value="awaiting_govt" className="bg-card text-foreground py-1">{isRtl ? 'بانتظار الجهات الحكومية' : 'Awaiting Govt'}</option>
+                <option value="completed" className="bg-card text-foreground py-1">{isRtl ? 'مكتملة' : 'Completed'}</option>
+                <option value="on_hold" className="bg-card text-foreground py-1">{isRtl ? 'قيد الانتظار' : 'On Hold'}</option>
               </select>
             </div>
 
@@ -345,9 +345,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 onChange={(e) => setServiceFilter(e.target.value)}
                 className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer max-w-[140px] truncate"
               >
-                <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'جميع الخدمات' : 'All Services'}</option>
+                <option value="all" className="bg-card text-foreground py-1">{isRtl ? 'جميع الخدمات' : 'All Services'}</option>
                 {availableServices.map((svc, i) => (
-                  <option key={i} value={svc} className="bg-[#0A0F1E] text-slate-100 py-1">{svc}</option>
+                  <option key={i} value={svc} className="bg-card text-foreground py-1">{svc}</option>
                 ))}
               </select>
             </div>
@@ -360,9 +360,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 onChange={(e) => setPaymentFilter(e.target.value as any)}
                 className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
               >
-                <option value="all" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'جميع الدفعات' : 'All Payments'}</option>
-                <option value="paid" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}</option>
-                <option value="pending" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'دفع معلق' : 'Pending Payment'}</option>
+                <option value="all" className="bg-card text-foreground py-1">{isRtl ? 'جميع الدفعات' : 'All Payments'}</option>
+                <option value="paid" className="bg-card text-foreground py-1">{isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}</option>
+                <option value="pending" className="bg-card text-foreground py-1">{isRtl ? 'دفع معلق' : 'Pending Payment'}</option>
               </select>
             </div>
 
@@ -375,9 +375,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="bg-transparent border-none outline-none text-xs text-foreground font-medium cursor-pointer"
               >
-                <option value="newest" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'الأحدث أولاً' : 'Newest First'}</option>
-                <option value="oldest" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'الأقدم أولاً' : 'Oldest First'}</option>
-                <option value="fee_desc" className="bg-[#0A0F1E] text-slate-100 py-1">{isRtl ? 'الأعلى رسوماً' : 'Highest Fee'}</option>
+                <option value="newest" className="bg-card text-foreground py-1">{isRtl ? 'الأحدث أولاً' : 'Newest First'}</option>
+                <option value="oldest" className="bg-card text-foreground py-1">{isRtl ? 'الأقدم أولاً' : 'Oldest First'}</option>
+                <option value="fee_desc" className="bg-card text-foreground py-1">{isRtl ? 'الأعلى رسوماً' : 'Highest Fee'}</option>
               </select>
             </div>
 

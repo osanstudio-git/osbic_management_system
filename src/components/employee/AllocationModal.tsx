@@ -346,7 +346,7 @@ export const AllocationModal = ({
                           }
                         }}
                         placeholder="0.000"
-                        className="w-full bg-background border border-border rounded-lg pl-3 pr-16 py-2 text-sm outline-none focus:border-primary disabled:opacity-50 font-mono"
+                        className="w-full bg-background text-foreground placeholder:text-muted-foreground border border-border rounded-lg pl-3 pr-16 py-2 text-sm outline-none focus:border-primary disabled:opacity-50 font-mono"
                         disabled={isFullyFunded}
                       />
                       <button 
