@@ -25,7 +25,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
   
-  const adminQuery = useAdminJobs();
+  const adminQuery = useAdminJobs(profile?.branch_id);
   const employeeQuery = useEmployeeJobs(profile?.id || '');
 
   const jobs = profile?.is_manager ? adminQuery.data : employeeQuery.data;

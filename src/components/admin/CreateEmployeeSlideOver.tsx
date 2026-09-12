@@ -28,6 +28,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     previewUrl: '',
     branchId: '',
     companyName: '',
+    is_manager: false,
   });
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -57,6 +58,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         avatar_file: formData.avatarFile,
         branch_id: formData.branchId || null,
         company_name: formData.companyName || null,
+        is_manager: formData.is_manager,
       }, {
       onSuccess: (data: any) => {
         setCredentials({
@@ -206,6 +208,21 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                               <option key={b.id} value={b.id} className="bg-[#0A0F1E]">{b.name}</option>
                             ))}
                           </select>
+                        </div>
+
+                        {/* Branch Manager Designation Toggle */}
+                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                          <div>
+                            <span className="text-xs font-bold text-purple-300 block">Designate as Branch Manager</span>
+                            <span className="text-[10px] text-muted-foreground block">Grants supervision over all staff and leads in this branch</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, is_manager: !formData.is_manager })}
+                            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_manager ? 'bg-primary' : 'bg-white/10'}`}
+                          >
+                            <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_manager ? 'translate-x-5' : ''}`} />
+                          </button>
                         </div>
 
                         <div>

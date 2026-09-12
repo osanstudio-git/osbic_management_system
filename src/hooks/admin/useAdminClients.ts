@@ -24,16 +24,22 @@ export interface Client {
   jobs?: any[];
 }
 
-// ─── List All Clients ─────────────────────────────────────────────────────────
-export const useAdminClients = () => {
+// ─── List All Clients (with optional branch filter) ───────────────────────────
+export const useAdminClients = (branchIdFilter?: string | null) => {
   return useQuery({
-    queryKey: ['admin', 'clients'],
+    queryKey: ['admin', 'clients', branchIdFilter],
     queryFn: async (): Promise<Client[]> => {
-      const { data, error } = await db
+      let query = db
         .from('profiles')
         .select('*')
         .eq('role', 'client')
         .order('created_at', { ascending: false });
+
+      if (branchIdFilter) {
+        query = query.eq('branch_id', branchIdFilter);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

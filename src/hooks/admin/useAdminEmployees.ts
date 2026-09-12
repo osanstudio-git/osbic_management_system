@@ -49,17 +49,23 @@ export interface Employee {
   company_name?: string | null;
 }
 
-// ─── List All Employees ──────────────────────────────────────────────────────
-export const useAdminEmployees = () => {
+// ─── List All Employees (with optional branch filter) ─────────────────────────
+export const useAdminEmployees = (branchIdFilter?: string | null) => {
   return useQuery({
-    queryKey: ['admin', 'employees'],
+    queryKey: ['admin', 'employees', branchIdFilter],
     queryFn: async (): Promise<Employee[]> => {
       // 1. Fetch employee profiles
-      const { data: profiles, error: pError } = await db
+      let query = db
         .from('profiles')
         .select('*')
         .eq('role', 'employee')
         .order('created_at', { ascending: false });
+
+      if (branchIdFilter) {
+        query = query.eq('branch_id', branchIdFilter);
+      }
+
+      const { data: profiles, error: pError } = await query;
 
       if (pError) throw pError;
 
@@ -219,6 +225,7 @@ export const useCreateEmployee = () => {
       avatar_file?: File | null;
       branch_id?: string | null;
       company_name?: string | null;
+      is_manager?: boolean;
     }) => {
       // Step B: Create the auth user
       const { data: authData, error: authError } = await guestClient.auth.signUp({
@@ -278,6 +285,7 @@ export const useCreateEmployee = () => {
           employee_code: null,
           avatar_url: avatarUrl,
           is_active: true,
+          is_manager: newEmployee.is_manager ?? false,
           branch_id: newEmployee.branch_id || null,
           company_name: newEmployee.company_name || null,
         }, { onConflict: 'id' })

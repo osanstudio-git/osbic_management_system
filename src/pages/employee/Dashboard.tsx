@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   Briefcase, CheckCircle2, 
   ArrowUpRight, Bell,
-  ChevronRight, Activity, Zap, AlertCircle
+  ChevronRight, Activity, Zap, AlertCircle, Building2, User
 } from 'lucide-react';
 import { useEmployeeJobs } from '../../hooks/shared/useJobs';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,7 @@ import Skeleton from '../../components/ui/Skeleton';
 import { useNotifications } from '../../hooks/shared/useNotifications';
 import { Clock } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import BranchOverviewDashboard from '../../components/employee/BranchOverviewDashboard';
 
 const weeklyData = [
   { day: 'Mon', tasks: 3 },
@@ -28,6 +29,9 @@ const weeklyData = [
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const isManager = Boolean(profile?.is_manager);
+  const [managerView, setManagerView] = useState<'branch' | 'personal'>('branch');
+
   const { data: jobs, isLoading: isJobsLoading } = useEmployeeJobs(profile?.id || '');
   const { data: proTasks, isLoading: isProLoading } = useProQueue(profile?.id || null);
   const [greeting, setGreeting] = useState('Good evening');
@@ -143,6 +147,42 @@ const EmployeeDashboard = () => {
   return (
     <div className="space-y-12 pb-20 p-4 sm:p-8 max-w-6xl mx-auto">
       
+      {/* ── Branch Manager View Switcher (for managers) ── */}
+      {isManager && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 bg-card border border-border rounded-2xl shadow-md">
+          <div className="flex items-center gap-2 pl-2">
+            <Building2 size={16} className="text-primary" />
+            <span className="text-xs font-bold text-foreground">Workspace View</span>
+          </div>
+          <div className="flex bg-muted p-1 rounded-xl w-full sm:w-auto">
+            <button
+              onClick={() => setManagerView('branch')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-center ${
+                managerView === 'branch'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Branch Command Center
+            </button>
+            <button
+              onClick={() => setManagerView('personal')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-center ${
+                managerView === 'personal'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              My Personal Work
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isManager && managerView === 'branch' ? (
+        <BranchOverviewDashboard />
+      ) : (
+        <>
       {/* ── Welcome Header ── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-6">
         <div>
@@ -487,6 +527,8 @@ const EmployeeDashboard = () => {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

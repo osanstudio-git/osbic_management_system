@@ -213,17 +213,24 @@ export const useCreateInteraction = () => {
   });
 };
 
-export const useAdminLeads = () => {
+export const useAdminLeads = (branchIdFilter?: string | null) => {
   const queryClient = useQueryClient();
 
-  const useAllLeadsList = () => {
+  const useAllLeadsList = (explicitBranchId?: string | null) => {
+    const activeBranch = explicitBranchId !== undefined ? explicitBranchId : branchIdFilter;
     return useQuery({
-      queryKey: ['admin', 'leads'],
+      queryKey: ['admin', 'leads', activeBranch],
       queryFn: async (): Promise<Lead[]> => {
-        const { data, error } = await supabase
+        let query = supabase
           .from('leads')
           .select('*, lead_sources:source_id(name), assigned_to_profile:profiles!assigned_to(full_name, avatar_url, branch_id), assigned_by_profile:profiles!assigned_by(full_name)')
           .order('created_at', { ascending: false });
+
+        if (activeBranch) {
+          query = query.eq('branch_id', activeBranch);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         return data as any[];

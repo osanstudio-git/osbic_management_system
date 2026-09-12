@@ -66,6 +66,8 @@ import ClientNotifications from './pages/client/Notifications';
 import MyTasks from './pages/employee/MyTasks';
 import ProQueue from './pages/employee/ProQueue';
 import AccountsDashboard from './pages/employee/AccountsDashboard';
+import BranchTeam from './pages/employee/BranchTeam';
+import BranchApprovals from './pages/employee/BranchApprovals';
 
 
 
@@ -499,6 +501,8 @@ function App() {
               <Route path="my-tasks" element={<MyTasks />} />
               <Route path="pro-queue" element={<ProQueue />} />
               <Route path="accounts" element={<AccountsDashboard />} />
+              <Route path="team" element={<BranchTeam />} />
+              <Route path="approvals" element={<BranchApprovals />} />
             </Route>
 
             {/* Client Portal */}

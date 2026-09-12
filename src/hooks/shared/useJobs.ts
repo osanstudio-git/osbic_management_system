@@ -112,12 +112,12 @@ export interface JobAuditLog {
   details: string;
 }
 
-// ─── Admin: All Jobs ──────────────────────────────────────────────────────────
-export const useAdminJobs = () => {
+// ─── Admin / Branch Manager: All Jobs ──────────────────────────────────────────
+export const useAdminJobs = (branchIdFilter?: string | null) => {
   return useQuery({
-    queryKey: ['admin', 'jobs'],
+    queryKey: ['admin', 'jobs', branchIdFilter],
     queryFn: async (): Promise<Job[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('jobs')
         .select(`
           *,
@@ -129,6 +129,11 @@ export const useAdminJobs = () => {
         `)
         .order('created_at', { ascending: false });
 
+      if (branchIdFilter) {
+        query = query.eq('branch_id', branchIdFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       return (data || []).map((j: any) => {

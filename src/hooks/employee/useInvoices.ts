@@ -88,8 +88,11 @@ export const useInvoices = (clientId?: string) => {
           // No clients found — show only invoices explicitly created by this employee
           query = query.eq('employee_id', profile.id);
         }
+      } else if (profile?.is_manager && profile?.branch_id) {
+        // Branch Manager: see all invoices within their branch
+        query = query.eq('branch_id', profile.branch_id);
       }
-      // Managers and admins: no filter — see all invoices
+      // Super Admin: no branch filter — see all invoices
 
       const { data, error } = await query;
       if (error) throw error;

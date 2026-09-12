@@ -21,7 +21,9 @@ import {
    Menu,
    X,
    MapPin,
-   ChevronDown
+   ChevronDown,
+   Building2,
+   ShieldCheck
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -79,10 +81,15 @@ const EmployeeLayout: React.FC = () => {
 
   const navItems = [
     { key: 'home', icon: LayoutDashboard, path: '/employee' },
+    ...(profile?.is_manager ? [
+      { key: 'team', icon: Users, path: '/employee/team' },
+      { key: 'approvals', icon: ShieldCheck, path: '/employee/approvals' },
+      { key: 'pipeline', icon: Globe, path: '/employee/pipeline' },
+    ] : []),
     { key: 'my_clients', icon: Users, path: '/employee/clients' },
     { key: 'my_tasks', icon: ClipboardList, path: '/employee/tasks' },
     // Ops queue — shown if employee can do ops work
-    ...(profile?.can_do_ops ? [{ key: 'ops_queue', icon: Zap, path: '/employee/my-tasks' }] : []),
+    ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', icon: Zap, path: '/employee/my-tasks' }] : []),
     // PRO queue — shown for PRO agents
     ...(profile?.is_pro ? [{ key: 'pro_queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', icon: PieChart, path: '/employee/reports' },
@@ -91,7 +98,6 @@ const EmployeeLayout: React.FC = () => {
     { key: 'notifications', icon: Bell, path: '/employee/notifications' },
     { key: 'profile', icon: User, path: '/employee/profile' },
     ...(profile?.can_do_sales ? [{ key: 'leads', icon: Users, path: '/employee/leads' }] : []),
-    ...(profile?.is_manager ? [{ key: 'pipeline', icon: Globe, path: '/employee/pipeline' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', icon: FileText, path: '/employee/accounts' }] : []),
   ].filter(item => {
     // PRO agents: only home, pro queue, and profile
@@ -233,8 +239,17 @@ const EmployeeLayout: React.FC = () => {
             <div className="w-[1px] h-6 bg-border mx-1 lg:mx-2" />
             <ThemeToggle />
 
-            {/* Branch Switcher — managers & admin only */}
-            {isManagerOrAdmin && (
+            {/* Branch Badge for Branch Manager */}
+            {profile?.is_manager && profile?.branch_id && profile?.role !== 'admin' && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold shadow-sm">
+                <Building2 size={13} />
+                <span className="hidden sm:inline max-w-[140px] truncate">{selectedBranch?.name || 'Branch Manager'}</span>
+                <span className="text-[8px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Manager</span>
+              </div>
+            )}
+
+            {/* Branch Switcher — Super Admin only */}
+            {profile?.role === 'admin' && (
               <div className="relative">
                 <button
                   onClick={() => setBranchDropdownOpen(o => !o)}
