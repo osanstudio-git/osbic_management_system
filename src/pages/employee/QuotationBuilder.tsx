@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders } from 'lucide-react';
+import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders, UserCheck, User } from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
 import { useAdminJobs, useEmployeeJobs } from '../../hooks/shared/useJobs';
+import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import { QuotationDocument } from '../../components/employee/QuotationDocument';
 import { useLeads, useAdminLeads } from '../../hooks/shared/useLeads';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
@@ -117,6 +118,7 @@ const QuotationBuilder = () => {
   const leads = profile?.is_manager ? useAllLeadsList().data : useLeadsList().data;
 
   const { data: allServices } = useAdminServices();
+  const { data: employees } = useAdminEmployees();
 
   const printRef = useRef<HTMLDivElement>(null);
   const [isAcceptWizardOpen, setIsAcceptWizardOpen] = useState(false);
@@ -145,6 +147,8 @@ const QuotationBuilder = () => {
     terms: 'Payment is due within 10 days.',
     items: [],
     metadata: {
+      prepared_by: profile?.full_name || '',
+      prepared_by_employee_id: profile?.id || '',
       documents: DEFAULT_QUOTATION_DOCUMENTS,
       timeline: DEFAULT_QUOTATION_TIMELINE,
       showQuantity: false,
@@ -156,14 +160,36 @@ const QuotationBuilder = () => {
 
   useEffect(() => {
     if (initialData && !isNew) {
-      setFormData(initialData);
+      setFormData(prev => ({
+        ...initialData,
+        metadata: {
+          ...initialData.metadata,
+          prepared_by: initialData.metadata?.prepared_by || initialData.employee?.full_name || prev.metadata?.prepared_by || profile?.full_name || '',
+          prepared_by_employee_id: initialData.metadata?.prepared_by_employee_id || initialData.employee_id || prev.metadata?.prepared_by_employee_id || profile?.id || ''
+        }
+      }));
       if (initialData.metadata?.isSimple) {
         setQuotationMode('simple');
       } else {
         setQuotationMode('detailed');
       }
     }
-  }, [initialData, isNew]);
+  }, [initialData, isNew, profile]);
+
+  // Sync profile full_name if new quotation and not yet set
+  useEffect(() => {
+    if (isNew && profile?.full_name && !formData.metadata?.prepared_by) {
+      setFormData(prev => ({
+        ...prev,
+        employee_id: prev.employee_id || profile.id,
+        metadata: {
+          ...prev.metadata,
+          prepared_by: profile.full_name,
+          prepared_by_employee_id: profile.id
+        }
+      }));
+    }
+  }, [isNew, profile?.full_name, profile?.id]);
 
   // Handle Lead ID autofill from URL params & selection
   useEffect(() => {
@@ -592,9 +618,11 @@ const QuotationBuilder = () => {
       const quotationPayload = {
         ...formData,
         type: 'quotation', // Force type to quotation
-        employee_id: formData.employee_id || profile?.id,
+        employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
         metadata: {
           ...formData.metadata,
+          prepared_by: formData.metadata?.prepared_by || profile?.full_name || 'OSBIC TEAM',
+          prepared_by_employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
           isSimple: quotationMode === 'simple'
         }
       };
@@ -794,6 +822,120 @@ const QuotationBuilder = () => {
                  ) : null}
                </div>
              )}
+
+              {/* Header Details (Prepared By & Activity) */}
+              <div className="bg-muted/15 border border-border/60 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <UserCheck size={14} className="text-primary" /> Header Details (Prepared By & Activity)
+                  </h3>
+                  {profile?.full_name && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          employee_id: profile.id,
+                          metadata: {
+                            ...prev.metadata,
+                            prepared_by: profile.full_name,
+                            prepared_by_employee_id: profile.id
+                          }
+                        }));
+                        toast.success(`Prepared By set to ${profile.full_name}`);
+                      }}
+                      className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      Set to My Name ({profile.full_name.split(' ')[0]})
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {/* Select Employee dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                      Select Staff / Employee
+                    </label>
+                    <select
+                      value={formData.metadata?.prepared_by_employee_id || formData.employee_id || ''}
+                      onChange={e => {
+                        const empId = e.target.value;
+                        const chosenEmp = employees?.find(emp => emp.id === empId);
+                        setFormData(prev => ({
+                          ...prev,
+                          employee_id: empId || prev.employee_id,
+                          metadata: {
+                            ...prev.metadata,
+                            prepared_by: chosenEmp ? chosenEmp.full_name : (empId ? prev.metadata?.prepared_by : ''),
+                            prepared_by_employee_id: empId
+                          }
+                        }));
+                      }}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                    >
+                      <option value="">-- Choose Employee (or type custom) --</option>
+                      {employees?.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.full_name} {emp.role ? `(${emp.role})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Custom / Editable Prepared By Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                      Prepared By Name (Editable)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.metadata?.prepared_by ?? (profile?.full_name || '')}
+                      onChange={e => setFormData(prev => ({
+                        ...prev,
+                        metadata: {
+                          ...prev.metadata,
+                          prepared_by: e.target.value
+                        }
+                      }))}
+                      placeholder="e.g. NADIR NOORISHA"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground font-semibold focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Activity / Subject Title */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                        Activity / Quotation Title
+                      </label>
+                      <div className="flex gap-1.5 overflow-x-auto">
+                        {['BUSINESS SETUP', 'COMPANY FORMATION', 'INVESTOR VISA', 'PRO SERVICES'].map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, notes: tag }))}
+                            className={`text-[9px] px-2 py-0.5 rounded-md font-semibold transition-all border ${
+                              formData.notes?.toUpperCase() === tag
+                                ? 'bg-primary/15 text-primary border-primary/30'
+                                : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.notes || ''}
+                      onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="e.g. BUSINESS SETUP"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
 
              {/* Quotation Configuration Toggles */}
              <div className="bg-muted/15 border border-border/60 rounded-xl p-4 space-y-3">
@@ -1449,8 +1591,10 @@ const QuotationBuilder = () => {
                     client: clients?.find(c => c.id === formData.client_id),
                     lead: leads?.find(l => l.id === formData.lead_id),
                     job: jobs?.find(j => j.id === formData.job_id),
+                    employee: employees?.find(e => e.id === (formData.metadata?.prepared_by_employee_id || formData.employee_id)) || (formData.employee as any) || (profile ? { full_name: formData.metadata?.prepared_by || profile.full_name } : undefined),
                     metadata: { 
                       ...formData.metadata, 
+                      prepared_by: formData.metadata?.prepared_by,
                       isSimple: quotationMode === 'simple'
                     }
                   }} 

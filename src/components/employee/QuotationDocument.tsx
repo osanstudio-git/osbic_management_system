@@ -46,9 +46,11 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
           <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Contact</p>
           <p className="font-bold text-xs uppercase">{invoice.client?.phone || invoice.lead?.contact_phone || 'CONTACT NUMBER'}</p>
         </div>
-        <div className="p-3 border-r border-[#0088cc]/30" style={{ backgroundColor: lightBg }}>
+        <div className="p-3 border-r border-b border-[#0088cc]/30" style={{ backgroundColor: lightBg }}>
           <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Prepared By</p>
-          <p className="font-bold text-xs uppercase">{profile?.full_name || 'OSBIC TEAM'}</p>
+          <p className="font-bold text-xs uppercase">
+            {invoice.metadata?.prepared_by || invoice.employee?.full_name || profile?.full_name || 'OSBIC TEAM'}
+          </p>
         </div>
         <div className="p-3" style={{ backgroundColor: lightBg }}>
           <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Activity</p>
