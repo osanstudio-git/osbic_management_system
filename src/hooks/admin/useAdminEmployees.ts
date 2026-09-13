@@ -233,44 +233,17 @@ export const useCreateEmployee = () => {
       can_do_marketing?: boolean;
       is_pro?: boolean;
     }) => {
-      // Step B: Create the auth user
-      const { data: authData, error: authError } = await guestClient.auth.signUp({
-        email: newEmployee.email,
-        password: newEmployee.password,
-        options: {
-          data: {
-            full_name: newEmployee.full_name,
-            role: 'employee',
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Supabase SignUp Error Details:', {
-          code: authError.status,
-          message: authError.message,
-          error: authError
-        });
-        throw new Error(authError.message || 'Supabase authentication failed');
-      }
-      if (!authData.user) throw new Error('User creation failed');
-
-      const userId = authData.user.id;
       let avatarUrl = null;
 
-      // New Step: Upload avatar if provided
+      // Step A: Upload avatar if provided
       if (newEmployee.avatar_file) {
         const fileExt = newEmployee.avatar_file.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
+        const fileName = `emp-${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, newEmployee.avatar_file);
         
-        if (uploadError) {
-          console.error('Avatar Upload Failed:', uploadError);
-          // We don't throw here to avoid failing the whole employee creation 
-          // Just because a photo upload failed.
-        } else {
+        if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
             .from('avatars')
             .getPublicUrl(fileName);
@@ -278,36 +251,91 @@ export const useCreateEmployee = () => {
         }
       }
 
-      // Step C: Insert the profile record using the main authenticated client (db)
-      const { data: profile, error: profileError } = await db
-        .from('profiles')
-        .upsert({
-          id: userId,
-          full_name: newEmployee.full_name,
-          email: newEmployee.email,
-          phone: newEmployee.phone ?? null,
-          role: 'employee',
-          department: newEmployee.department ?? 'operations',
-          employee_code: null,
-          avatar_url: avatarUrl,
-          is_active: true,
-          is_manager: newEmployee.is_manager ?? false,
-          can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
-          can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
-          can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
-          can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
-          is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
-          branch_id: newEmployee.branch_id || null,
-          company_name: newEmployee.company_name || null,
-        }, { onConflict: 'id' })
-        .select()
-        .single();
+      // Step B: Try Atomic RPC creation (handles both auth.users and public.profiles securely)
+      let profileResult = null;
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_employee', {
+          p_full_name: newEmployee.full_name,
+          p_email: newEmployee.email,
+          p_password: newEmployee.password,
+          p_phone: newEmployee.phone || null,
+          p_department: newEmployee.department || 'operations',
+          p_branch_id: newEmployee.branch_id || null,
+          p_company_name: newEmployee.company_name || null,
+          p_is_manager: newEmployee.is_manager || false,
+          p_can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
+          p_can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
+          p_can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
+          p_can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
+          p_is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
+          p_avatar_url: avatarUrl
+        });
 
-      if (profileError) {
-        throw new Error(profileError.message);
+        if (!rpcError && rpcData) {
+          profileResult = rpcData;
+        } else if (rpcError) {
+          console.warn('admin_create_employee RPC failed, falling back to signUp:', rpcError.message);
+        }
+      } catch (rpcErr) {
+        console.warn('RPC execution exception, falling back to signUp:', rpcErr);
+      }
+
+      // Step C: Fallback to guestClient.auth.signUp if RPC was not executed
+      if (!profileResult) {
+        const { data: authData, error: authError } = await guestClient.auth.signUp({
+          email: newEmployee.email,
+          password: newEmployee.password,
+          options: {
+            data: {
+              full_name: newEmployee.full_name,
+              role: 'employee',
+            }
+          }
+        });
+
+        if (authError) {
+          console.error('Supabase SignUp Error Details:', {
+            code: authError.status,
+            message: authError.message,
+            error: authError
+          });
+          throw new Error(authError.message || 'Supabase authentication failed');
+        }
+        if (!authData.user) throw new Error('User creation failed');
+
+        const userId = authData.user.id;
+
+        const { data: profile, error: profileError } = await db
+          .from('profiles')
+          .upsert({
+            id: userId,
+            full_name: newEmployee.full_name,
+            email: newEmployee.email,
+            phone: newEmployee.phone ?? null,
+            role: 'employee',
+            department: newEmployee.department ?? 'operations',
+            employee_code: null,
+            avatar_url: avatarUrl,
+            is_active: true,
+            is_manager: newEmployee.is_manager ?? false,
+            can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
+            can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
+            can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
+            can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
+            is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
+            branch_id: newEmployee.branch_id || null,
+            company_name: newEmployee.company_name || null,
+          }, { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (profileError) {
+          throw new Error(profileError.message);
+        }
+        profileResult = profile;
       }
       
-      // Step D: Send the credentials via Edge Function (Resend)
+      // Step D: Send credentials via Edge Function
       const { error: invokeError } = await supabase.functions.invoke('send-credentials', {
         body: {
           email: newEmployee.email,
@@ -319,11 +347,9 @@ export const useCreateEmployee = () => {
       
       if (invokeError) {
         console.error('Failed to send credentials email:', invokeError);
-        // We do not throw here, because the user is already created in the DB.
-        // We will just show a toast in onSuccess or let the UI know.
       }
 
-      return profile;
+      return profileResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'employees'] });
