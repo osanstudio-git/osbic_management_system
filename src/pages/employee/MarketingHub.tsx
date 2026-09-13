@@ -93,7 +93,7 @@ export default function MarketingHub() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, lead_id, total_fee, work_fee, ministry_fee, status, created_at');
+        .select('id, client_id, total_fee, work_fee, ministry_fee, status, created_at');
       if (error) throw error;
       return data || [];
     }
@@ -172,12 +172,14 @@ export default function MarketingHub() {
 
     // Attributed Revenue from quotes/jobs linked to these leads
     const leadIds = new Set(filteredLeads.map(l => l.id));
+    const clientIds = new Set(filteredLeads.map(l => l.client_id).filter(Boolean));
+
     const quotesTotalValue = (quotations || [])
       .filter(q => q.lead_id && leadIds.has(q.lead_id))
       .reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
 
     const closedRevenue = (jobs || [])
-      .filter(j => j.lead_id && leadIds.has(j.lead_id) && j.status !== 'cancelled')
+      .filter(j => j.client_id && clientIds.has(j.client_id) && j.status !== 'cancelled')
       .reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
 
     const conversionRate = totalLeads > 0 ? ((converted / totalLeads) * 100).toFixed(1) : '0.0';
@@ -207,7 +209,7 @@ export default function MarketingHub() {
       revenue: number;
     }> = {};
 
-    const leadIdsMap = new Map(filteredLeads.map(l => [l.id, l]));
+    const clientIdsMap = new Map(filteredLeads.filter(l => l.client_id).map(l => [l.client_id, l]));
 
     for (const lead of filteredLeads) {
       const campaignKey = lead.utm_campaign || lead.lead_sources?.name || 'Direct / Organic';
@@ -236,8 +238,8 @@ export default function MarketingHub() {
     // Add Revenue from closed jobs
     if (jobs) {
       for (const job of jobs) {
-        if (job.lead_id && leadIdsMap.has(job.lead_id) && job.status !== 'cancelled') {
-          const matchedLead = leadIdsMap.get(job.lead_id);
+        if (job.client_id && clientIdsMap.has(job.client_id) && job.status !== 'cancelled') {
+          const matchedLead = clientIdsMap.get(job.client_id);
           const campaignKey = matchedLead?.utm_campaign || matchedLead?.lead_sources?.name || 'Direct / Organic';
           if (groups[campaignKey]) {
             groups[campaignKey].revenue += (Number(job.total_fee) || 0);

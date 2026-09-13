@@ -21,7 +21,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     phone: '',
     countryCode: '+968',
     customCountryCode: '',
-    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro',
+    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing',
     notes: '',
     services: [] as string[],
     avatarFile: null as File | null,
@@ -29,6 +29,11 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     branchId: '',
     companyName: '',
     is_manager: false,
+    can_do_sales: false,
+    can_do_marketing: false,
+    can_do_ops: true,
+    can_do_accounts: false,
+    is_pro: false,
   });
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -59,6 +64,11 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         branch_id: formData.branchId || null,
         company_name: formData.companyName || null,
         is_manager: formData.is_manager,
+        can_do_sales: formData.can_do_sales,
+        can_do_marketing: formData.can_do_marketing,
+        can_do_ops: formData.can_do_ops,
+        can_do_accounts: formData.can_do_accounts,
+        is_pro: formData.is_pro,
       }, {
       onSuccess: (data: any) => {
         setCredentials({
@@ -83,7 +93,26 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
 
   const resetForm = () => {
     setStep(1);
-    setFormData({ fullName: '', email: '', phone: '', countryCode: '+968', customCountryCode: '', department: 'operations', notes: '', services: [], avatarFile: null, previewUrl: '', branchId: '', companyName: '' });
+    setFormData({
+      fullName: '',
+      email: '',
+      phone: '',
+      countryCode: '+968',
+      customCountryCode: '',
+      department: 'operations',
+      notes: '',
+      services: [],
+      avatarFile: null,
+      previewUrl: '',
+      branchId: '',
+      companyName: '',
+      is_manager: false,
+      can_do_sales: false,
+      can_do_marketing: false,
+      can_do_ops: true,
+      can_do_accounts: false,
+      is_pro: false,
+    });
     setShowSuccess(false);
     setShowPassword(false);
     onClose();
@@ -186,11 +215,23 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                           <label className="block text-sm font-medium text-muted-foreground mb-1.5">Department *</label>
                           <select
                             value={formData.department}
-                            onChange={(e) => setFormData({ ...formData, department: e.target.value as any })}
+                            onChange={(e) => {
+                              const dept = e.target.value as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing';
+                              setFormData({
+                                ...formData,
+                                department: dept,
+                                can_do_sales: dept === 'sales',
+                                can_do_marketing: dept === 'marketing',
+                                can_do_ops: dept === 'operations',
+                                can_do_accounts: dept === 'accounts',
+                                is_pro: dept === 'pro'
+                              });
+                            }}
                             className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors cursor-pointer"
                           >
                             <option value="operations" className="bg-[#0A0F1E]">Operations</option>
                             <option value="sales" className="bg-[#0A0F1E]">Sales</option>
+                            <option value="marketing" className="bg-[#0A0F1E]">Marketing</option>
                             <option value="accounts" className="bg-[#0A0F1E]">Accounts</option>
                             <option value="pro" className="bg-[#0A0F1E]">PRO</option>
                           </select>
@@ -223,6 +264,86 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                           >
                             <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_manager ? 'translate-x-5' : ''}`} />
                           </button>
+                        </div>
+
+                        {/* Capabilities & Roles */}
+                        <div className="space-y-2 pt-1">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Capabilities & Role Access</label>
+                          
+                          {/* Can do Sales */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Can do Sales</p>
+                              <p className="text-[9px] text-muted-foreground">Enables CRM access, leads, and quotations</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, can_do_sales: !formData.can_do_sales })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_do_sales ? 'bg-primary' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_sales ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Can do Marketing */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Can do Marketing</p>
+                              <p className="text-[9px] text-muted-foreground">Enables Marketing & Acquisition Hub, campaign ROI, and ad attribution</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, can_do_marketing: !formData.can_do_marketing })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_do_marketing ? 'bg-primary' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_marketing ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Can do Operations */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Can do Operations</p>
+                              <p className="text-[9px] text-muted-foreground">Enables job steps, tasks, and document management</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, can_do_ops: !formData.can_do_ops })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_do_ops ? 'bg-primary' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_ops ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Can do Accounts */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Can do Accounts</p>
+                              <p className="text-[9px] text-muted-foreground">Enables accounts workflow and verification</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, can_do_accounts: !formData.can_do_accounts })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_do_accounts ? 'bg-primary' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_accounts ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Is PRO */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Is PRO</p>
+                              <p className="text-[9px] text-muted-foreground">Enables PRO Work Queue access</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, is_pro: !formData.is_pro })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.is_pro ? 'bg-primary' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_pro ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
                         </div>
 
                         <div>

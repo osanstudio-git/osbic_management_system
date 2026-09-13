@@ -239,6 +239,7 @@ const Employees = () => {
                       <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">{emp.employee_code}</p>
                       {emp.is_manager && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-purple-500/10 text-purple-400 border border-purple-500/20">Manager</span>}
                       {emp.can_do_sales && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-400 border border-blue-500/20">Sales</span>}
+                      {emp.can_do_marketing && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-pink-500/10 text-pink-400 border border-pink-500/20">Marketing</span>}
                       {emp.can_do_ops && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ops</span>}
                       {emp.can_do_accounts && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Accounts</span>}
                       {emp.is_pro && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-amber-500/10 text-amber-400 border border-amber-500/20">PRO</span>}
@@ -315,6 +316,7 @@ const Employees = () => {
                           <p className="text-[10px] text-muted-foreground font-mono leading-none">{emp.employee_code}</p>
                           {emp.is_manager && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-purple-500/10 text-purple-400 border border-purple-500/10 leading-none">Manager</span>}
                           {emp.can_do_sales && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/10 leading-none">Sales</span>}
+                          {emp.can_do_marketing && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-pink-500/10 text-pink-400 border border-pink-500/10 leading-none">Marketing</span>}
                           {emp.can_do_ops && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/10 leading-none">Ops</span>}
                           {emp.can_do_accounts && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 leading-none">Accounts</span>}
                           {emp.is_pro && <span className="px-1 py-0.2 rounded text-[7px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/10 leading-none">PRO</span>}

@@ -17,7 +17,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     fullName: '',
     email: '',
     phone: '',
-    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro',
+    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing',
     notes: '',
     is_manager: false,
     can_do_sales: false,
@@ -197,7 +197,9 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                     >
                       <option value="operations" className="bg-[#0A0F1E]">Operations</option>
                       <option value="sales" className="bg-[#0A0F1E]">Sales</option>
+                      <option value="marketing" className="bg-[#0A0F1E]">Marketing</option>
                       <option value="accounts" className="bg-[#0A0F1E]">Accounts</option>
+                      <option value="pro" className="bg-[#0A0F1E]">PRO</option>
                     </select>
                   </div>
 

@@ -30,7 +30,7 @@ export interface Employee {
   phone: string | null;
   avatar_url: string | null;
   role: string;
-  department?: 'sales' | 'operations' | 'accounts' | 'pro' | null;
+  department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | null;
   is_active: boolean;
   created_at: string;
   // Computed stats from jobs table
@@ -43,6 +43,7 @@ export interface Employee {
   can_do_sales?: boolean;
   can_do_ops?: boolean;
   can_do_accounts?: boolean;
+  can_do_marketing?: boolean;
   is_pro?: boolean;
   is_manager?: boolean;
   branch_id?: string | null;
@@ -221,11 +222,16 @@ export const useCreateEmployee = () => {
       email: string;
       phone?: string;
       password: string;
-      department?: 'sales' | 'operations' | 'accounts' | 'pro';
+      department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing';
       avatar_file?: File | null;
       branch_id?: string | null;
       company_name?: string | null;
       is_manager?: boolean;
+      can_do_sales?: boolean;
+      can_do_ops?: boolean;
+      can_do_accounts?: boolean;
+      can_do_marketing?: boolean;
+      is_pro?: boolean;
     }) => {
       // Step B: Create the auth user
       const { data: authData, error: authError } = await guestClient.auth.signUp({
@@ -286,6 +292,11 @@ export const useCreateEmployee = () => {
           avatar_url: avatarUrl,
           is_active: true,
           is_manager: newEmployee.is_manager ?? false,
+          can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
+          can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
+          can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
+          can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
+          is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
           branch_id: newEmployee.branch_id || null,
           company_name: newEmployee.company_name || null,
         }, { onConflict: 'id' })

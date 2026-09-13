@@ -172,6 +172,7 @@ const EmployeeDetail = () => {
 
                   {emp.is_manager && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">Manager</span>}
                   {emp.can_do_sales && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">Sales</span>}
+                  {emp.can_do_marketing && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-pink-500/10 text-pink-400 border border-pink-500/20">Marketing</span>}
                   {emp.can_do_ops && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Operations</span>}
                   {emp.can_do_accounts && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Accounts</span>}
                   {emp.is_pro && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">PRO</span>}
@@ -180,14 +181,16 @@ const EmployeeDetail = () => {
                     <select
                       value={emp.department || 'operations'}
                       onChange={(e) => {
-                        const newDept = e.target.value as 'sales' | 'operations' | 'pro' | 'accounts';
+                        const newDept = e.target.value as 'sales' | 'operations' | 'pro' | 'accounts' | 'marketing';
                         const extraUpdates = newDept === 'sales'
-                          ? { can_do_sales: true, can_do_ops: false, can_do_accounts: false, is_pro: false }
-                          : newDept === 'pro'
-                            ? { is_pro: true, can_do_sales: false, can_do_ops: false, can_do_accounts: false }
-                            : newDept === 'accounts'
-                              ? { can_do_accounts: true, can_do_sales: false, can_do_ops: false, is_pro: false }
-                              : { can_do_ops: true, can_do_sales: false, can_do_accounts: false, is_pro: false };
+                          ? { can_do_sales: true, can_do_marketing: false, can_do_ops: false, can_do_accounts: false, is_pro: false }
+                          : newDept === 'marketing'
+                            ? { can_do_marketing: true, can_do_sales: false, can_do_ops: false, can_do_accounts: false, is_pro: false }
+                            : newDept === 'pro'
+                              ? { is_pro: true, can_do_sales: false, can_do_marketing: false, can_do_ops: false, can_do_accounts: false }
+                              : newDept === 'accounts'
+                                ? { can_do_accounts: true, can_do_sales: false, can_do_marketing: false, can_do_ops: false, is_pro: false }
+                                : { can_do_ops: true, can_do_sales: false, can_do_marketing: false, can_do_accounts: false, is_pro: false };
                         
                         updateEmployee({
                           id: emp.id,
@@ -204,16 +207,19 @@ const EmployeeDetail = () => {
                         "appearance-none text-xs font-bold uppercase tracking-widest px-3 py-1 rounded border outline-none cursor-pointer transition-all pr-8",
                         emp.department === 'sales'
                           ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
-                          : emp.department === 'pro'
-                            ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
-                            : emp.department === 'accounts'
-                              ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20"
-                              : "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20",
+                          : emp.department === 'marketing'
+                            ? "bg-pink-500/10 text-pink-400 border-pink-500/20 hover:bg-pink-500/20"
+                            : emp.department === 'pro'
+                              ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+                              : emp.department === 'accounts'
+                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20"
+                                : "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20",
                         isUpdating && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       <option value="operations" className="bg-[#131824] text-foreground">Operations Team</option>
                       <option value="sales" className="bg-[#131824] text-foreground">Sales Executive</option>
+                      <option value="marketing" className="bg-[#131824] text-foreground">Marketing Specialist</option>
                       <option value="accounts" className="bg-[#131824] text-foreground">Accounts Team</option>
                       <option value="pro" className="bg-[#131824] text-foreground">PRO Agent</option>
                     </select>
