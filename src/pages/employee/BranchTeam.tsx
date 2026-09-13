@@ -11,6 +11,7 @@ import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import { useAdminJobs } from '../../hooks/shared/useJobs';
 import { useAdminLeads } from '../../hooks/shared/useLeads';
 import { AllocationModal } from '../../components/employee/AllocationModal';
+import CreateEmployeeSlideOver from '../../components/admin/CreateEmployeeSlideOver';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 
@@ -28,6 +29,7 @@ const BranchTeam: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState<'all' | 'sales' | 'marketing' | 'operations' | 'accounts' | 'pro'>('all');
   const [selectedStaffForAllocation, setSelectedStaffForAllocation] = useState<any>(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Quick Lead Assignment state
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -95,11 +97,18 @@ const BranchTeam: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
+          >
+            <UserPlus size={14} />
+            Add Employee
+          </button>
+          <button
             onClick={() => {
               setSelectedStaffForAllocation(employees[0] || null);
               setIsAllocationModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-card hover:bg-muted border border-border text-foreground rounded-xl text-xs font-bold transition-all active:scale-95"
           >
             <ArrowRightLeft size={14} />
             Re-Allocate Jobs & Tasks
@@ -294,6 +303,15 @@ const BranchTeam: React.FC = () => {
           } as any)}
         />
       )}
+
+      {/* Create Employee SlideOver */}
+      <CreateEmployeeSlideOver
+        isOpen={isCreateOpen}
+        onClose={() => {
+          setIsCreateOpen(false);
+          refetchEmployees();
+        }}
+      />
 
     </div>
   );

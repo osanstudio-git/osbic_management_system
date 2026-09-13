@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, CheckCircle, Eye, EyeOff, Copy, Mail } from 'lucide-react';
 import { useCreateEmployee } from '../../hooks/admin/useAdminEmployees';
@@ -6,7 +6,7 @@ import { generateSecurePassword, generateUsername, copyToClipboard } from '../..
 import PhotoCropper from '../shared/PhotoCropper';
 import toast from 'react-hot-toast';
 import { useBranch } from '../../contexts/BranchContext';
-
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +14,10 @@ interface Props {
 }
 
 const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
+  const { profile } = useAuth();
+  const { branches, selectedBranchId } = useBranch();
+  const { mutate: createEmployee, isPending } = useCreateEmployee();
+
   const [step, setStep] = useState<1 | 2>(1);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -40,8 +44,14 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
   const [credentials, setCredentials] = useState({ username: '', password: '', employeeCode: '' });
   const [showPassword, setShowPassword] = useState(false);
 
-  const { branches } = useBranch();
-  const { mutate: createEmployee, isPending } = useCreateEmployee();
+  useEffect(() => {
+    if (isOpen && !formData.branchId) {
+      const defaultBranch = profile?.branch_id || selectedBranchId || branches[0]?.id || '';
+      if (defaultBranch) {
+        setFormData(prev => ({ ...prev, branchId: defaultBranch }));
+      }
+    }
+  }, [isOpen, profile?.branch_id, selectedBranchId, branches]);
 
   const handleSubmit = () => {
     if (!formData.fullName || !formData.email || !formData.phone || !formData.branchId) {
