@@ -53,6 +53,7 @@ import UnifiedWorkspace from './pages/employee/UnifiedWorkspace';
 import EmployeeMessages from './pages/employee/Messages';
 import EmployeeReports from './pages/employee/Reports';
 import EmployeeLeads from './pages/employee/Leads';
+import MarketingHub from './pages/employee/MarketingHub';
 import PackageGroupDetail from './pages/employee/PackageGroupDetail';
 import ClientProfile from './pages/client/Profile';
 import ClientMessages from './pages/client/Messages';
@@ -497,6 +498,7 @@ function App() {
               <Route path="invoices/:id" element={<InvoiceBuilder />} />
               <Route path="quotations/:id" element={<QuotationBuilder />} />
               <Route path="leads" element={<EmployeeLeads />} />
+              <Route path="marketing" element={<MarketingHub />} />
               <Route path="packages/groups/:id" element={<PackageGroupDetail />} />
               <Route path="my-tasks" element={<MyTasks />} />
               <Route path="pro-queue" element={<ProQueue />} />

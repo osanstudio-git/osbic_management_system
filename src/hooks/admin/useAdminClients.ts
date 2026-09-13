@@ -11,6 +11,7 @@ export interface Client {
   full_name: string;
   email: string;
   phone: string | null;
+  company_name?: string | null;
   nationality?: string;
   id_number?: string;
   id_expiry?: string;
@@ -47,6 +48,7 @@ export const useAdminClients = (branchIdFilter?: string | null) => {
         id: p.id,
         client_code: p.client_code,
         full_name: p.full_name ?? 'Unknown',
+        company_name: p.company_name,
         email: p.email ?? '',
         phone: p.phone,
         is_active: p.is_active ?? true,
@@ -99,6 +101,7 @@ export const useEmployeeClients = (employeeId?: string) => {
         id: p.id,
         client_code: p.client_code,
         full_name: p.full_name ?? 'Unknown',
+        company_name: p.company_name,
         email: p.email ?? '',
         phone: p.phone,
         nationality: p.nationality,
@@ -176,6 +179,7 @@ export const useAdminClient = (id?: string) => {
         id: profile.id,
         client_code: profile.client_code,
         full_name: profile.full_name ?? 'Unknown',
+        company_name: profile.company_name,
         email: profile.email ?? '',
         phone: profile.phone,
         is_active: profile.is_active ?? true,
@@ -204,6 +208,7 @@ export const useCreateClient = () => {
       phone?: string;
       whatsapp?: string;
       nationality?: string;
+      company_name?: string;
       password: string;
       created_by?: string;
       branch_id?: string;
@@ -245,6 +250,7 @@ export const useCreateClient = () => {
         .upsert({
           id: userId,
           full_name: newClient.full_name,
+          company_name: newClient.company_name ?? null,
           email: newClient.email,
           phone: newClient.phone ?? null,
           whatsapp: newClient.whatsapp ?? null,

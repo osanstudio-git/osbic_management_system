@@ -23,7 +23,8 @@ import {
    MapPin,
    ChevronDown,
    Building2,
-   ShieldCheck
+   ShieldCheck,
+   Megaphone
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -98,6 +99,7 @@ const EmployeeLayout: React.FC = () => {
     { key: 'notifications', icon: Bell, path: '/employee/notifications' },
     { key: 'profile', icon: User, path: '/employee/profile' },
     ...(profile?.can_do_sales ? [{ key: 'leads', icon: Users, path: '/employee/leads' }] : []),
+    ...(profile?.can_do_marketing || profile?.is_manager || profile?.role === 'admin' ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', icon: FileText, path: '/employee/accounts' }] : []),
   ].filter(item => {
     // PRO agents: only home, pro queue, and profile
@@ -105,8 +107,12 @@ const EmployeeLayout: React.FC = () => {
       return ['home', 'pro_queue', 'profile'].includes(item.key);
     }
     // Accounts-only staff: only Dashboard, Accounts, Invoices, Messages, Profile
-    if (profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.is_pro) {
+    if (profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.is_pro) {
       return ['home', 'accounts', 'invoices', 'messages', 'profile'].includes(item.key);
+    }
+    // Marketing-only staff: only Dashboard, Marketing & Ads, Reports, Messages, Profile
+    if (profile?.can_do_marketing && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_accounts && !profile?.is_pro) {
+      return ['home', 'marketing', 'reports', 'messages', 'profile'].includes(item.key);
     }
     if (item.key === 'pro_queue') return false;
     return true;

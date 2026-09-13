@@ -9,6 +9,8 @@ export interface InvoiceItem {
   quantity: number;
   unit_price: number;
   total: number;
+  ministry_fee?: number;
+  service_fee?: number;
 }
 
 export interface Invoice {
@@ -19,7 +21,7 @@ export interface Invoice {
   job_id?: string | null;
   employee_id?: string;
   type: 'quotation' | 'invoice';
-  status: 'draft' | 'unpaid' | 'paid' | 'cancelled';
+  status: 'draft' | 'unpaid' | 'paid' | 'cancelled' | 'accepted' | 'sent' | 'viewed' | 'rejected' | 'expired';
   subtotal: number;
   tax_percentage: number;
   tax_amount: number;
@@ -35,6 +37,7 @@ export interface Invoice {
   client?: any;
   lead?: any;
   job?: any;
+  employee?: any;
 }
 
 export const useInvoices = (clientId?: string) => {
@@ -158,7 +161,7 @@ export const useSaveInvoice = () => {
 
   return useMutation({
     mutationFn: async (invoice: Invoice) => {
-      const { items, client, lead, job, ...invoiceData } = invoice;
+      const { items, client, lead, job, employee, ...invoiceData } = invoice;
 
       invoiceData.employee_id = profile?.id;
 

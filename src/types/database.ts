@@ -88,6 +88,7 @@ export interface Database {
         can_do_sales: boolean | null
         can_do_ops: boolean | null
         can_do_accounts: boolean | null
+        can_do_marketing: boolean | null
         is_pro: boolean | null
         monthly_target: number | null
       }, never, 'role'>
@@ -329,6 +330,17 @@ export interface Database {
         converted_job_id: string | null
         notes: string | null
         interested_services: Json | null
+        utm_source: string | null
+        utm_medium: string | null
+        utm_campaign: string | null
+        utm_term: string | null
+        utm_content: string | null
+        gclid: string | null
+        fbclid: string | null
+        leadgen_id: string | null
+        landing_page_url: string | null
+        form_id: string | null
+        ip_country: string | null
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at', 'status'>

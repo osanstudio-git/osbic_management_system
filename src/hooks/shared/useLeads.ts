@@ -11,6 +11,7 @@ export interface Lead {
   contact_whatsapp?: string;
   contact_email?: string;
   company_name?: string;
+  nationality?: string;
   source_id?: string;
   assigned_to?: string;
   assigned_by?: string;
@@ -23,10 +24,26 @@ export interface Lead {
   notes?: string;
   interested_services?: any[] | null;
   branch_id?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
+  leadgen_id?: string | null;
+  landing_page_url?: string | null;
+  form_id?: string | null;
+  ip_country?: string | null;
   created_at: string;
   updated_at: string;
   lead_sources?: {
     name: string;
+  } | null;
+  assigned_to_profile?: {
+    full_name: string;
+    avatar_url?: string;
+    branch_id?: string;
   } | null;
 }
 
@@ -264,5 +281,29 @@ export const useAdminLeads = (branchIdFilter?: string | null) => {
     useAllLeadsList,
     useReassignLead
   };
+};
+
+export const useMarketingLeads = () => {
+  return useQuery({
+    queryKey: ['marketing', 'leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          lead_sources:source_id(id, name),
+          assigned_to_profile:profiles!assigned_to(id, full_name, avatar_url, branch_id),
+          assigned_by_profile:profiles!assigned_by(id, full_name),
+          interactions:lead_interactions(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as (Lead & {
+        lead_sources?: { id: string; name: string } | null;
+        interactions?: LeadInteraction[];
+      })[];
+    }
+  });
 };
 

@@ -21,6 +21,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     notes: '',
     is_manager: false,
     can_do_sales: false,
+    can_do_marketing: false,
     can_do_ops: false,
     can_do_accounts: false,
     is_pro: false,
@@ -42,6 +43,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         notes: employee.notes || '',
         is_manager: employee.is_manager || false,
         can_do_sales: employee.can_do_sales || false,
+        can_do_marketing: (employee as any).can_do_marketing || false,
         can_do_ops: employee.can_do_ops || false,
         can_do_accounts: employee.can_do_accounts || false,
         is_pro: employee.is_pro || false,
@@ -102,6 +104,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         department: formData.department,
         is_manager: formData.is_manager,
         can_do_sales: formData.can_do_sales,
+        can_do_marketing: formData.can_do_marketing,
         can_do_ops: formData.can_do_ops,
         can_do_accounts: formData.can_do_accounts,
         is_pro: formData.is_pro,
@@ -256,6 +259,21 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_do_sales ? 'bg-primary' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_sales ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Can do Marketing Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Can do Marketing</p>
+                        <p className="text-[10px] text-muted-foreground/60">Enables Marketing & Acquisition Hub, campaign ROI, and ad attribution</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, can_do_marketing: !formData.can_do_marketing })}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_do_marketing ? 'bg-primary' : 'bg-white/10'}`}
+                      >
+                        <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_marketing ? 'translate-x-5' : ''}`} />
                       </button>
                     </div>
 

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 export interface ClientProfile {
   id: string;
   full_name: string;
+  company_name?: string | null;
   email?: string;
   phone?: string;
   avatar_url?: string;
