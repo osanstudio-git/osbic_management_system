@@ -15,12 +15,12 @@ ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_department_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_department_check 
   CHECK (department IN ('sales', 'operations', 'pro', 'accounts', 'marketing'));
 
--- 3. Retroactive repair: fix any auth.users missing email confirmation or identities
+-- 3. FIX ALL USERS: Confirm emails and insert missing auth.identities (Resolves 500 error on login)
 UPDATE auth.users 
 SET email_confirmed_at = COALESCE(email_confirmed_at, now())
 WHERE email_confirmed_at IS NULL;
 
--- Insert missing auth.identities records for all auth.users (Prevents GoTrue 500 error on login)
+-- Insert missing auth.identities records for all auth.users (id is uuid)
 INSERT INTO auth.identities (
   id,
   user_id,
@@ -32,7 +32,7 @@ INSERT INTO auth.identities (
   updated_at
 )
 SELECT 
-  u.id::text,
+  gen_random_uuid(),
   u.id,
   jsonb_build_object('sub', u.id::text, 'email', u.email),
   'email',
@@ -46,7 +46,7 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT (provider, provider_id) DO NOTHING;
 
--- 4. Admin Force Password Reset RPC (Updates auth.users and guarantees auth.identities sync)
+-- 4. Update Password Reset RPC to always keep auth.identities synced
 CREATE OR REPLACE FUNCTION public.admin_update_user_password(target_user_id uuid, new_password text)
 RETURNS void
 LANGUAGE plpgsql
@@ -92,7 +92,7 @@ BEGIN
       created_at,
       updated_at
     ) VALUES (
-      target_user_id::text,
+      gen_random_uuid(),
       target_user_id,
       jsonb_build_object('sub', target_user_id::text, 'email', target_email),
       'email',
@@ -184,7 +184,7 @@ BEGIN
       created_at,
       updated_at
     ) VALUES (
-      new_user_id::text,
+      gen_random_uuid(),
       new_user_id,
       jsonb_build_object('sub', new_user_id::text, 'email', clean_email),
       'email',
