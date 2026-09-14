@@ -363,15 +363,80 @@ export const useUpdateEmployee = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Employee> }) => {
-      const { data, error } = await db
-        .from('profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+      // 1. Fetch current profile to check if email changed
+      let previousEmail: string | null = null;
+      let employeeName: string = updates.full_name || '';
+      try {
+        const { data: cur } = await supabase.from('profiles').select('email, full_name').eq('id', id).single();
+        if (cur) {
+          previousEmail = cur.email;
+          if (!employeeName) employeeName = cur.full_name;
+        }
+      } catch (e) {
+        // ignore
+      }
 
-      if (error) throw error;
-      return data;
+      // 2. Try Atomic RPC update (syncs auth.users, auth.identities, and public.profiles)
+      let updatedData = null;
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_employee', {
+          target_user_id: id,
+          p_full_name: updates.full_name ?? null,
+          p_email: updates.email ?? null,
+          p_phone: updates.phone ?? null,
+          p_department: updates.department ?? null,
+          p_branch_id: updates.branch_id ?? null,
+          p_company_name: updates.company_name ?? null,
+          p_is_manager: updates.is_manager ?? null,
+          p_can_do_sales: updates.can_do_sales ?? null,
+          p_can_do_ops: updates.can_do_ops ?? null,
+          p_can_do_accounts: updates.can_do_accounts ?? null,
+          p_can_do_marketing: updates.can_do_marketing ?? null,
+          p_is_pro: updates.is_pro ?? null,
+          p_avatar_url: updates.avatar_url ?? null,
+          p_is_active: updates.is_active ?? null
+        });
+
+        if (!rpcError && rpcData) {
+          updatedData = rpcData;
+        } else if (rpcError) {
+          console.warn('admin_update_employee RPC failed, falling back to direct update:', rpcError.message);
+        }
+      } catch (rpcErr) {
+        console.warn('RPC exception, falling back:', rpcErr);
+      }
+
+      // 3. Fallback to direct profiles update if RPC not executed
+      if (!updatedData) {
+        const { data, error } = await db
+          .from('profiles')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        updatedData = data;
+      }
+
+      // 4. If email changed, send notification to the new email address
+      const isEmailChanged = updates.email && previousEmail && updates.email.toLowerCase().trim() !== previousEmail.toLowerCase().trim();
+      if (isEmailChanged) {
+        try {
+          await supabase.functions.invoke('send-credentials', {
+            body: {
+              email: updates.email,
+              name: employeeName,
+              role: 'employee',
+              isUpdate: true
+            }
+          });
+        } catch (mailErr) {
+          console.error('Failed to send email update notification:', mailErr);
+        }
+      }
+
+      return updatedData;
     },
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'employees'] });
