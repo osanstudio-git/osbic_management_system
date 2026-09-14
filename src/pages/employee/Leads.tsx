@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLeads } from '../../hooks/shared/useLeads';
+import { useLeads, useDailySalesSheetData } from '../../hooks/shared/useLeads';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Phone, Calendar, Info, Search, 
   ChevronRight, AlertCircle, RefreshCw, Zap,
-  Compass, LayoutGrid, List, SlidersHorizontal, Download
+  Compass, LayoutGrid, List, SlidersHorizontal, Download,
+  FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay } from 'date-fns';
@@ -14,6 +15,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import AddLeadSlideOver from '../../components/employee/AddLeadSlideOver';
 import LeadDetailSlideOver from '../../components/employee/LeadDetailSlideOver';
+import { DailySalesSheetModal } from '../../components/employee/DailySalesSheetModal';
+import { QuickInteractionModal } from '../../components/employee/QuickInteractionModal';
 import { type Lead } from '../../hooks/shared/useLeads';
 
 function cn(...inputs: ClassValue[]) {
@@ -40,10 +43,16 @@ export default function EmployeeLeads() {
   const { useLeadsList, useLeadSourcesList } = useLeads(profile?.id);
   const { data: leads, isLoading, refetch } = useLeadsList();
   const { data: sources } = useLeadSourcesList();
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const { data: todayStats } = useDailySalesSheetData(profile?.id, todayStr);
+
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'new' | 'on_progress' | 'converted'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
+  const [quickLogLead, setQuickLogLead] = useState<Lead | null>(null);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
@@ -222,7 +231,7 @@ export default function EmployeeLeads() {
           <p className="text-muted-foreground text-sm font-medium">Track your potential clients, active communications, and follow-ups.</p>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10 shrink-0">
+        <div className="flex items-center gap-3 relative z-10 shrink-0 flex-wrap">
           <button 
             onClick={() => refetch()}
             className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border"
@@ -230,6 +239,16 @@ export default function EmployeeLeads() {
           >
             <RefreshCw size={18} />
           </button>
+          
+          <button
+            onClick={() => setIsDailySheetOpen(true)}
+            className="p-3 rounded-2xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 transition-all flex items-center gap-2 text-xs font-bold shadow-sm active:scale-95"
+            title="Open Daily Sales Sheet (DSR)"
+          >
+            <FileSpreadsheet size={16} />
+            <span>Daily Sales Sheet</span>
+          </button>
+
           <button
             onClick={exportLeadsToCSV}
             className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border flex items-center gap-2 text-xs font-bold"
@@ -245,6 +264,65 @@ export default function EmployeeLeads() {
             <Plus size={18} />
             <span>Add Lead</span>
           </button>
+        </div>
+      </div>
+
+      {/* Today's Sales Activity & KPI Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Touchpoints Today</span>
+            <div className="w-7 h-7 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <PhoneCall size={14} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black font-mono text-foreground">{todayStats?.metrics.interactionsCount ?? 0}</span>
+            <span className="text-[10px] text-muted-foreground">calls & logs</span>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Inquiries In Today</span>
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <Sparkles size={14} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black font-mono text-foreground">{todayStats?.metrics.newLeadsCount ?? 0}</span>
+            <span className="text-[10px] text-muted-foreground">new leads</span>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Quotations Sent</span>
+            <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+              <FileText size={14} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black font-mono text-purple-400">{todayStats?.metrics.quotesCount ?? 0}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              OMR {(todayStats?.metrics.quotesTotalAmount ?? 0).toFixed(3)}
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Deals Won Today</span>
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <Award size={14} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black font-mono text-emerald-400">{todayStats?.metrics.convertedDealsCount ?? 0}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              OMR {(todayStats?.metrics.convertedDealsAmount ?? 0).toFixed(3)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -371,7 +449,7 @@ export default function EmployeeLeads() {
 
               {/* Filter 3: Status */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block ml-1">Lead Status</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block ml-1">Status</label>
                 <select 
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
@@ -453,7 +531,7 @@ export default function EmployeeLeads() {
                     </div>
 
                     {/* Phone & Source */}
-                    <div className="flex items-center justify-between flex-wrap gap-4 pt-1 border-t border-border/40">
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-border/40">
                       {lead.contact_phone ? (
                         <a 
                           href={`tel:${lead.contact_phone}`}
@@ -472,6 +550,20 @@ export default function EmployeeLeads() {
                           {lead.lead_sources.name}
                         </span>
                       )}
+
+                      {/* Quick Log Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQuickLogLead(lead);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95 ml-auto"
+                        title="Quickly log a call or touchpoint"
+                      >
+                        <MessageSquarePlus size={12} />
+                        <span>Log</span>
+                      </button>
                     </div>
                   </div>
 
@@ -506,6 +598,7 @@ export default function EmployeeLeads() {
                     <th className="px-6 py-4">Source</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Next Action</th>
+                    <th className="px-6 py-4 text-right">Quick Log</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
@@ -544,6 +637,19 @@ export default function EmployeeLeads() {
                             </span>
                           ) : '-'}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuickLogLead(lead);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all inline-flex items-center gap-1 shadow-sm active:scale-95"
+                          >
+                            <MessageSquarePlus size={12} />
+                            <span>Log</span>
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -574,6 +680,20 @@ export default function EmployeeLeads() {
         onClose={() => setSelectedLead(null)}
         lead={leads?.find(l => l.id === selectedLead?.id) || selectedLead}
       />
+
+      {/* Daily Sales Sheet (DSR) Modal */}
+      <DailySalesSheetModal
+        isOpen={isDailySheetOpen}
+        onClose={() => setIsDailySheetOpen(false)}
+      />
+
+      {/* Quick Interaction / Touchpoint Logger */}
+      <QuickInteractionModal
+        isOpen={quickLogLead !== null}
+        onClose={() => setQuickLogLead(null)}
+        lead={quickLogLead}
+      />
     </div>
   );
 }
+

@@ -17,8 +17,10 @@ import {
   DollarSign,
   Compass,
   TrendingUp,
-  User
+  User,
+  FileSpreadsheet
 } from 'lucide-react';
+import { DailySalesSheetModal } from '../../components/employee/DailySalesSheetModal';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -38,6 +40,7 @@ export default function EmployeeReports() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
 
   // 1. Fetch Payments Data
   const { data: payments, isLoading: isLoadingPayments } = useQuery({
@@ -484,7 +487,17 @@ export default function EmployeeReports() {
             </button>
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {reportType === 'sales' && (
+              <button
+                onClick={() => setIsDailySheetOpen(true)}
+                className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/30 px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/20 transition-all shadow-sm active:scale-95 shrink-0"
+              >
+                <FileSpreadsheet size={16} />
+                <span>{isRtl ? 'ورقة المبيعات اليومية' : 'Daily Sales Sheet (DSR)'}</span>
+              </button>
+            )}
+
             <button
               onClick={exportToCSV}
               className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 shrink-0"
@@ -1156,6 +1169,11 @@ export default function EmployeeReports() {
           </div>
         </>
       )}
+      {/* Daily Sales Sheet Modal */}
+      <DailySalesSheetModal
+        isOpen={isDailySheetOpen}
+        onClose={() => setIsDailySheetOpen(false)}
+      />
     </div>
   );
 }
