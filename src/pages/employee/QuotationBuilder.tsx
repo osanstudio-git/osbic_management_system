@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders, UserCheck, User } from 'lucide-react';
+import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders, UserCheck, User, Building2, Building, Check } from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
@@ -147,6 +147,11 @@ const QuotationBuilder = () => {
     terms: 'Payment is due within 10 days.',
     items: [],
     metadata: {
+      recipient_name: '',
+      company_name: '',
+      recipient_phone: '',
+      recipient_display_mode: 'contact',
+      custom_recipient: '',
       prepared_by: profile?.full_name || '',
       prepared_by_employee_id: profile?.id || '',
       documents: DEFAULT_QUOTATION_DOCUMENTS,
@@ -160,10 +165,19 @@ const QuotationBuilder = () => {
 
   useEffect(() => {
     if (initialData && !isNew) {
+      const initCompanyName = initialData.metadata?.company_name || initialData.client?.company_name || initialData.lead?.company_name || '';
+      const initContactName = initialData.metadata?.recipient_name || initialData.client?.full_name || initialData.lead?.contact_name || '';
+      const initPhone = initialData.metadata?.recipient_phone || initialData.client?.phone || initialData.lead?.contact_phone || '';
+      const initDisplayMode = initialData.metadata?.recipient_display_mode || (initCompanyName ? 'both' : 'contact');
+
       setFormData(prev => ({
         ...initialData,
         metadata: {
           ...initialData.metadata,
+          recipient_name: initContactName || prev.metadata?.recipient_name || '',
+          company_name: initCompanyName || prev.metadata?.company_name || '',
+          recipient_phone: initPhone || prev.metadata?.recipient_phone || '',
+          recipient_display_mode: initDisplayMode,
           prepared_by: initialData.metadata?.prepared_by || initialData.employee?.full_name || prev.metadata?.prepared_by || profile?.full_name || '',
           prepared_by_employee_id: initialData.metadata?.prepared_by_employee_id || initialData.employee_id || prev.metadata?.prepared_by_employee_id || profile?.id || ''
         }
@@ -284,6 +298,10 @@ const QuotationBuilder = () => {
             notes: prev.notes === 'BUSINESS SETUP' || !prev.notes ? activityName : prev.notes,
             metadata: {
               ...prev.metadata,
+              recipient_name: prev.metadata?.recipient_name || leadObj.contact_name || '',
+              company_name: prev.metadata?.company_name || leadObj.company_name || '',
+              recipient_phone: prev.metadata?.recipient_phone || leadObj.contact_phone || '',
+              recipient_display_mode: prev.metadata?.recipient_display_mode || (leadObj.company_name ? 'both' : 'contact'),
               documents: prev.metadata?.documents || DEFAULT_QUOTATION_DOCUMENTS,
               timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE,
               showQuantity: prev.metadata?.showQuantity ?? false,
@@ -300,7 +318,14 @@ const QuotationBuilder = () => {
               lead_id: targetLeadId,
               lead: leadObj,
               client_id: null,
-              client: null
+              client: null,
+              metadata: {
+                ...prev.metadata,
+                recipient_name: prev.metadata?.recipient_name || leadObj.contact_name || '',
+                company_name: prev.metadata?.company_name || leadObj.company_name || '',
+                recipient_phone: prev.metadata?.recipient_phone || leadObj.contact_phone || '',
+                recipient_display_mode: prev.metadata?.recipient_display_mode || (leadObj.company_name ? 'both' : 'contact'),
+              }
             };
           });
         }
@@ -315,7 +340,19 @@ const QuotationBuilder = () => {
     if (formData.client_id) {
       const selectedClient = clients?.find(c => c.id === formData.client_id);
       if (selectedClient && formData.client?.id !== selectedClient.id) {
-        setFormData(prev => ({ ...prev, client: selectedClient, lead: null, lead_id: null }));
+        setFormData(prev => ({
+          ...prev,
+          client: selectedClient,
+          lead: null,
+          lead_id: null,
+          metadata: {
+            ...prev.metadata,
+            recipient_name: prev.metadata?.recipient_name || selectedClient.full_name || '',
+            company_name: prev.metadata?.company_name || selectedClient.company_name || '',
+            recipient_phone: prev.metadata?.recipient_phone || selectedClient.phone || '',
+            recipient_display_mode: prev.metadata?.recipient_display_mode || (selectedClient.company_name ? 'both' : 'contact')
+          }
+        }));
       }
     }
   }, [formData.client_id, clients]);
@@ -736,11 +773,50 @@ const QuotationBuilder = () => {
                     onChange={e => {
                       const val = e.target.value;
                       if (val.startsWith('client:')) {
-                        setFormData({ ...formData, client_id: val.replace('client:', ''), lead_id: null, job_id: '' });
+                        const clientId = val.replace('client:', '');
+                        const selectedClient = clients?.find(c => c.id === clientId);
+                        setFormData({
+                          ...formData,
+                          client_id: clientId,
+                          lead_id: null,
+                          job_id: '',
+                          client: selectedClient,
+                          lead: null,
+                          metadata: {
+                            ...formData.metadata,
+                            recipient_name: selectedClient?.full_name || '',
+                            company_name: selectedClient?.company_name || '',
+                            recipient_phone: selectedClient?.phone || '',
+                            recipient_display_mode: selectedClient?.company_name ? 'both' : 'contact'
+                          }
+                        });
                       } else if (val.startsWith('lead:')) {
-                        setFormData({ ...formData, lead_id: val.replace('lead:', ''), client_id: null, job_id: '' });
+                        const leadId = val.replace('lead:', '');
+                        const selectedLead = leads?.find(l => l.id === leadId);
+                        setFormData({
+                          ...formData,
+                          lead_id: leadId,
+                          client_id: null,
+                          job_id: '',
+                          lead: selectedLead,
+                          client: null,
+                          metadata: {
+                            ...formData.metadata,
+                            recipient_name: selectedLead?.contact_name || '',
+                            company_name: selectedLead?.company_name || '',
+                            recipient_phone: selectedLead?.contact_phone || '',
+                            recipient_display_mode: selectedLead?.company_name ? 'both' : 'contact'
+                          }
+                        });
                       } else {
-                        setFormData({ ...formData, client_id: null, lead_id: null, job_id: '' });
+                        setFormData({
+                          ...formData,
+                          client_id: null,
+                          lead_id: null,
+                          job_id: '',
+                          client: null,
+                          lead: null
+                        });
                       }
                     }}
                     className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
@@ -776,50 +852,189 @@ const QuotationBuilder = () => {
                 )}
               </div>
 
-              {/* Recipient Details Sync Preview */}
-              {(formData.client || formData.lead) && (
-                <div className="bg-muted/10 border border-border/60 rounded-xl p-4 space-y-3">
-                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Recipient Details</h3>
-                  {formData.client ? (
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>Name: <span className="text-foreground font-semibold">{formData.client.full_name}</span></p>
-                      <p>Phone: <span className="text-foreground">{formData.client.phone || 'N/A'}</span></p>
-                      <p>Email: <span className="text-foreground">{formData.client.email || 'N/A'}</span></p>
+              {/* Recipient & Company Header Settings */}
+              {(formData.client || formData.lead || formData.client_id || formData.lead_id) && (
+                <div className="bg-muted/15 border border-border/70 rounded-2xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 size={16} className="text-primary" />
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        Recipient & Company Header
+                      </h3>
                     </div>
-                  ) : formData.lead ? (
-                    <div className="space-y-3">
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p>Lead Name: <span className="text-foreground font-semibold">{formData.lead.contact_name}</span></p>
-                        <p>Company: <span className="text-foreground">{formData.lead.company_name || 'Individual'}</span></p>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      Controls quotation header & PDF
+                    </span>
+                  </div>
+
+                  {/* Display Mode Switcher */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                      Display on Quotation Header As
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, recipient_display_mode: 'both' }
+                        })}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${
+                          (formData.metadata?.recipient_display_mode || (formData.metadata?.company_name || formData.client?.company_name || formData.lead?.company_name ? 'both' : 'contact')) === 'both'
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="text-[11px] font-bold">🏢👤 Both</span>
+                        <span className="text-[9px] opacity-80 font-normal">Company + Attn</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, recipient_display_mode: 'company' }
+                        })}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${
+                          formData.metadata?.recipient_display_mode === 'company'
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="text-[11px] font-bold">🏢 Company</span>
+                        <span className="text-[9px] opacity-80 font-normal">Company Name</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, recipient_display_mode: 'contact' }
+                        })}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${
+                          formData.metadata?.recipient_display_mode === 'contact'
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="text-[11px] font-bold">👤 Client</span>
+                        <span className="text-[9px] opacity-80 font-normal">Contact Person</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, recipient_display_mode: 'custom' }
+                        })}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${
+                          formData.metadata?.recipient_display_mode === 'custom'
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="text-[11px] font-bold">✍️ Custom</span>
+                        <span className="text-[9px] opacity-80 font-normal">Custom Title</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Input Fields */}
+                  {formData.metadata?.recipient_display_mode === 'custom' ? (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                        Custom Recipient / Company Title *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. AL TASAMEEM INTERNATIONAL LLC (ATTN: MR. AHMAD)"
+                        value={formData.metadata?.custom_recipient || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, custom_recipient: e.target.value }
+                        })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                          Client / Contact Person
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contact Person Name"
+                          value={
+                            formData.metadata?.recipient_name !== undefined
+                              ? formData.metadata.recipient_name
+                              : (formData.client?.full_name || formData.lead?.contact_name || '')
+                          }
+                          onChange={e => setFormData({
+                            ...formData,
+                            metadata: { ...formData.metadata, recipient_name: e.target.value }
+                          })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                        />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Contact Phone</label>
-                          <input
-                            type="text"
-                            value={formData.lead.contact_phone || ''}
-                            onChange={e => setFormData({
-                              ...formData,
-                              lead: { ...formData.lead!, contact_phone: e.target.value }
-                            })}
-                            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Contact Email</label>
-                          <input
-                            type="text"
-                            value={formData.lead.contact_email || ''}
-                            onChange={e => setFormData({
-                              ...formData,
-                              lead: { ...formData.lead!, contact_email: e.target.value }
-                            })}
-                            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all"
-                          />
-                        </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                          Company Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Apex Global Solutions LLC"
+                          value={
+                            formData.metadata?.company_name !== undefined
+                              ? formData.metadata.company_name
+                              : (formData.client?.company_name || formData.lead?.company_name || '')
+                          }
+                          onChange={e => setFormData({
+                            ...formData,
+                            metadata: { ...formData.metadata, company_name: e.target.value }
+                          })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                        />
                       </div>
                     </div>
-                  ) : null}
+                  )}
+
+                  {/* Contact Phone & Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/40">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. +968 9123 4567"
+                        value={
+                          formData.metadata?.recipient_phone !== undefined
+                            ? formData.metadata.recipient_phone
+                            : (formData.client?.phone || formData.lead?.contact_phone || '')
+                        }
+                        onChange={e => setFormData({
+                          ...formData,
+                          metadata: { ...formData.metadata, recipient_phone: e.target.value }
+                        })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. client@example.com"
+                        value={formData.client?.email || formData.lead?.contact_email || ''}
+                        disabled
+                        className="w-full bg-card/60 border border-border/60 rounded-xl px-3 py-2 text-xs text-muted-foreground outline-none cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 

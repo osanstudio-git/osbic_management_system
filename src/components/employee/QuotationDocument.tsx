@@ -18,6 +18,56 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
   const showKycProof = invoice.metadata?.showKycProof ?? false;
   const showDocuments = invoice.metadata?.showDocuments !== false;
 
+  // Resolve recipient display details
+  const resolvedContactName = invoice.metadata?.recipient_name || invoice.client?.full_name || invoice.lead?.contact_name || '';
+  const resolvedCompanyName = invoice.metadata?.company_name || invoice.client?.company_name || invoice.lead?.company_name || '';
+  const resolvedPhone = invoice.metadata?.recipient_phone || invoice.client?.phone || invoice.lead?.contact_phone || 'CONTACT NUMBER';
+  const displayMode = invoice.metadata?.recipient_display_mode || (resolvedCompanyName ? 'both' : 'contact');
+  const customRecipient = invoice.metadata?.custom_recipient || '';
+
+  let recipientLabel = 'Client Name';
+  let recipientContent: React.ReactNode = null;
+
+  if (displayMode === 'company' && resolvedCompanyName) {
+    recipientLabel = 'Company Name';
+    recipientContent = (
+      <p className="font-bold text-xs uppercase text-gray-900 leading-tight">
+        {resolvedCompanyName}
+      </p>
+    );
+  } else if (displayMode === 'both' && resolvedCompanyName && resolvedContactName) {
+    recipientLabel = 'Client / Company Name';
+    recipientContent = (
+      <div className="leading-tight">
+        <p className="font-bold text-xs uppercase text-gray-900">{resolvedCompanyName}</p>
+        <p className="text-[10px] text-gray-600 font-semibold tracking-normal mt-0.5">
+          Attn: {resolvedContactName}
+        </p>
+      </div>
+    );
+  } else if (displayMode === 'both' && resolvedCompanyName && !resolvedContactName) {
+    recipientLabel = 'Company Name';
+    recipientContent = (
+      <p className="font-bold text-xs uppercase text-gray-900 leading-tight">
+        {resolvedCompanyName}
+      </p>
+    );
+  } else if (displayMode === 'custom' && customRecipient) {
+    recipientLabel = 'Client / Company Name';
+    recipientContent = (
+      <p className="font-bold text-xs uppercase text-gray-900 leading-tight">
+        {customRecipient}
+      </p>
+    );
+  } else {
+    recipientLabel = 'Client Name';
+    recipientContent = (
+      <p className="font-bold text-xs uppercase text-gray-900 leading-tight">
+        {resolvedContactName || resolvedCompanyName || 'CLIENT NAME'}
+      </p>
+    );
+  }
+
   return (
     <div ref={ref} className="bg-white text-black p-10 min-h-[1056px] w-[794px] max-w-full mx-auto shadow-2xl relative overflow-hidden font-sans text-[11px] leading-relaxed print:w-[210mm] print:min-h-[297mm] print:m-0 print:shadow-none print:p-10">
       
@@ -39,12 +89,12 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
       {/* Client Details Grid */}
       <div className="grid grid-cols-2 border border-[#0088cc]/30 mb-8">
         <div className="p-3 border-r border-b border-[#0088cc]/30" style={{ backgroundColor: lightBg }}>
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Client Name</p>
-          <p className="font-bold text-xs uppercase">{invoice.client?.full_name || invoice.lead?.contact_name || 'CLIENT NAME'}</p>
+          <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>{recipientLabel}</p>
+          {recipientContent}
         </div>
         <div className="p-3 border-b border-[#0088cc]/30" style={{ backgroundColor: lightBg }}>
           <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Contact</p>
-          <p className="font-bold text-xs uppercase">{invoice.client?.phone || invoice.lead?.contact_phone || 'CONTACT NUMBER'}</p>
+          <p className="font-bold text-xs uppercase">{resolvedPhone}</p>
         </div>
         <div className="p-3 border-r border-b border-[#0088cc]/30" style={{ backgroundColor: lightBg }}>
           <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: themeColor }}>Prepared By</p>
