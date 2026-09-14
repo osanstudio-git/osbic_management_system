@@ -22,15 +22,15 @@ const AdminLayout: React.FC = () => {
 
   useEffect(() => {
     const syncDatabaseServiceFees = async () => {
-      // Use version v4 flag to force a run immediately for layouts
-      if (localStorage.getItem('osan_fees_synced_v4') === 'true') return;
+      // Use version v5 flag to force a run immediately for layouts
+      if (localStorage.getItem('osan_fees_synced_v5') === 'true') return;
       
       console.log('Admin session initialized. Synchronizing default & actual services fees...');
       const servicesToUpdate = [
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e01', name: 'KYC', ministry_fee: 0, timeline: 1 },
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e02', name: 'CR Registration', ministry_fee: 81.3, timeline: 2 },
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e03', name: 'OCCI', ministry_fee: 0, timeline: 1 },
-        { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e04', name: 'Activity License', ministry_fee: 78.05, timeline: 1 },
+        { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e04', name: 'Activity License', ministry_fee: 78.5, timeline: 1 },
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e05', name: 'Feasibility Study', ministry_fee: 25, timeline: 1 },
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e06', name: 'Tax Card', ministry_fee: 10, timeline: 2 },
         { id: 'b28c89de-0e0e-473d-9d41-9a74288b8e07', name: 'Investment License', ministry_fee: 0.9, timeline: 4 },
@@ -56,7 +56,7 @@ const AdminLayout: React.FC = () => {
             
           if (error) console.error(`Failed to sync ${s.name}:`, error.message);
         }
-        localStorage.setItem('osan_fees_synced_v4', 'true');
+        localStorage.setItem('osan_fees_synced_v5', 'true');
         console.log('Services fees synchronization complete.');
       } catch (err) {
         console.error('Failed to sync service fees:', err);

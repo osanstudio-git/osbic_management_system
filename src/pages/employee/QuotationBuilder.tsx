@@ -390,9 +390,9 @@ const QuotationBuilder = () => {
       const rawSrvFee = item.service_fee !== undefined
         ? item.service_fee
         : (item.unit_price - curMinFee);
-      const curSrvFee = Math.max(0, parseFloat(rawSrvFee as any) || 0);
+      const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
 
-      const calculatedUnitPrice = curMinFee + curSrvFee;
+      const calculatedUnitPrice = Math.round((Number(curMinFee) + curSrvFee) * 1000) / 1000;
       const calculatedTotal = (item.quantity || 1) * calculatedUnitPrice;
 
       subtotal += calculatedTotal;
@@ -465,11 +465,11 @@ const QuotationBuilder = () => {
     const rawSrvFee = targetItem.service_fee !== undefined
       ? targetItem.service_fee
       : (targetItem.unit_price - curMinFee);
-    const curSrvFee = Math.max(0, parseFloat(rawSrvFee as any) || 0);
+    const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
 
-    targetItem.ministry_fee = curMinFee;
+    targetItem.ministry_fee = Math.round(Number(curMinFee || 0) * 1000) / 1000;
     targetItem.service_fee = curSrvFee;
-    targetItem.unit_price = curMinFee + curSrvFee;
+    targetItem.unit_price = Math.round((Number(targetItem.ministry_fee) + curSrvFee) * 1000) / 1000;
     targetItem.total = (targetItem.quantity || 1) * targetItem.unit_price;
 
     newItems[index] = targetItem;
@@ -1008,10 +1008,10 @@ const QuotationBuilder = () => {
                         s.name_ar === item.description
                     );
                     const dbMinFee = matchedService?.ministry_fee ?? 0;
-                    const curMinFee = item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee;
+                    const curMinFee = Math.round(Number(item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee) * 1000) / 1000;
                     const rawSrvFee = item.service_fee !== undefined ? item.service_fee : (item.unit_price - curMinFee);
-                    const curSrvFee = Math.max(0, rawSrvFee);
-                    const curUnitPrice = curMinFee + curSrvFee;
+                    const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
+                    const curUnitPrice = Math.round((curMinFee + curSrvFee) * 1000) / 1000;
                     const curQty = Math.max(1, parseInt(item.quantity) || 1);
                     const curTotal = curQty * curUnitPrice;
 

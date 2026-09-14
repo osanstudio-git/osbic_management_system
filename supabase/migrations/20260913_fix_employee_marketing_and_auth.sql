@@ -278,5 +278,5 @@ BEGIN
   ELSE
     DELETE FROM public.profiles WHERE lower(email) = lower(trim(target_email));
   END IF;
-END;
+  END;
 $$;
