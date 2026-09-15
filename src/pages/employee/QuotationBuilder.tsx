@@ -421,16 +421,24 @@ const QuotationBuilder = () => {
         s => s.name_en.toLowerCase() === item.description?.toLowerCase() ||
           s.name_ar === item.description
       );
+      const qty = Math.max(1, parseInt(item.quantity) || 1);
       const dbMinFee = matchedService?.ministry_fee ?? 0;
       const curMinFee = item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee;
 
-      const rawSrvFee = item.service_fee !== undefined
-        ? item.service_fee
-        : (item.unit_price - curMinFee);
-      const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
+      let rawSrvFee = 0;
+      if (item.service_fee !== undefined && item.service_fee !== null) {
+        rawSrvFee = Number(item.service_fee) || 0;
+      } else if (item.unit_price !== undefined && item.unit_price !== null) {
+        const rawUnit = Number(item.unit_price) || 0;
+        const singleUnitPrice = (item.total && Math.abs(Number(item.total) - rawUnit) < 0.001 && qty > 1)
+          ? rawUnit / qty
+          : rawUnit;
+        rawSrvFee = Math.max(0, singleUnitPrice - curMinFee);
+      }
+      const curSrvFee = Math.max(0, Math.round(rawSrvFee * 1000) / 1000);
 
       const calculatedUnitPrice = Math.round((Number(curMinFee) + curSrvFee) * 1000) / 1000;
-      const calculatedTotal = (item.quantity || 1) * calculatedUnitPrice;
+      const calculatedTotal = Math.round((qty * calculatedUnitPrice) * 1000) / 1000;
 
       subtotal += calculatedTotal;
 
@@ -496,18 +504,26 @@ const QuotationBuilder = () => {
       s => s.name_en.toLowerCase() === targetItem.description?.toLowerCase() ||
         s.name_ar === targetItem.description
     );
+    const qty = Math.max(1, parseInt(targetItem.quantity) || 1);
     const dbMinFee = matchedService?.ministry_fee ?? 0;
     const curMinFee = targetItem.ministry_fee !== undefined ? targetItem.ministry_fee : dbMinFee;
 
-    const rawSrvFee = targetItem.service_fee !== undefined
-      ? targetItem.service_fee
-      : (targetItem.unit_price - curMinFee);
-    const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
+    let rawSrvFee = 0;
+    if (targetItem.service_fee !== undefined && targetItem.service_fee !== null) {
+      rawSrvFee = Number(targetItem.service_fee) || 0;
+    } else if (targetItem.unit_price !== undefined && targetItem.unit_price !== null) {
+      const rawUnit = Number(targetItem.unit_price) || 0;
+      const singleUnitPrice = (targetItem.total && Math.abs(Number(targetItem.total) - rawUnit) < 0.001 && qty > 1)
+        ? rawUnit / qty
+        : rawUnit;
+      rawSrvFee = Math.max(0, singleUnitPrice - curMinFee);
+    }
+    const curSrvFee = Math.max(0, Math.round(rawSrvFee * 1000) / 1000);
 
     targetItem.ministry_fee = Math.round(Number(curMinFee || 0) * 1000) / 1000;
     targetItem.service_fee = curSrvFee;
     targetItem.unit_price = Math.round((Number(targetItem.ministry_fee) + curSrvFee) * 1000) / 1000;
-    targetItem.total = (targetItem.quantity || 1) * targetItem.unit_price;
+    targetItem.total = Math.round((qty * targetItem.unit_price) * 1000) / 1000;
 
     newItems[index] = targetItem;
 

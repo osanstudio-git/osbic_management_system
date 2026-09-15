@@ -116,14 +116,22 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
         <div className="space-y-1.5 px-2 text-[10px]">
           {invoice.items && invoice.items.length > 0 ? (
             invoice.items.map((item: any, idx) => {
-              const minFee = Math.max(0, parseFloat(item.ministry_fee) || 0);
-              const rawSrv = item.service_fee !== undefined
-                ? parseFloat(item.service_fee)
-                : (item.unit_price !== undefined ? item.unit_price - minFee : 0);
-              const srvFee = Math.max(0, rawSrv || 0);
-              const unitPrice = minFee + srvFee;
               const qty = Math.max(1, parseInt(item.quantity) || 1);
-              const lineTotal = item.total !== undefined ? parseFloat(item.total) : (qty * unitPrice);
+              const minFee = Math.max(0, parseFloat(item.ministry_fee) || 0);
+
+              let rawSrv = 0;
+              if (item.service_fee !== undefined && item.service_fee !== null) {
+                rawSrv = parseFloat(item.service_fee) || 0;
+              } else if (item.unit_price !== undefined && item.unit_price !== null) {
+                const rawUnit = parseFloat(item.unit_price) || 0;
+                const singleUnitPrice = (item.total && Math.abs(parseFloat(item.total) - rawUnit) < 0.001 && qty > 1)
+                  ? rawUnit / qty
+                  : rawUnit;
+                rawSrv = Math.max(0, singleUnitPrice - minFee);
+              }
+              const srvFee = Math.max(0, rawSrv || 0);
+              const unitPrice = Math.round((minFee + srvFee) * 1000) / 1000;
+              const lineTotal = Math.round((qty * unitPrice) * 1000) / 1000;
 
               return (
                 <div key={idx} className="flex justify-between items-start border-b border-gray-100 pb-1.5">
