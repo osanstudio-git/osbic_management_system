@@ -1,7 +1,7 @@
 -- 20260915_fix_employee_code_and_auth_identities.sql
 
 -- 1. FIX EMPLOYEE CODE GENERATOR TRIGGER
--- Ensures employee codes increment monotonically across all branches (EMP-GHL-027, etc.)
+-- Ensures employee codes increment monotonically across all legacy/new branch prefixes (EMP-GHAL-027, etc.)
 CREATE OR REPLACE FUNCTION public.generate_profile_code()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -11,17 +11,17 @@ BEGIN
     -- For Employees: EMP-[BRANCH]-[000] starting at 011
     IF NEW.role = 'employee' AND (NEW.employee_code IS NULL OR NEW.employee_code = '' OR NEW.employee_code = 'EMP-NEW') THEN
         -- Get branch code
-        SELECT COALESCE(code, 'GHL') INTO b_code FROM public.branches WHERE id = NEW.branch_id;
-        IF b_code IS NULL THEN b_code := 'GHL'; END IF;
+        SELECT COALESCE(code, 'GHAL') INTO b_code FROM public.branches WHERE id = NEW.branch_id;
+        IF b_code IS NULL THEN b_code := 'GHAL'; END IF;
         
         -- Lock to prevent race condition
         PERFORM pg_advisory_xact_lock(hashtext('profile_emp_' || b_code));
         
-        -- Get next sequence across ALL employees with matching branch prefix
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(employee_code, '^EMP-' || b_code || '-', ''), '')::INT), 10) + 1 INTO seq_number
+        -- Get next sequence across ALL employees regardless of GHAL / GHL variation
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(employee_code, '^EMP-[A-Za-z]+-', ''), '')::INT), 10) + 1 INTO seq_number
         FROM public.profiles
         WHERE role = 'employee' 
-          AND employee_code SIMILAR TO 'EMP-' || b_code || '-[0-9]+';
+          AND employee_code SIMILAR TO 'EMP-[A-Za-z]+-[0-9]+';
         
         NEW.employee_code := 'EMP-' || b_code || '-' || lpad(seq_number::TEXT, 3, '0');
         
@@ -33,17 +33,17 @@ BEGIN
         END IF;
 
         -- Get branch code
-        SELECT COALESCE(code, 'GHL') INTO b_code FROM public.branches WHERE id = NEW.branch_id;
-        IF b_code IS NULL THEN b_code := 'GHL'; END IF;
+        SELECT COALESCE(code, 'GHAL') INTO b_code FROM public.branches WHERE id = NEW.branch_id;
+        IF b_code IS NULL THEN b_code := 'GHAL'; END IF;
         
         -- Lock to prevent race condition
         PERFORM pg_advisory_xact_lock(hashtext('profile_clt_' || b_code));
         
-        -- Get next sequence across all clients with matching branch prefix
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(client_code, '^CLT-' || b_code || '-', ''), '')::INT), 0) + 1 INTO seq_number
+        -- Get next sequence across all clients matching CLT prefix
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(client_code, '^CLT-[A-Za-z]+-', ''), '')::INT), 0) + 1 INTO seq_number
         FROM public.profiles
         WHERE role = 'client' 
-          AND client_code SIMILAR TO 'CLT-' || b_code || '-[0-9]+';
+          AND client_code SIMILAR TO 'CLT-[A-Za-z]+-[0-9]+';
         
         NEW.client_code := 'CLT-' || b_code || '-' || lpad(seq_number::TEXT, 4, '0');
     END IF;

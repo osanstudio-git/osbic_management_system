@@ -251,38 +251,10 @@ export const useCreateEmployee = () => {
         }
       }
 
-      // Step B: Try Atomic RPC creation (handles both auth.users and public.profiles securely)
-      let profileResult = null;
+      // Step B: Try signUp via guestClient so GoTrue creates native auth.identities
+      // (We ignore signUp result — the RPC below always handles confirmation & profile)
       try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_employee', {
-          p_full_name: newEmployee.full_name,
-          p_email: newEmployee.email,
-          p_password: newEmployee.password,
-          p_phone: newEmployee.phone || null,
-          p_department: newEmployee.department || 'operations',
-          p_branch_id: newEmployee.branch_id || null,
-          p_company_name: newEmployee.company_name || null,
-          p_is_manager: newEmployee.is_manager || false,
-          p_can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
-          p_can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
-          p_can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
-          p_can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
-          p_is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
-          p_avatar_url: avatarUrl
-        });
-
-        if (!rpcError && rpcData) {
-          profileResult = rpcData;
-        } else if (rpcError) {
-          console.warn('admin_create_employee RPC failed, falling back to signUp:', rpcError.message);
-        }
-      } catch (rpcErr) {
-        console.warn('RPC execution exception, falling back to signUp:', rpcErr);
-      }
-
-      // Step C: Fallback to guestClient.auth.signUp if RPC was not executed
-      if (!profileResult) {
-        const { data: authData, error: authError } = await guestClient.auth.signUp({
+        await guestClient.auth.signUp({
           email: newEmployee.email,
           password: newEmployee.password,
           options: {
@@ -292,49 +264,39 @@ export const useCreateEmployee = () => {
             }
           }
         });
-
-        if (authError) {
-          console.error('Supabase SignUp Error Details:', {
-            code: authError.status,
-            message: authError.message,
-            error: authError
-          });
-          throw new Error(authError.message || 'Supabase authentication failed');
-        }
-        if (!authData.user) throw new Error('User creation failed');
-
-        const userId = authData.user.id;
-
-        const { data: profile, error: profileError } = await db
-          .from('profiles')
-          .upsert({
-            id: userId,
-            full_name: newEmployee.full_name,
-            email: newEmployee.email,
-            phone: newEmployee.phone ?? null,
-            role: 'employee',
-            department: newEmployee.department ?? 'operations',
-            employee_code: null,
-            avatar_url: avatarUrl,
-            is_active: true,
-            is_manager: newEmployee.is_manager ?? false,
-            can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
-            can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
-            can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
-            can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
-            is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
-            branch_id: newEmployee.branch_id || null,
-            company_name: newEmployee.company_name || null,
-          }, { onConflict: 'id' })
-          .select()
-          .single();
-
-        if (profileError) {
-          throw new Error(profileError.message);
-        }
-        profileResult = profile;
+      } catch (err) {
+        // signUp may fail if the user already exists — the RPC handles that case
+        console.warn('signUp pre-step skipped:', err);
       }
-      
+
+      // Step C: ALWAYS call admin_create_employee RPC.
+      // This is critical — it sets email_confirmed_at = now() in auth.users and
+      // ensures auth.identities has email_verified: true, which GoTrue requires
+      // for /auth/v1/token (password login) to work. Without this step,
+      // signUp creates the user with email_confirmed_at = NULL → 500 on login.
+      let profileResult = null;
+      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_employee', {
+        p_full_name: newEmployee.full_name,
+        p_email: newEmployee.email,
+        p_password: newEmployee.password,
+        p_phone: newEmployee.phone || null,
+        p_department: newEmployee.department || 'operations',
+        p_branch_id: newEmployee.branch_id || null,
+        p_company_name: newEmployee.company_name || null,
+        p_is_manager: newEmployee.is_manager || false,
+        p_can_do_sales: newEmployee.can_do_sales ?? (newEmployee.department === 'sales'),
+        p_can_do_ops: newEmployee.can_do_ops ?? (newEmployee.department === 'operations'),
+        p_can_do_accounts: newEmployee.can_do_accounts ?? (newEmployee.department === 'accounts'),
+        p_can_do_marketing: newEmployee.can_do_marketing ?? (newEmployee.department === 'marketing'),
+        p_is_pro: newEmployee.is_pro ?? (newEmployee.department === 'pro'),
+        p_avatar_url: avatarUrl
+      });
+
+      if (rpcError) {
+        throw new Error(rpcError.message || 'Failed to create employee account.');
+      }
+      profileResult = rpcData;
+
       // Step D: Send credentials via Edge Function
       const { error: invokeError } = await supabase.functions.invoke('send-credentials', {
         body: {
