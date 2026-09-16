@@ -33,7 +33,15 @@ import {
   ChevronRight,
   ShieldCheck,
   Building2,
-  AlertCircle
+  AlertCircle,
+  LayoutGrid,
+  List,
+  Table as TableIcon,
+  Send,
+  Share2,
+  Smartphone,
+  Eye,
+  UserCheck
 } from 'lucide-react';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -51,6 +59,7 @@ export default function MarketingHub() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [streamViewMode, setStreamViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'live_feed' | 'sales_sla'>('overview');
@@ -64,18 +73,26 @@ export default function MarketingHub() {
   const { data: leads, isLoading: isLoadingLeads, refetch: refetchLeads } = useQuery({
     queryKey: ['marketing', 'inbound_leads'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leads')
-        .select(`
-          *,
-          lead_sources:source_id(id, name),
-          assigned_to_profile:profiles!assigned_to(id, full_name, avatar_url),
-          interactions:lead_interactions(*)
-        `)
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('leads')
+          .select('*, lead_sources:source_id(id, name)')
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return (data || []) as any[];
+        if (error) {
+          console.warn("MarketingHub primary query error, trying fallback:", error);
+          const { data: simpleData, error: simpleError } = await supabase
+            .from('leads')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (simpleError) throw simpleError;
+          return simpleData || [];
+        }
+        return (data || []) as any[];
+      } catch (err) {
+        console.error("Failed to load inbound leads:", err);
+        return [];
+      }
     },
     staleTime: 0, // Always consider stale so realtime triggers refetch correctly
   });
@@ -145,8 +162,8 @@ export default function MarketingHub() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Date Filtering Logic
-  const filteredLeads = useMemo(() => {
+  // Base Date Filtered List for Counts & Feeds
+  const baseTimeFilteredLeads = useMemo(() => {
     if (!leads) return [];
     let list = leads;
 
@@ -177,11 +194,59 @@ export default function MarketingHub() {
         list = list.filter(l => new Date(l.created_at) <= end);
       }
     }
+    return list;
+  }, [leads, timeFilter, customStartDate, customEndDate]);
+
+  // Dynamic Channel Counts for Tab Badges
+  const channelCounts = useMemo(() => {
+    const counts = {
+      all: baseTimeFilteredLeads.length,
+      website: 0,
+      google: 0,
+      meta: 0,
+      whatsapp: 0,
+      referral: 0,
+    };
+
+    for (const l of baseTimeFilteredLeads) {
+      const raw = (l.utm_source || l.lead_sources?.name || '').toLowerCase();
+      const hasGclid = Boolean(l.gclid);
+      const hasFbclid = Boolean(l.fbclid || l.leadgen_id);
+      const isGoogle = raw.includes('google') || hasGclid;
+      const isMeta = raw.includes('meta') || raw.includes('facebook') || raw.includes('instagram') || hasFbclid;
+      const isWhatsapp = raw.includes('whatsapp');
+      const isWebsite = (raw.includes('setup.osbic') || raw.includes('website') || raw.includes('landing') || Boolean(l.landing_page_url)) && !isGoogle && !isMeta;
+
+      if (isGoogle) counts.google++;
+      else if (isMeta) counts.meta++;
+      else if (isWhatsapp) counts.whatsapp++;
+      else if (isWebsite) counts.website++;
+      else counts.referral++;
+    }
+
+    return counts;
+  }, [baseTimeFilteredLeads]);
+
+  // Filtered Leads based on Channel & Search Term
+  const filteredLeads = useMemo(() => {
+    let list = baseTimeFilteredLeads;
 
     if (channelFilter !== 'all') {
       list = list.filter(l => {
-        const src = (l.lead_sources?.name || l.utm_source || '').toLowerCase();
-        return src.includes(channelFilter.toLowerCase());
+        const raw = (l.utm_source || l.lead_sources?.name || '').toLowerCase();
+        const hasGclid = Boolean(l.gclid);
+        const hasFbclid = Boolean(l.fbclid || l.leadgen_id);
+        const isGoogle = raw.includes('google') || hasGclid;
+        const isMeta = raw.includes('meta') || raw.includes('facebook') || raw.includes('instagram') || hasFbclid;
+        const isWhatsapp = raw.includes('whatsapp');
+        const isWebsite = (raw.includes('setup.osbic') || raw.includes('website') || raw.includes('landing') || Boolean(l.landing_page_url)) && !isGoogle && !isMeta;
+
+        if (channelFilter === 'google') return isGoogle;
+        if (channelFilter === 'meta') return isMeta;
+        if (channelFilter === 'whatsapp') return isWhatsapp;
+        if (channelFilter === 'website') return isWebsite;
+        if (channelFilter === 'referral') return !isGoogle && !isMeta && !isWhatsapp && !isWebsite;
+        return true;
       });
     }
 
@@ -193,12 +258,13 @@ export default function MarketingHub() {
         l.contact_phone?.includes(term) ||
         l.contact_email?.toLowerCase().includes(term) ||
         l.utm_campaign?.toLowerCase().includes(term) ||
-        l.utm_term?.toLowerCase().includes(term)
+        l.utm_term?.toLowerCase().includes(term) ||
+        l.lead_code?.toLowerCase().includes(term)
       );
     }
 
     return list;
-  }, [leads, timeFilter, customStartDate, customEndDate, channelFilter, searchTerm]);
+  }, [baseTimeFilteredLeads, channelFilter, searchTerm]);
 
   // Aggregate Funnel Metrics
   const stats = useMemo(() => {
@@ -692,8 +758,119 @@ export default function MarketingHub() {
 
       {/* TAB CONTENT 2: LIVE INBOUND STREAM */}
       {activeTab === 'live_feed' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
+        <div className="space-y-5">
+          {/* SOURCE PILL TABS */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {/* All */}
+            <button
+              onClick={() => setChannelFilter('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'all'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              <span>⚡ All Leads</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'all' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-foreground'
+              }`}>
+                {channelCounts.all}
+              </span>
+            </button>
+
+            {/* Landing Page (setup.osbic.net) */}
+            <button
+              onClick={() => setChannelFilter('website')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'website'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-blue-500/40'
+              }`}
+            >
+              <Globe size={13} className={channelFilter === 'website' ? 'text-white' : 'text-blue-400'} />
+              <span>setup.osbic.net</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'website' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+              }`}>
+                {channelCounts.website}
+              </span>
+            </button>
+
+            {/* Google Ads */}
+            <button
+              onClick={() => setChannelFilter('google')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'google'
+                  ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-amber-500/40'
+              }`}
+            >
+              <span className="font-bold text-[11px] text-amber-400">G</span>
+              <span>Google Ads</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'google' ? 'bg-white/20 text-white' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              }`}>
+                {channelCounts.google}
+              </span>
+            </button>
+
+            {/* Meta Ads */}
+            <button
+              onClick={() => setChannelFilter('meta')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'meta'
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-indigo-500/40'
+              }`}
+            >
+              <span className="font-bold text-[11px] text-indigo-400">M</span>
+              <span>Meta Ads (FB/IG)</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'meta' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+              }`}>
+                {channelCounts.meta}
+              </span>
+            </button>
+
+            {/* WhatsApp Direct */}
+            <button
+              onClick={() => setChannelFilter('whatsapp')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'whatsapp'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-emerald-500/40'
+              }`}
+            >
+              <MessageCircle size={13} className={channelFilter === 'whatsapp' ? 'text-white' : 'text-emerald-400'} />
+              <span>WhatsApp Direct</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'whatsapp' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+              }`}>
+                {channelCounts.whatsapp}
+              </span>
+            </button>
+
+            {/* Referral / Others */}
+            <button
+              onClick={() => setChannelFilter('referral')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                channelFilter === 'referral'
+                  ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-purple-500/40'
+              }`}
+            >
+              <UserCheck size={13} className={channelFilter === 'referral' ? 'text-white' : 'text-purple-400'} />
+              <span>Referral & Others</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                channelFilter === 'referral' ? 'bg-white/20 text-white' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+              }`}>
+                {channelCounts.referral}
+              </span>
+            </button>
+          </div>
+
+          {/* SEARCH & VIEW SWITCHER BAR */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
               <input
@@ -701,117 +878,296 @@ export default function MarketingHub() {
                 placeholder="Search leads by name, phone, email, campaign, keyword..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2.5 text-xs text-foreground focus:border-primary outline-none transition-all shadow-sm"
+                className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-xs text-foreground focus:border-primary outline-none transition-all shadow-sm"
               />
             </div>
             
-            <select
-              value={channelFilter}
-              onChange={e => setChannelFilter(e.target.value)}
-              className="bg-card border border-border rounded-xl px-3 py-2.5 text-xs text-foreground focus:border-primary outline-none transition-all shadow-sm"
-            >
-              <option value="all">All Sources</option>
-              <option value="google">Google Ads</option>
-              <option value="meta">Meta Ads</option>
-              <option value="website">Website (setup.osbic)</option>
-              <option value="whatsapp">WhatsApp</option>
-            </select>
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-card border border-border/70 rounded-xl p-1 shrink-0 self-end sm:self-auto">
+              <button
+                onClick={() => setStreamViewMode('grid')}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  streamViewMode === 'grid'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Card Grid View"
+              >
+                <LayoutGrid size={13} />
+                <span className="text-[11px]">Grid</span>
+              </button>
+
+              <button
+                onClick={() => setStreamViewMode('table')}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  streamViewMode === 'table'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Data Table View"
+              >
+                <TableIcon size={13} />
+                <span className="text-[11px]">Table</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredLeads.map((lead: any) => {
-              const cleanPhone = (lead.contact_phone || '').replace(/[^0-9]/g, '');
-              const waUrl = cleanPhone 
-                ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. How can we assist you today?`)}`
-                : null;
+          {/* EMPTY STATE */}
+          {filteredLeads.length === 0 ? (
+            <div className="bg-card border border-border/70 rounded-2xl p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground mx-auto">
+                <Filter size={22} />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">No Inbound Leads in this Channel</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                {channelFilter === 'website' && 'No website form submissions received in this date range.'}
+                {channelFilter === 'google' && 'No Google Ads inbound submissions detected yet. Form webhook is active and ready.'}
+                {channelFilter === 'meta' && 'No Meta (FB/IG) Lead Ads submitted yet. Graph API webhook is active and listening.'}
+                {channelFilter === 'whatsapp' && 'No direct WhatsApp tracking leads in this timeframe.'}
+                {channelFilter === 'referral' && 'No referral or walk-in records found.'}
+                {channelFilter === 'all' && 'No leads match your current search and date filters.'}
+              </p>
+            </div>
+          ) : streamViewMode === 'grid' ? (
+            /* 1. GRID VIEW */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredLeads.map((lead: any) => {
+                const cleanPhone = (lead.contact_phone || '').replace(/[^0-9]/g, '');
+                const waUrl = cleanPhone 
+                  ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. How can we assist you today?`)}`
+                  : null;
 
-              return (
-                <div 
-                  key={lead.id} 
-                  className="bg-card border border-border/70 rounded-2xl p-4 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase">{lead.lead_code || 'INBOUND'}</span>
-                        <h4 className="text-sm font-bold text-foreground">{lead.contact_name}</h4>
+                const rawSrc = (lead.utm_source || lead.lead_sources?.name || '').toLowerCase();
+                const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
+                const isGoogle = rawSrc.includes('google') || Boolean(lead.gclid);
+                const isMeta = rawSrc.includes('meta') || rawSrc.includes('facebook') || rawSrc.includes('instagram') || Boolean(lead.fbclid || lead.leadgen_id);
+
+                return (
+                  <div 
+                    key={lead.id} 
+                    className="bg-card border border-border/70 rounded-2xl p-4 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase">{lead.lead_code || 'INBOUND'}</span>
+                          <h4 className="text-sm font-bold text-foreground">{lead.contact_name}</h4>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                          lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                          lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {lead.status}
+                        </span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                        lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                        lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {lead.status}
-                      </span>
-                    </div>
 
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      {lead.company_name && (
-                        <p className="flex items-center gap-1.5 text-foreground font-semibold">
-                          <Building2 size={12} className="text-primary shrink-0" />
-                          <span className="truncate">{lead.company_name}</span>
-                        </p>
-                      )}
-                      {lead.contact_phone && (
-                        <p className="flex items-center gap-1.5 font-mono text-[11px]">
-                          <Phone size={11} className="shrink-0" />
-                          <span>{lead.contact_phone}</span>
-                        </p>
-                      )}
-                      {lead.contact_email && (
-                        <p className="flex items-center gap-1.5 text-[11px] truncate">
-                          <Mail size={11} className="shrink-0" />
-                          <span className="truncate">{lead.contact_email}</span>
-                        </p>
-                      )}
-                    </div>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        {lead.company_name && (
+                          <p className="flex items-center gap-1.5 text-foreground font-semibold">
+                            <Building2 size={12} className="text-primary shrink-0" />
+                            <span className="truncate">{lead.company_name}</span>
+                          </p>
+                        )}
+                        {lead.contact_phone && (
+                          <p className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <Phone size={11} className="shrink-0" />
+                            <span>{lead.contact_phone}</span>
+                          </p>
+                        )}
+                        {lead.contact_email && (
+                          <p className="flex items-center gap-1.5 text-[11px] truncate">
+                            <Mail size={11} className="shrink-0" />
+                            <span className="truncate">{lead.contact_email}</span>
+                          </p>
+                        )}
+                      </div>
 
-                    {/* Attribution Badges */}
-                    <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
-                        {lead.utm_source || lead.lead_sources?.name || 'Website'}
-                      </span>
-                      {lead.utm_campaign && (
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-muted text-muted-foreground truncate max-w-[150px]">
-                          🎯 {lead.utm_campaign}
+                      {/* Attribution Badges */}
+                      <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+                          isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                          isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                          isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          'bg-primary/10 text-primary border-primary/20'
+                        }`}>
+                          {lead.utm_source || lead.lead_sources?.name || 'Website'}
                         </span>
-                      )}
-                      {lead.gclid && (
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-blue-500/10 text-blue-500">
-                          GCLID
-                        </span>
-                      )}
+                        {lead.utm_campaign && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-muted text-muted-foreground truncate max-w-[150px]">
+                            🎯 {lead.utm_campaign}
+                          </span>
+                        )}
+                        {lead.gclid && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            GCLID
+                          </span>
+                        )}
+                        {lead.fbclid && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            FBCLID
+                          </span>
+                        )}
+                        {lead.referral_name && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            👤 Ref: {lead.referral_name}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Quick Action Footer */}
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40">
-                    {waUrl ? (
-                      <a
-                        href={waUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-all shadow-sm"
+                    {/* Quick Action Footer */}
+                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40">
+                      {waUrl ? (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all shadow-sm"
+                        >
+                          <MessageCircle size={13} /> WhatsApp
+                        </a>
+                      ) : (
+                        <button disabled className="opacity-50 py-1.5 px-3 rounded-xl bg-muted text-xs font-bold text-muted-foreground">
+                          No Phone
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}`)}
+                        className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
                       >
-                        <MessageCircle size={13} /> WhatsApp
-                      </a>
-                    ) : (
-                      <button disabled className="opacity-50 py-1.5 px-3 rounded-xl bg-muted text-xs font-bold">
-                        No Phone
+                        <FileText size={13} /> Quote
                       </button>
-                    )}
-
-                    <button
-                      onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}`)}
-                      className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
-                    >
-                      <FileText size={13} /> Quote
-                    </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* 2. TABLE VIEW */
+            <div className="bg-card border border-border/70 rounded-2xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/30 border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="py-3 px-4">Lead / Date</th>
+                      <th className="py-3 px-4">Contact Person</th>
+                      <th className="py-3 px-4">Contact Info</th>
+                      <th className="py-3 px-4">Source Channel</th>
+                      <th className="py-3 px-4">Campaign / Attribution</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-right">Quick Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 font-medium">
+                    {filteredLeads.map((lead: any) => {
+                      const cleanPhone = (lead.contact_phone || '').replace(/[^0-9]/g, '');
+                      const waUrl = cleanPhone 
+                        ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. How can we assist you today?`)}`
+                        : null;
+
+                      const rawSrc = (lead.utm_source || lead.lead_sources?.name || '').toLowerCase();
+                      const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
+                      const isGoogle = rawSrc.includes('google') || Boolean(lead.gclid);
+                      const isMeta = rawSrc.includes('meta') || rawSrc.includes('facebook') || rawSrc.includes('instagram') || Boolean(lead.fbclid || lead.leadgen_id);
+
+                      return (
+                        <tr key={lead.id} className="hover:bg-muted/20 transition-colors">
+                          {/* Lead / Date */}
+                          <td className="py-3 px-4">
+                            <div className="font-mono text-[11px] font-bold text-primary">{lead.lead_code || 'INBOUND'}</div>
+                            <div className="text-[10px] text-muted-foreground">{format(new Date(lead.created_at), 'MMM dd, HH:mm')}</div>
+                          </td>
+
+                          {/* Contact Person */}
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-foreground">{lead.contact_name}</div>
+                            {lead.company_name && (
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Building2 size={10} className="text-primary" />
+                                <span className="truncate max-w-[150px]">{lead.company_name}</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Contact Info */}
+                          <td className="py-3 px-4 font-mono text-[11px]">
+                            <div className="text-foreground">{lead.contact_phone || '—'}</div>
+                            <div className="text-[10px] text-muted-foreground font-sans truncate max-w-[150px]">{lead.contact_email || ''}</div>
+                          </td>
+
+                          {/* Source Channel */}
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                              isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                              isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                              'bg-primary/10 text-primary border-primary/20'
+                            }`}>
+                              {lead.utm_source || lead.lead_sources?.name || 'Website'}
+                            </span>
+                            {lead.referral_name && (
+                              <div className="text-[9px] text-purple-400 font-bold mt-1">Ref: {lead.referral_name}</div>
+                            )}
+                          </td>
+
+                          {/* Campaign / Attribution */}
+                          <td className="py-3 px-4">
+                            {lead.utm_campaign ? (
+                              <div className="text-foreground font-semibold text-[11px]">🎯 {lead.utm_campaign}</div>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px]">Direct Form</span>
+                            )}
+                            {(lead.gclid || lead.fbclid) && (
+                              <span className="inline-block mt-0.5 text-[9px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                {lead.gclid ? 'Google Click ID' : 'Meta Click ID'}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                              lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                              'bg-muted text-muted-foreground'
+                            }`}>
+                              {lead.status}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {waUrl && (
+                                <a
+                                  href={waUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors shadow-sm"
+                                  title="Chat on WhatsApp"
+                                >
+                                  <MessageCircle size={13} />
+                                </a>
+                              )}
+                              <button
+                                onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}`)}
+                                className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-1"
+                                title="Create Quotation"
+                              >
+                                <FileText size={11} /> Quote
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
