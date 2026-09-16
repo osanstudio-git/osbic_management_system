@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
+import { X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users } from 'lucide-react';
 import { useLeads, useCreateLead } from '../../hooks/shared/useLeads';
 import toast from 'react-hot-toast';
 
@@ -20,6 +20,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     whatsappSameAsPhone: false,
     source_id: '',
     custom_source_text: '',
+    referral_name: '',
     services: [] as string[],
     contact_email: '',
     company_name: '',
@@ -35,6 +36,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
 
   const selectedSourceName = sources?.find(s => s.id === formData.source_id)?.name;
   const isOtherSource = selectedSourceName === 'Other';
+  const isReferralSource = selectedSourceName?.toLowerCase().includes('referral') ?? false;
 
   // Reset form when opened/closed
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
         whatsappSameAsPhone: false,
         source_id: '',
         custom_source_text: '',
+        referral_name: '',
         services: [],
         contact_email: '',
         company_name: '',
@@ -74,6 +77,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       toast.error('Please specify the custom source name');
       return;
     }
+    if (isReferralSource && !formData.referral_name.trim()) {
+      toast.error('Please enter the name of the person who referred this lead');
+      return;
+    }
     setStep(2);
   };
 
@@ -85,6 +92,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     }
     if (isOtherSource && !formData.custom_source_text.trim()) {
       toast.error('Please specify the custom source name');
+      return;
+    }
+    if (isReferralSource && !formData.referral_name.trim()) {
+      toast.error('Please enter the name of the person who referred this lead');
       return;
     }
 
@@ -103,6 +114,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       nationality: formData.nationality || undefined,
       notes: finalNotes || undefined,
       next_follow_up_at: formData.next_follow_up_at || undefined,
+      referral_name: isReferralSource ? formData.referral_name.trim() : undefined,
     }, {
       onSuccess: () => {
         toast.success('Lead added successfully!');
@@ -247,6 +259,29 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                         className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
                         required
                       />
+                    </motion.div>
+                  )}
+
+                  {isReferralSource && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-1.5"
+                    >
+                      <label className="block text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                        <Users size={14} className="text-primary" />
+                        Referred By *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.referral_name}
+                        onChange={e => setFormData({ ...formData, referral_name: e.target.value })}
+                        placeholder="e.g. Mohammed Al-Harthy"
+                        className="w-full bg-white/5 border border-primary/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary transition-colors"
+                        autoFocus
+                      />
+                      <p className="text-[11px] text-muted-foreground">The person who referred this lead to you</p>
                     </motion.div>
                   )}
                 </div>

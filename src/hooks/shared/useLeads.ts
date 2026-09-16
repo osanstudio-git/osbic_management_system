@@ -35,6 +35,7 @@ export interface Lead {
   landing_page_url?: string | null;
   form_id?: string | null;
   ip_country?: string | null;
+  referral_name?: string | null;
   created_at: string;
   updated_at: string;
   lead_sources?: {
@@ -119,6 +120,7 @@ export const useCreateLead = () => {
       nationality?: string;
       notes?: string;
       next_follow_up_at?: string;
+      referral_name?: string;
     }) => {
       const { services, ...leadPayload } = leadData;
       const finalPayload = {
