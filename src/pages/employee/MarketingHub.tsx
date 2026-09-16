@@ -62,7 +62,9 @@ export default function MarketingHub() {
   const [streamViewMode, setStreamViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'live_feed' | 'sales_sla'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'live_feed' | 'sales_team' | 'sales_sla'>('overview');
+  const [assigningLeadId, setAssigningLeadId] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // Realtime state
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
@@ -96,6 +98,74 @@ export default function MarketingHub() {
     },
     staleTime: 0, // Always consider stale so realtime triggers refetch correctly
   });
+
+  // 1b. Fetch Sales Staff for 1-Click Lead Assignment & Leaderboard
+  const { data: salesStaff } = useQuery({
+    queryKey: ['marketing', 'sales_staff'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role, branch_id, can_do_sales, is_manager')
+        .or('can_do_sales.eq.true,role.eq.admin,is_manager.eq.true');
+      if (error) {
+        console.warn('Error fetching sales staff:', error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  // 1-Click Consultant Assignment Handler
+  const handleAssignLead = async (leadId: string, employeeId: string | null) => {
+    try {
+      setIsAssigning(true);
+      const selectedStaff = salesStaff?.find(s => s.id === employeeId);
+      const targetLead = leads?.find(l => l.id === leadId);
+
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          assigned_to: employeeId,
+          assigned_by: profile?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      // Notify the assigned sales consultant
+      if (employeeId && selectedStaff) {
+        const sourceName = targetLead?.utm_source || targetLead?.lead_sources?.name || 'Website';
+        try {
+          await supabase.from('notifications').insert([{
+            recipient_id: employeeId,
+            type: 'alert',
+            title: `⚡ Inbound Lead Assigned: ${targetLead?.contact_name || 'New Lead'}`,
+            body: `Assigned by ${profile?.full_name || 'Manager'}. Lead from ${sourceName} (${targetLead?.contact_phone || targetLead?.contact_email || ''}).`,
+            metadata: { lead_id: leadId, source: sourceName },
+            is_read: false
+          }]);
+        } catch (notifErr) {
+          console.warn('Notification log error:', notifErr);
+        }
+      }
+
+      toast.success(
+        employeeId 
+          ? `Lead assigned to ${selectedStaff?.full_name || 'consultant'}` 
+          : 'Lead unassigned'
+      );
+
+      // Invalidate queries to refresh view
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
+      setAssigningLeadId(null);
+    } catch (err: any) {
+      console.error('Failed to assign lead:', err);
+      toast.error(err.message || 'Failed to assign lead');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   // 2. Fetch Quotations — poll every 5 min (revenue data doesn't change per-second)
   const { data: quotations } = useQuery({
@@ -377,6 +447,45 @@ export default function MarketingHub() {
     return channels;
   }, [filteredLeads]);
 
+  // Sales Team Leaderboard Metrics
+  const salesLeaderboard = useMemo(() => {
+    if (!salesStaff || salesStaff.length === 0) return [];
+
+    const activeList = baseTimeFilteredLeads || [];
+
+    return salesStaff.map(staff => {
+      const staffLeads = activeList.filter(l => l.assigned_to === staff.id);
+      const totalAssigned = staffLeads.length;
+      const contacted = staffLeads.filter(l => l.status !== 'new').length;
+      const qualified = staffLeads.filter(l => ['interested', 'qualified', 'quoted', 'negotiating', 'converted'].includes(l.status)).length;
+      const converted = staffLeads.filter(l => l.status === 'converted').length;
+
+      // Quotes built for these leads
+      const staffQuotes = (quotations || []).filter(q => q.lead_id && staffLeads.some(l => l.id === q.lead_id));
+      const quotesCount = staffQuotes.length;
+
+      // Closed Jobs Revenue
+      const staffJobs = (jobs || []).filter(j => j.client_id && staffLeads.some(l => l.client_id === j.client_id) && j.status !== 'cancelled');
+      const closedJobsCount = staffJobs.length;
+      const attributedRevenue = staffJobs.reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+
+      const conversionRate = totalAssigned > 0 ? ((converted / totalAssigned) * 100).toFixed(1) : '0.0';
+      const contactRate = totalAssigned > 0 ? ((contacted / totalAssigned) * 100).toFixed(1) : '0.0';
+
+      return {
+        staff,
+        totalAssigned,
+        contacted,
+        qualified,
+        quotesCount,
+        closedJobsCount,
+        conversionRate: Number(conversionRate),
+        contactRate: Number(contactRate),
+        attributedRevenue,
+      };
+    }).sort((a, b) => b.attributedRevenue - a.attributedRevenue || b.totalAssigned - a.totalAssigned);
+  }, [salesStaff, baseTimeFilteredLeads, quotations, jobs]);
+
   // Export CSV
   const handleExportCSV = () => {
     if (filteredLeads.length === 0) return toast.error('No leads to export');
@@ -409,152 +518,143 @@ export default function MarketingHub() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-24" dir={isRtl ? 'rtl' : 'ltr'}>
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/60 backdrop-blur-md p-6 rounded-3xl border border-border/60 shadow-xl shadow-primary/5">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-primary to-primary/70 text-primary-foreground shadow-lg shadow-primary/25">
-              <Megaphone size={22} className="animate-pulse" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-syne font-bold text-foreground tracking-tight">Marketing & Acquisition Hub</h1>
-              <p className="text-xs font-medium text-muted-foreground">
-                Inbound Attribution, Google & Meta Ads Funnel, and Realtime Ingestion
-              </p>
-            </div>
+    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
+      {/* HEADER BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/60 backdrop-blur-md p-6 rounded-3xl border border-border/80 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+            <Megaphone size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold font-syne text-foreground tracking-tight flex items-center gap-2">
+              Marketing & Acquisition Hub
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Inbound Attribution, Google & Meta Ads Funnel, and Realtime Ingestion
+            </p>
           </div>
         </div>
 
-        {/* Global Controls */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Timeframe selector */}
-          <div className="flex items-center bg-muted/40 p-1 rounded-2xl border border-border/60 text-xs">
-            {(['today', '7days', '30days', 'year', 'all'] as const).map((mode) => (
+        {/* Time Filters & Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Date Pills */}
+          <div className="flex bg-muted/40 p-1 rounded-2xl border border-border text-xs font-semibold">
+            {(['today', '7days', '30days', 'year', 'all'] as const).map(tf => (
               <button
-                key={mode}
-                onClick={() => setTimeFilter(mode)}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all capitalize ${
-                  timeFilter === mode 
-                    ? 'bg-card text-primary shadow-sm' 
+                key={tf}
+                onClick={() => setTimeFilter(tf)}
+                className={`px-3 py-1.5 rounded-xl transition-all capitalize ${
+                  timeFilter === tf 
+                    ? 'bg-primary text-primary-foreground font-bold shadow-sm' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {mode === '7days' ? '7 Days' : mode === '30days' ? '30 Days' : mode === 'all' ? 'All' : mode}
+                {tf === 'today' ? 'Today' : tf === '7days' ? '7 Days' : tf === '30days' ? '30 Days' : tf === 'year' ? 'Year' : 'All'}
               </button>
             ))}
           </div>
 
           <button
-            onClick={() => { refetchLeads(); setNewLeadsSinceLoad(0); }}
-            className="p-2 rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all shadow-sm"
-            title="Refresh Data"
+            onClick={() => refetchLeads()}
+            className="p-2 rounded-2xl bg-card border border-border hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+            title="Refresh Inbound Leads"
           >
-            <RefreshCw size={15} className={isLoadingLeads ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={isLoadingLeads ? 'animate-spin text-primary' : ''} />
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all text-xs font-bold shadow-sm"
           >
-            <Download size={14} /> Export CSV
+            <Download size={13} /> Export CSV
           </button>
         </div>
       </div>
 
-      {/* TOP 6 KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Total Inbound Leads */}
-        <div className="bg-card/70 border border-border/60 p-4 rounded-2xl shadow-sm space-y-2">
+      {/* TOP FUNNEL METRICS CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Total Inbound */}
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Inbound Leads</span>
-            <Globe size={14} className="text-blue-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Inbound Leads</span>
+            <Globe size={14} className="text-blue-400" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-syne text-foreground">{stats.totalLeads}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 ${
-              isRealtimeConnected
-                ? 'text-emerald-500 bg-emerald-500/10'
-                : 'text-muted-foreground bg-muted'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                isRealtimeConnected ? 'bg-emerald-500 animate-ping' : 'bg-muted-foreground'
-              }`} />
-              {isRealtimeConnected ? 'Live' : 'Offline'}
-            </span>
+            {isRealtimeConnected && (
+              <span className="text-[9px] text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">Live</span>
+            )}
           </div>
           <p className="text-[10px] text-muted-foreground">Forms & Ad submissions</p>
         </div>
 
         {/* Contacted */}
-        <div className="bg-card/70 border border-border/60 p-4 rounded-2xl shadow-sm space-y-2">
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Contacted</span>
-            <Phone size={14} className="text-amber-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Contacted</span>
+            <Phone size={14} className="text-amber-400" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-syne text-foreground">{stats.contacted}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground">
-              {stats.totalLeads > 0 ? Math.round((stats.contacted / stats.totalLeads) * 100) : 0}%
+            <span className="text-[10px] text-muted-foreground font-mono font-bold">
+              {stats.totalLeads > 0 ? `${Math.round((stats.contacted / stats.totalLeads) * 100)}%` : '0%'}
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground">Sales Outreach logged</p>
         </div>
 
-        {/* Qualified Rate */}
-        <div className="bg-card/70 border border-border/60 p-4 rounded-2xl shadow-sm space-y-2">
+        {/* Qualified */}
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Qualified Leads</span>
-            <Sparkles size={14} className="text-purple-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Qualified Leads</span>
+            <Sparkles size={14} className="text-purple-400" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-syne text-foreground">{stats.qualified}</span>
-            <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 px-1.5 py-0.5 rounded-md">
-              {stats.qualifiedRate}%
-            </span>
+            <span className="text-[10px] text-purple-400 font-mono font-bold">{stats.qualifiedRate}%</span>
           </div>
           <p className="text-[10px] text-muted-foreground">High business intent</p>
         </div>
 
-        {/* Quotes Sent */}
-        <div className="bg-card/70 border border-border/60 p-4 rounded-2xl shadow-sm space-y-2">
+        {/* Quotes Built */}
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Quotations Sent</span>
-            <FileText size={14} className="text-indigo-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Quotations Sent</span>
+            <FileText size={14} className="text-indigo-400" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-syne text-foreground">{stats.quoted}</span>
-            <span className="text-[9px] font-mono text-muted-foreground">
-              {stats.quotesTotalValue.toFixed(0)} OMR
+            <span className="text-[9px] text-muted-foreground font-mono">
+              {stats.quotesTotalValue > 0 ? `${stats.quotesTotalValue.toFixed(0)} OMR` : ''}
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground">Official proposals built</p>
         </div>
 
-        {/* Won Jobs */}
-        <div className="bg-card/70 border border-border/60 p-4 rounded-2xl shadow-sm space-y-2">
+        {/* Converted Jobs */}
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Jobs Won</span>
-            <CheckCircle2 size={14} className="text-emerald-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Jobs Won</span>
+            <CheckCircle2 size={14} className="text-emerald-400" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-syne text-foreground">{stats.converted}</span>
-            <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">
-              {stats.conversionRate}%
-            </span>
+            <span className="text-2xl font-bold font-syne text-emerald-400">{stats.converted}</span>
+            <span className="text-[10px] text-emerald-400 font-mono font-bold">{stats.conversionRate}%</span>
           </div>
           <p className="text-[10px] text-muted-foreground">Active client files created</p>
         </div>
 
-        {/* Closed Revenue */}
-        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/30 p-4 rounded-2xl shadow-sm space-y-2">
+        {/* Attributed Revenue */}
+        <div className="p-4 rounded-2xl bg-card border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent shadow-sm space-y-1">
           <div className="flex items-center justify-between text-primary">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Attributed Revenue</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Attributed Revenue</span>
             <TrendingUp size={14} />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-syne text-primary">{stats.closedRevenue.toFixed(0)}</span>
-            <span className="text-[10px] font-bold text-primary/80">OMR</span>
+            <span className="text-xl font-bold font-syne text-primary">
+              {stats.closedRevenue > 0 ? stats.closedRevenue.toFixed(0) : '0'}
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">OMR</span>
           </div>
           <p className="text-[10px] text-muted-foreground">Direct ad campaign return</p>
         </div>
@@ -621,10 +721,10 @@ export default function MarketingHub() {
       </div>
 
       {/* NAVIGATION TABS */}
-      <div className="flex border-b border-border gap-2 text-xs font-bold">
+      <div className="flex border-b border-border gap-2 text-xs font-bold overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 ${
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
             activeTab === 'overview' 
               ? 'border-primary text-primary' 
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -635,7 +735,7 @@ export default function MarketingHub() {
 
         <button
           onClick={() => { setActiveTab('live_feed'); setNewLeadsSinceLoad(0); }}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 ${
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
             activeTab === 'live_feed' 
               ? 'border-primary text-primary' 
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -654,8 +754,19 @@ export default function MarketingHub() {
         </button>
 
         <button
+          onClick={() => setActiveTab('sales_team')}
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
+            activeTab === 'sales_team' 
+              ? 'border-primary text-primary' 
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <UserCheck size={14} /> Sales Team Leaderboard ({salesStaff?.length || 0})
+        </button>
+
+        <button
           onClick={() => setActiveTab('sales_sla')}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 ${
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
             activeTab === 'sales_sla' 
               ? 'border-primary text-primary' 
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -933,14 +1044,15 @@ export default function MarketingHub() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredLeads.map((lead: any) => {
                 const cleanPhone = (lead.contact_phone || '').replace(/[^0-9]/g, '');
-                const waUrl = cleanPhone 
-                  ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. How can we assist you today?`)}`
-                  : null;
+                const staffName = profile?.full_name || 'OSBIC Team';
+                const msgText = `Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. My name is ${staffName}, your assigned business setup advisor. How may I assist you today?`;
+                const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}` : null;
 
                 const rawSrc = (lead.utm_source || lead.lead_sources?.name || '').toLowerCase();
                 const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
                 const isGoogle = rawSrc.includes('google') || Boolean(lead.gclid);
                 const isMeta = rawSrc.includes('meta') || rawSrc.includes('facebook') || rawSrc.includes('instagram') || Boolean(lead.fbclid || lead.leadgen_id);
+                const assignedStaff = salesStaff?.find(s => s.id === lead.assigned_to);
 
                 return (
                   <div 
@@ -1014,6 +1126,30 @@ export default function MarketingHub() {
                           </span>
                         )}
                       </div>
+
+                      {/* Consultant Assignment Dropdown */}
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                          Assigned:
+                        </span>
+                        <select
+                          value={lead.assigned_to || ''}
+                          disabled={isAssigning}
+                          onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
+                          className={`w-full max-w-[180px] bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
+                            lead.assigned_to 
+                              ? 'border-border text-foreground font-semibold' 
+                              : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                          }`}
+                        >
+                          <option value="">⚡ Unassigned (Assign)</option>
+                          {(salesStaff || []).map(staff => (
+                            <option key={staff.id} value={staff.id}>
+                              {staff.full_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Quick Action Footer */}
@@ -1056,6 +1192,7 @@ export default function MarketingHub() {
                       <th className="py-3 px-4">Contact Info</th>
                       <th className="py-3 px-4">Source Channel</th>
                       <th className="py-3 px-4">Campaign / Attribution</th>
+                      <th className="py-3 px-4">Assigned Consultant</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-right">Quick Actions</th>
                     </tr>
@@ -1063,9 +1200,9 @@ export default function MarketingHub() {
                   <tbody className="divide-y divide-border/40 font-medium">
                     {filteredLeads.map((lead: any) => {
                       const cleanPhone = (lead.contact_phone || '').replace(/[^0-9]/g, '');
-                      const waUrl = cleanPhone 
-                        ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. How can we assist you today?`)}`
-                        : null;
+                      const staffName = profile?.full_name || 'OSBIC Team';
+                      const msgText = `Hello ${lead.contact_name || ''}, thank you for contacting OSBIC regarding your Company Registration in Oman. My name is ${staffName}, your assigned business setup advisor. How may I assist you today?`;
+                      const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgText)}` : null;
 
                       const rawSrc = (lead.utm_source || lead.lead_sources?.name || '').toLowerCase();
                       const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
@@ -1126,6 +1263,27 @@ export default function MarketingHub() {
                             )}
                           </td>
 
+                          {/* Assigned Consultant Dropdown */}
+                          <td className="py-3 px-4">
+                            <select
+                              value={lead.assigned_to || ''}
+                              disabled={isAssigning}
+                              onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
+                              className={`bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
+                                lead.assigned_to 
+                                  ? 'border-border text-foreground font-semibold' 
+                                  : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                              }`}
+                            >
+                              <option value="">⚡ Unassigned</option>
+                              {(salesStaff || []).map(staff => (
+                                <option key={staff.id} value={staff.id}>
+                                  {staff.full_name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
                           {/* Status */}
                           <td className="py-3 px-4 text-center">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
@@ -1171,7 +1329,152 @@ export default function MarketingHub() {
         </div>
       )}
 
-      {/* TAB CONTENT 3: SALES RESPONSE SLA */}
+      {/* TAB CONTENT 3: SALES TEAM LEADERBOARD */}
+      {activeTab === 'sales_team' && (
+        <div className="space-y-6">
+          {/* Summary Pills */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-card border border-border/70 shadow-sm space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Active Sales Team</span>
+              <span className="text-2xl font-bold font-syne text-foreground">{salesStaff?.length || 0} Consultants</span>
+              <p className="text-[10px] text-emerald-500 font-bold">Round-Robin & Manual Routing</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/70 shadow-sm space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Total Inbound Handled</span>
+              <span className="text-2xl font-bold font-syne text-foreground">{stats.totalLeads} Leads</span>
+              <p className="text-[10px] text-muted-foreground">In selected timeframe</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/70 shadow-sm space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Average Team Close Rate</span>
+              <span className="text-2xl font-bold font-syne text-emerald-400">{stats.conversionRate}%</span>
+              <p className="text-[10px] text-emerald-500 font-bold">Inbound to Closed Job</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent shadow-sm space-y-1">
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Total Team Revenue</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold font-syne text-primary">{stats.closedRevenue.toFixed(3)}</span>
+                <span className="text-xs font-bold text-muted-foreground">OMR</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">From closed inbound jobs</p>
+            </div>
+          </div>
+
+          {/* Sales Consultants Leaderboard Table */}
+          <div className="bg-card border border-border/70 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border/60 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <UserCheck size={16} className="text-primary" /> Consultant Performance & Attribution
+                </h3>
+                <p className="text-[11px] text-muted-foreground">Tracking lead intake, response engagement, quotes created, and closed sales revenue</p>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">{salesLeaderboard.length} Sales Executives</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/30 border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="py-3.5 px-4">Sales Consultant</th>
+                    <th className="py-3.5 px-4 text-center">Assigned Leads</th>
+                    <th className="py-3.5 px-4 text-center">Contacted %</th>
+                    <th className="py-3.5 px-4 text-center">Quotes Built</th>
+                    <th className="py-3.5 px-4 text-center">Jobs Won</th>
+                    <th className="py-3.5 px-4 text-center">Close Rate %</th>
+                    <th className="py-3.5 px-4 text-right">Attributed Revenue (OMR)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40 font-medium">
+                  {salesLeaderboard.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                        No sales team activity recorded in this timeframe.
+                      </td>
+                    </tr>
+                  ) : (
+                    salesLeaderboard.map((item, idx) => (
+                      <tr key={item.staff.id} className="hover:bg-muted/20 transition-colors">
+                        {/* Consultant */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary uppercase text-xs">
+                              {item.staff.avatar_url ? (
+                                <img src={item.staff.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                              ) : (
+                                item.staff.full_name?.substring(0, 2) || 'SC'
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-bold text-foreground flex items-center gap-1.5">
+                                <span>{item.staff.full_name}</span>
+                                {idx === 0 && item.attributedRevenue > 0 && (
+                                  <span className="text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded">
+                                    🏆 Top Revenue
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {item.staff.role === 'admin' ? 'Manager / Admin' : 'Sales Executive'}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Assigned Leads */}
+                        <td className="py-3.5 px-4 text-center font-bold text-foreground">
+                          <span className="px-2.5 py-1 rounded-lg bg-muted text-xs font-mono font-bold">
+                            {item.totalAssigned}
+                          </span>
+                        </td>
+
+                        {/* Contacted % */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold">
+                          <span className={item.contactRate >= 70 ? 'text-emerald-500' : 'text-muted-foreground'}>
+                            {item.contactRate}%
+                          </span>
+                        </td>
+
+                        {/* Quotes Built */}
+                        <td className="py-3.5 px-4 text-center font-bold text-indigo-400">
+                          {item.quotesCount}
+                        </td>
+
+                        {/* Jobs Won */}
+                        <td className="py-3.5 px-4 text-center font-bold text-emerald-400">
+                          {item.closedJobsCount}
+                        </td>
+
+                        {/* Close Rate % */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                            item.conversionRate > 20 
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                              : item.conversionRate > 0
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {item.conversionRate}%
+                          </span>
+                        </td>
+
+                        {/* Revenue (OMR) */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-primary">
+                          {item.attributedRevenue > 0 ? `${item.attributedRevenue.toFixed(3)} OMR` : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 4: SALES RESPONSE SLA */}
       {activeTab === 'sales_sla' && (
         <div className="space-y-6">
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-sm space-y-4">
