@@ -139,11 +139,15 @@ export default function MarketingHub() {
         try {
           await supabase.from('notifications').insert([{
             recipient_id: employeeId,
+            sender_id: profile?.id || null,
             type: 'alert',
-            title: `⚡ Inbound Lead Assigned: ${targetLead?.contact_name || 'New Lead'}`,
-            body: `Assigned by ${profile?.full_name || 'Manager'}. Lead from ${sourceName} (${targetLead?.contact_phone || targetLead?.contact_email || ''}).`,
-            metadata: { lead_id: leadId, source: sourceName },
-            is_read: false
+            title_en: `⚡ Inbound Lead Assigned: ${targetLead?.contact_name || 'New Lead'}`,
+            title_ar: `⚡ تم تعيين عميل محتمل جديد: ${targetLead?.contact_name || 'عميل جديد'}`,
+            body_en: `Assigned by ${profile?.full_name || 'Manager'}. Lead from ${sourceName} (${targetLead?.contact_phone || targetLead?.contact_email || ''}).`,
+            body_ar: `تم التعيين بواسطة ${profile?.full_name || 'المدير'}. العميل من ${sourceName} (${targetLead?.contact_phone || targetLead?.contact_email || ''}).`,
+            action_url: `/employee/marketing`,
+            action_required: false,
+            is_read: false,
           }]);
         } catch (notifErr) {
           console.warn('Notification log error:', notifErr);
