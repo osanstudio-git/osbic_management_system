@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +55,11 @@ export default function MarketingHub() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'live_feed' | 'sales_sla'>('overview');
 
+  // Realtime state
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [newLeadsSinceLoad, setNewLeadsSinceLoad] = useState(0);
+  const queryClient = useQueryClient();
+
   // 1. Fetch Inbound Leads with full UTM attribution
   const { data: leads, isLoading: isLoadingLeads, refetch: refetchLeads } = useQuery({
     queryKey: ['marketing', 'inbound_leads'],
@@ -71,10 +76,11 @@ export default function MarketingHub() {
 
       if (error) throw error;
       return (data || []) as any[];
-    }
+    },
+    staleTime: 0, // Always consider stale so realtime triggers refetch correctly
   });
 
-  // 2. Fetch Quotations to track Lead -> Quote conversion
+  // 2. Fetch Quotations — poll every 5 min (revenue data doesn't change per-second)
   const { data: quotations } = useQuery({
     queryKey: ['marketing', 'quotations'],
     queryFn: async () => {
@@ -84,10 +90,11 @@ export default function MarketingHub() {
         .eq('type', 'quotation');
       if (error) throw error;
       return data || [];
-    }
+    },
+    refetchInterval: 5 * 60 * 1000, // every 5 minutes
   });
 
-  // 3. Fetch Jobs to track Lead -> Job revenue conversion
+  // 3. Fetch Jobs — poll every 5 min
   const { data: jobs } = useQuery({
     queryKey: ['marketing', 'jobs'],
     queryFn: async () => {
@@ -96,8 +103,39 @@ export default function MarketingHub() {
         .select('id, client_id, total_fee, work_fee, ministry_fee, status, created_at');
       if (error) throw error;
       return data || [];
-    }
+    },
+    refetchInterval: 5 * 60 * 1000, // every 5 minutes
   });
+
+  // 4. Supabase Realtime — subscribe to new leads in real time
+  useEffect(() => {
+    const channel = supabase
+      .channel('marketing-leads-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'leads' },
+        (payload) => {
+          // Immediately refresh leads query cache
+          queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
+          setNewLeadsSinceLoad(prev => prev + 1);
+          // Fire a toast so the team knows instantly
+          const lead = payload.new as any;
+          const source = lead.utm_source || lead.utm_medium || 'Website';
+          toast.success(
+            `🎯 New lead: ${lead.contact_name || 'Unknown'} via ${source}`,
+            { duration: 7000, icon: '📥' }
+          );
+        }
+      )
+      .subscribe((status) => {
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+      setIsRealtimeConnected(false);
+    };
+  }, [queryClient]);
 
   // Copy helper
   const handleCopy = (text: string, fieldId: string) => {
@@ -342,11 +380,11 @@ export default function MarketingHub() {
           </div>
 
           <button
-            onClick={() => refetchLeads()}
+            onClick={() => { refetchLeads(); setNewLeadsSinceLoad(0); }}
             className="p-2 rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all shadow-sm"
             title="Refresh Data"
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={15} className={isLoadingLeads ? 'animate-spin' : ''} />
           </button>
 
           <button
@@ -368,7 +406,16 @@ export default function MarketingHub() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-syne text-foreground">{stats.totalLeads}</span>
-            <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">Live</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 ${
+              isRealtimeConnected
+                ? 'text-emerald-500 bg-emerald-500/10'
+                : 'text-muted-foreground bg-muted'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isRealtimeConnected ? 'bg-emerald-500 animate-ping' : 'bg-muted-foreground'
+              }`} />
+              {isRealtimeConnected ? 'Live' : 'Offline'}
+            </span>
           </div>
           <p className="text-[10px] text-muted-foreground">Forms & Ad submissions</p>
         </div>
@@ -460,9 +507,15 @@ export default function MarketingHub() {
               <p className="text-[10px] text-muted-foreground">Direct Form API / Edge Function</p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-            Active
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+            isRealtimeConnected
+              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              isRealtimeConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'
+            }`} />
+            {isRealtimeConnected ? 'Live' : 'Connecting...'}
           </span>
         </div>
 
@@ -515,14 +568,23 @@ export default function MarketingHub() {
         </button>
 
         <button
-          onClick={() => setActiveTab('live_feed')}
+          onClick={() => { setActiveTab('live_feed'); setNewLeadsSinceLoad(0); }}
           className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 ${
             activeTab === 'live_feed' 
               ? 'border-primary text-primary' 
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Activity size={14} /> Live Inbound Stream ({filteredLeads.length})
+          <Activity size={14} />
+          Live Inbound Stream ({filteredLeads.length})
+          {isRealtimeConnected && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" title="Realtime connected" />
+          )}
+          {newLeadsSinceLoad > 0 && activeTab !== 'live_feed' && (
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+              {newLeadsSinceLoad}
+            </span>
+          )}
         </button>
 
         <button
