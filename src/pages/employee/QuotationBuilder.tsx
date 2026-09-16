@@ -1624,7 +1624,7 @@ const QuotationBuilder = () => {
                         let adv = 50;
                         let bal = 50;
                         let advM = 'Upon signing the quotation';
-                        let balM = 'Upon completion of Visa';
+                        let balM = 'Upon approval of clearance';
 
                         if (val === 'full_advance') {
                           adv = 100;
@@ -1636,7 +1636,7 @@ const QuotationBuilder = () => {
                           adv = formData.metadata?.advancePercentage !== undefined ? formData.metadata.advancePercentage : 50;
                           bal = formData.metadata?.balancePercentage !== undefined ? formData.metadata.balancePercentage : 50;
                           advM = formData.metadata?.advanceMilestone || 'Upon signing the quotation';
-                          balM = formData.metadata?.balanceMilestone || 'Upon completion of Visa';
+                          balM = formData.metadata?.balanceMilestone || 'Upon approval of clearance';
                         }
 
                         setFormData({
@@ -1732,7 +1732,7 @@ const QuotationBuilder = () => {
                           <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Balance Milestone</label>
                           <input
                             type="text"
-                            value={formData.metadata?.balanceMilestone || 'Upon completion of Visa'}
+                            value={formData.metadata?.balanceMilestone || 'Upon approval of clearance'}
                             onChange={e => setFormData({
                               ...formData,
                               metadata: {

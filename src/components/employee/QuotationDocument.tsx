@@ -239,7 +239,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
           const advPercent = invoice.metadata?.advancePercentage !== undefined ? invoice.metadata.advancePercentage : 50;
           const balPercent = invoice.metadata?.balancePercentage !== undefined ? invoice.metadata.balancePercentage : 50;
           const advMilestone = invoice.metadata?.advanceMilestone || 'Upon signing the quotation';
-          const balMilestone = invoice.metadata?.balanceMilestone || 'Upon completion of Visa';
+          const balMilestone = invoice.metadata?.balanceMilestone || 'Upon approval of clearance';
 
           if (scheduleType === 'full_advance' || advPercent === 100) {
             return (
