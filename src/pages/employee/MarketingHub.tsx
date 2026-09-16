@@ -1153,28 +1153,21 @@ export default function MarketingHub() {
                     </div>
 
                     {/* Quick Action Footer */}
-                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40">
+                    <div className="pt-3 border-t border-border/40">
                       {waUrl ? (
                         <a
                           href={waUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all shadow-sm"
+                          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all shadow-sm"
                         >
-                          <MessageCircle size={13} /> WhatsApp
+                          <MessageCircle size={14} /> Open WhatsApp Direct
                         </a>
                       ) : (
-                        <button disabled className="opacity-50 py-1.5 px-3 rounded-xl bg-muted text-xs font-bold text-muted-foreground">
-                          No Phone
+                        <button disabled className="w-full opacity-50 py-2 px-4 rounded-xl bg-muted text-xs font-bold text-muted-foreground">
+                          No Phone Number
                         </button>
                       )}
-
-                      <button
-                        onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}`)}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
-                      >
-                        <FileText size={13} /> Quote
-                      </button>
                     </div>
                   </div>
                 );
@@ -1194,7 +1187,7 @@ export default function MarketingHub() {
                       <th className="py-3 px-4">Campaign / Attribution</th>
                       <th className="py-3 px-4">Assigned Consultant</th>
                       <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-right">Quick Actions</th>
+                      <th className="py-3 px-4 text-right">Quick Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40 font-medium">
@@ -1297,25 +1290,20 @@ export default function MarketingHub() {
 
                           {/* Actions */}
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {waUrl && (
+                            <div className="flex items-center justify-end">
+                              {waUrl ? (
                                 <a
                                   href={waUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors shadow-sm"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-bold transition-colors shadow-sm"
                                   title="Chat on WhatsApp"
                                 >
-                                  <MessageCircle size={13} />
+                                  <MessageCircle size={13} /> WhatsApp
                                 </a>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">No Phone</span>
                               )}
-                              <button
-                                onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}`)}
-                                className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-1"
-                                title="Create Quotation"
-                              >
-                                <FileText size={11} /> Quote
-                              </button>
                             </div>
                           </td>
                         </tr>
