@@ -240,7 +240,56 @@ export const useCreateClient = () => {
         }
       });
 
-      if (authError) throw new Error(authError.message);
+      // Handle case where user is already registered in Auth or profiles
+      if (authError) {
+        const errorMsg = authError.message.toLowerCase();
+        if (
+          errorMsg.includes('already registered') || 
+          errorMsg.includes('already exists') ||
+          errorMsg.includes('email address is already assigned') ||
+          errorMsg.includes('user already exists')
+        ) {
+          // Check if profile exists in database
+          const { data: existingProfile } = await db
+            .from('profiles')
+            .select('*')
+            .ilike('email', newClient.email.trim())
+            .maybeSingle();
+
+          if (existingProfile) {
+            const updates: any = {};
+            if (newClient.phone && !existingProfile.phone) updates.phone = newClient.phone;
+            if (newClient.whatsapp && !existingProfile.whatsapp) updates.whatsapp = newClient.whatsapp;
+            if (newClient.company_name && !existingProfile.company_name) updates.company_name = newClient.company_name;
+            if (Object.keys(updates).length > 0) {
+              await db.from('profiles').update(updates).eq('id', existingProfile.id);
+            }
+            return {
+              ...existingProfile,
+              ...updates,
+              _isExisting: true
+            };
+          }
+        }
+        throw new Error(authError.message);
+      }
+
+      // Check for Supabase identity check behavior (empty identities array when already registered)
+      if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+        const { data: existingProfile } = await db
+          .from('profiles')
+          .select('*')
+          .ilike('email', newClient.email.trim())
+          .maybeSingle();
+
+        if (existingProfile) {
+          return {
+            ...existingProfile,
+            _isExisting: true
+          };
+        }
+      }
+
       if (!authData.user) throw new Error('Client creation failed');
 
       const userId = authData.user.id;

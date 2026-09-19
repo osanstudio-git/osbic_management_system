@@ -123,7 +123,7 @@ export const useConvertQuotation = () => {
           : { work_fee: asg.workFee || 0, ministry_fee: asg.ministryFee || 0 };
         return {
           job_id: newJob.id,
-          service_id: asg.serviceId || null,
+          service_id: asg.serviceId || mainServiceId,
           service_name: asg.serviceName,
           display_order: idx + 1,
           quantity: 1,
@@ -144,55 +144,58 @@ export const useConvertQuotation = () => {
 
       if (servicesErr) throw servicesErr;
 
-      // 4. Create workflow steps roadmap inside job_steps
-      const { data: blueprints } = await supabase
-        .from('workflow_steps')
-        .select('*')
-        .in('service_id', serviceIds)
-        .order('service_id', { ascending: true })
-        .order('step_order', { ascending: true });
+      // 4. Create workflow steps roadmap inside job_steps (if mapped to template)
+      if (serviceIds.length > 0) {
+        const { data: blueprints } = await supabase
+          .from('workflow_steps')
+          .select('*')
+          .in('service_id', serviceIds)
+          .order('service_id', { ascending: true })
+          .order('step_order', { ascending: true });
 
-      if (blueprints && blueprints.length > 0) {
-        const stepsToInsert = blueprints.map((step: any) => {
-          let deadline = null;
-          if (step.estimated_hours) {
-            const date = new Date();
-            date.setHours(date.getHours() + step.estimated_hours);
-            deadline = date.toISOString();
+        if (blueprints && blueprints.length > 0) {
+          const stepsToInsert = blueprints.map((step: any) => {
+            let deadline = null;
+            if (step.estimated_hours) {
+              const date = new Date();
+              date.setHours(date.getHours() + step.estimated_hours);
+              deadline = date.toISOString();
+            }
+
+            return {
+              job_id: newJob.id,
+              workflow_step_id: step.id,
+              status: 'pending',
+              started_at: null,
+              completed_at: null,
+              is_client_visible: step.is_client_visible ?? true,
+              deadline: deadline
+            };
+          });
+
+          const { data: insertedSteps, error: stepsErr } = await supabase
+            .from('job_steps')
+            .insert(stepsToInsert as any)
+            .select();
+
+          if (stepsErr) throw stepsErr;
+
+          // Sync first pending step to current_step_id
+          const firstActive = insertedSteps.find((s: any) => s.status === 'pending');
+          if (firstActive) {
+            await supabase
+              .from('jobs')
+              .update({ current_step_id: firstActive.id })
+              .eq('id', newJob.id);
           }
-
-          return {
-            job_id: newJob.id,
-            workflow_step_id: step.id,
-            status: 'pending',
-            started_at: null,
-            completed_at: null,
-            is_client_visible: step.is_client_visible ?? true,
-            deadline: deadline
-          };
-        });
-
-        const { data: insertedSteps, error: stepsErr } = await supabase
-          .from('job_steps')
-          .insert(stepsToInsert as any)
-          .select();
-
-        if (stepsErr) throw stepsErr;
-
-        // Sync first pending step to current_step_id
-        const firstActive = insertedSteps.find((s: any) => s.status === 'pending');
-        if (firstActive) {
-          await supabase
-            .from('jobs')
-            .update({ current_step_id: firstActive.id })
-            .eq('id', newJob.id);
         }
       }
 
-      // 5. Set quotation status to accepted
+      // 5. Set quotation status to accepted and link client_id
       const { data: quoteData, error: quoteErr } = await supabase
         .from('invoices')
         .update({
+          client_id: clientId,
           status: 'accepted',
           accepted_at: new Date().toISOString(),
           converted_job_ids: [newJob.id]
@@ -227,7 +230,7 @@ export const useConvertQuotation = () => {
           .from('invoices')
           .insert({
             invoice_number,
-            client_id: quoteData.client_id,
+            client_id: clientId || quoteData.client_id,
             lead_id: quoteData.lead_id,
             job_id: newJob.id,
             employee_id: profile?.id || salesEmployeeId,
@@ -267,11 +270,12 @@ export const useConvertQuotation = () => {
         }
       }
 
-      // 6. Set associated Lead to converted (if applicable)
+      // 6. Set associated Lead to converted and link client_id (if applicable)
       if (leadId) {
         await supabase
           .from('leads')
           .update({
+            client_id: clientId,
             status: 'converted',
             converted_at: new Date().toISOString(),
             converted_job_id: newJob.id

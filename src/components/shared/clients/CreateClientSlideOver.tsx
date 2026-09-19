@@ -116,7 +116,11 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
         const createPayload = { ...databasePayload, created_by: profile?.id, branch_id: profile?.branch_id };
         const data = await createClientMutation.mutateAsync(createPayload);
         setCreatedClient(data);
-        toast.success('Client registered successfully!');
+        if (data?._isExisting) {
+          toast.success(`Existing client "${data.full_name}" linked successfully!`);
+        } else {
+          toast.success('Client registered successfully!');
+        }
         if (onClientCreated) {
           onClientCreated(data);
         }
