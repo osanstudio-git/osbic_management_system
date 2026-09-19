@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Megaphone,
   TrendingUp,
   Globe,
@@ -155,8 +155,8 @@ export default function MarketingHub() {
       }
 
       toast.success(
-        employeeId 
-          ? `Lead assigned to ${selectedStaff?.full_name || 'consultant'}` 
+        employeeId
+          ? `Lead assigned to ${selectedStaff?.full_name || 'consultant'}`
           : 'Lead unassigned'
       );
 
@@ -326,7 +326,7 @@ export default function MarketingHub() {
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      list = list.filter(l => 
+      list = list.filter(l =>
         l.contact_name?.toLowerCase().includes(term) ||
         l.company_name?.toLowerCase().includes(term) ||
         l.contact_phone?.includes(term) ||
@@ -547,11 +547,10 @@ export default function MarketingHub() {
               <button
                 key={tf}
                 onClick={() => setTimeFilter(tf)}
-                className={`px-3 py-1.5 rounded-xl transition-all capitalize ${
-                  timeFilter === tf 
-                    ? 'bg-primary text-primary-foreground font-bold shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 rounded-xl transition-all capitalize ${timeFilter === tf
+                  ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {tf === 'today' ? 'Today' : tf === '7days' ? '7 Days' : tf === '30days' ? '30 Days' : tf === 'year' ? 'Year' : 'All'}
               </button>
@@ -677,14 +676,12 @@ export default function MarketingHub() {
               <p className="text-[10px] text-muted-foreground">Direct Form API / Edge Function</p>
             </div>
           </div>
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-            isRealtimeConnected
-              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${
-              isRealtimeConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'
-            }`} />
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${isRealtimeConnected
+            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+            : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+            }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isRealtimeConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'
+              }`} />
             {isRealtimeConnected ? 'Live' : 'Connecting...'}
           </span>
         </div>
@@ -728,22 +725,20 @@ export default function MarketingHub() {
       <div className="flex border-b border-border gap-2 text-xs font-bold overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
-            activeTab === 'overview' 
-              ? 'border-primary text-primary' 
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${activeTab === 'overview'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
         >
           <Layers size={14} /> Campaign Attribution
         </button>
 
         <button
           onClick={() => { setActiveTab('live_feed'); setNewLeadsSinceLoad(0); }}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
-            activeTab === 'live_feed' 
-              ? 'border-primary text-primary' 
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${activeTab === 'live_feed'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
         >
           <Activity size={14} />
           Live Inbound Stream ({filteredLeads.length})
@@ -759,22 +754,20 @@ export default function MarketingHub() {
 
         <button
           onClick={() => setActiveTab('sales_team')}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
-            activeTab === 'sales_team' 
-              ? 'border-primary text-primary' 
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${activeTab === 'sales_team'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
         >
           <UserCheck size={14} /> Sales Team Leaderboard ({salesStaff?.length || 0})
         </button>
 
         <button
           onClick={() => setActiveTab('sales_sla')}
-          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${
-            activeTab === 'sales_sla' 
-              ? 'border-primary text-primary' 
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
+          className={`pb-3 px-3 transition-all flex items-center gap-2 border-b-2 shrink-0 ${activeTab === 'sales_sla'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
         >
           <Clock size={14} /> Sales Response SLA
         </button>
@@ -879,16 +872,14 @@ export default function MarketingHub() {
             {/* All */}
             <button
               onClick={() => setChannelFilter('all')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'all'
-                  ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'all'
+                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-border'
+                }`}
             >
               <span>⚡ All Leads</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'all' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-foreground'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'all' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-foreground'
+                }`}>
                 {channelCounts.all}
               </span>
             </button>
@@ -896,17 +887,15 @@ export default function MarketingHub() {
             {/* Landing Page (setup.osbic.net) */}
             <button
               onClick={() => setChannelFilter('website')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'website'
-                  ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-blue-500/40'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'website'
+                ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-blue-500/40'
+                }`}
             >
               <Globe size={13} className={channelFilter === 'website' ? 'text-white' : 'text-blue-400'} />
               <span>setup.osbic.net</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'website' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'website' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                }`}>
                 {channelCounts.website}
               </span>
             </button>
@@ -914,17 +903,15 @@ export default function MarketingHub() {
             {/* Google Ads */}
             <button
               onClick={() => setChannelFilter('google')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'google'
-                  ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-500/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-amber-500/40'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'google'
+                ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-amber-500/40'
+                }`}
             >
               <span className="font-bold text-[11px] text-amber-400">G</span>
               <span>Google Ads</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'google' ? 'bg-white/20 text-white' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'google' ? 'bg-white/20 text-white' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                }`}>
                 {channelCounts.google}
               </span>
             </button>
@@ -932,17 +919,15 @@ export default function MarketingHub() {
             {/* Meta Ads */}
             <button
               onClick={() => setChannelFilter('meta')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'meta'
-                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-indigo-500/40'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'meta'
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-indigo-500/40'
+                }`}
             >
               <span className="font-bold text-[11px] text-indigo-400">M</span>
               <span>Meta Ads (FB/IG)</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'meta' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'meta' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                }`}>
                 {channelCounts.meta}
               </span>
             </button>
@@ -950,17 +935,15 @@ export default function MarketingHub() {
             {/* WhatsApp Direct */}
             <button
               onClick={() => setChannelFilter('whatsapp')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'whatsapp'
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-emerald-500/40'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'whatsapp'
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-emerald-500/40'
+                }`}
             >
               <MessageCircle size={13} className={channelFilter === 'whatsapp' ? 'text-white' : 'text-emerald-400'} />
               <span>WhatsApp Direct</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'whatsapp' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'whatsapp' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                }`}>
                 {channelCounts.whatsapp}
               </span>
             </button>
@@ -968,17 +951,15 @@ export default function MarketingHub() {
             {/* Referral / Others */}
             <button
               onClick={() => setChannelFilter('referral')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
-                channelFilter === 'referral'
-                  ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-500/20'
-                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-purple-500/40'
-              }`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${channelFilter === 'referral'
+                ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-500/20'
+                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground hover:border-purple-500/40'
+                }`}
             >
               <UserCheck size={13} className={channelFilter === 'referral' ? 'text-white' : 'text-purple-400'} />
               <span>Referral & Others</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                channelFilter === 'referral' ? 'bg-white/20 text-white' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${channelFilter === 'referral' ? 'bg-white/20 text-white' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                }`}>
                 {channelCounts.referral}
               </span>
             </button>
@@ -996,16 +977,15 @@ export default function MarketingHub() {
                 className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-xs text-foreground focus:border-primary outline-none transition-all shadow-sm"
               />
             </div>
-            
+
             {/* View Mode Switcher */}
             <div className="flex items-center gap-1 bg-card border border-border/70 rounded-xl p-1 shrink-0 self-end sm:self-auto">
               <button
                 onClick={() => setStreamViewMode('grid')}
-                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  streamViewMode === 'grid'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${streamViewMode === 'grid'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 title="Card Grid View"
               >
                 <LayoutGrid size={13} />
@@ -1014,11 +994,10 @@ export default function MarketingHub() {
 
               <button
                 onClick={() => setStreamViewMode('table')}
-                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  streamViewMode === 'table'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${streamViewMode === 'table'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 title="Data Table View"
               >
                 <TableIcon size={13} />
@@ -1059,8 +1038,8 @@ export default function MarketingHub() {
                 const assignedStaff = salesStaff?.find(s => s.id === lead.assigned_to);
 
                 return (
-                  <div 
-                    key={lead.id} 
+                  <div
+                    key={lead.id}
                     className="bg-card border border-border/70 rounded-2xl p-4 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
                   >
                     <div className="space-y-2.5">
@@ -1069,11 +1048,10 @@ export default function MarketingHub() {
                           <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase">{lead.lead_code || 'INBOUND'}</span>
                           <h4 className="text-sm font-bold text-foreground">{lead.contact_name}</h4>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                          lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
                           lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
+                            'bg-muted text-muted-foreground'
+                          }`}>
                           {lead.status}
                         </span>
                       </div>
@@ -1101,12 +1079,11 @@ export default function MarketingHub() {
 
                       {/* Attribution Badges */}
                       <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                          isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                           isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                          isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                          'bg-primary/10 text-primary border-primary/20'
-                        }`}>
+                            isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                              'bg-primary/10 text-primary border-primary/20'
+                          }`}>
                           {lead.utm_source || lead.lead_sources?.name || 'Website'}
                         </span>
                         {lead.utm_campaign && (
@@ -1140,11 +1117,10 @@ export default function MarketingHub() {
                           value={lead.assigned_to || ''}
                           disabled={isAssigning}
                           onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
-                          className={`w-full max-w-[180px] bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
-                            lead.assigned_to 
-                              ? 'border-border text-foreground font-semibold' 
-                              : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
-                          }`}
+                          className={`w-full max-w-[180px] bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${lead.assigned_to
+                            ? 'border-border text-foreground font-semibold'
+                            : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                            }`}
                         >
                           <option value="">⚡ Unassigned (Assign)</option>
                           {(salesStaff || []).map(staff => (
@@ -1233,12 +1209,11 @@ export default function MarketingHub() {
 
                           {/* Source Channel */}
                           <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                              isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                               isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                              isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                              'bg-primary/10 text-primary border-primary/20'
-                            }`}>
+                                isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  'bg-primary/10 text-primary border-primary/20'
+                              }`}>
                               {lead.utm_source || lead.lead_sources?.name || 'Website'}
                             </span>
                             {lead.referral_name && (
@@ -1266,11 +1241,10 @@ export default function MarketingHub() {
                               value={lead.assigned_to || ''}
                               disabled={isAssigning}
                               onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
-                              className={`bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
-                                lead.assigned_to 
-                                  ? 'border-border text-foreground font-semibold' 
-                                  : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
-                              }`}
+                              className={`bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${lead.assigned_to
+                                ? 'border-border text-foreground font-semibold'
+                                : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                                }`}
                             >
                               <option value="">⚡ Unassigned</option>
                               {(salesStaff || []).map(staff => (
@@ -1283,11 +1257,10 @@ export default function MarketingHub() {
 
                           {/* Status */}
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                              lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
                               lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                              'bg-muted text-muted-foreground'
-                            }`}>
+                                'bg-muted text-muted-foreground'
+                              }`}>
                               {lead.status}
                             </span>
                           </td>
@@ -1441,13 +1414,12 @@ export default function MarketingHub() {
 
                         {/* Close Rate % */}
                         <td className="py-3.5 px-4 text-center font-mono font-bold">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                            item.conversionRate > 20 
-                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
-                              : item.conversionRate > 0
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${item.conversionRate > 20
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            : item.conversionRate > 0
                               ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                               : 'bg-muted text-muted-foreground'
-                          }`}>
+                            }`}>
                             {item.conversionRate}%
                           </span>
                         </td>

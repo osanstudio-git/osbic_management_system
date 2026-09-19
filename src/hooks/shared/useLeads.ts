@@ -196,7 +196,36 @@ export const useUpdateLead = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
       queryClient.invalidateQueries({ queryKey: ['lead', data.id] });
+    }
+  });
+};
+
+export const useDeleteLead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (leadId: string) => {
+      // 1. Clean up associated interactions & services
+      await supabase.from('lead_interactions').delete().eq('lead_id', leadId);
+      await supabase.from('lead_services').delete().eq('lead_id', leadId);
+
+      // 2. Delete lead record
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (error) throw error;
+      return leadId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
     }
   });
 };

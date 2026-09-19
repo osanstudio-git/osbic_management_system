@@ -5,9 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   X, Phone, MessageSquare, Mail, Building2, Calendar, 
-  Check, Plus, Clock, FileText, Trash2
+  Check, Plus, Clock, FileText, Trash2, Edit3, Globe,
+  AlertTriangle, User, Compass, Save
 } from 'lucide-react';
-import { useLeadInteractions, useUpdateLead, useCreateInteraction, type Lead } from '../../hooks/shared/useLeads';
+import { 
+  useLeadInteractions, 
+  useUpdateLead, 
+  useDeleteLead,
+  useCreateInteraction, 
+  useLeads,
+  type Lead 
+} from '../../hooks/shared/useLeads';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
 import { useAdminPackages } from '../../hooks/admin/useAdminPackages';
 import { format } from 'date-fns';
@@ -26,7 +34,10 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
   const navigate = useNavigate();
   const interactionsQuery = useLeadInteractions(lead?.id);
   const updateLeadMutation = useUpdateLead();
+  const deleteLeadMutation = useDeleteLead();
   const logInteractionMutation = useCreateInteraction();
+  const { useLeadSourcesList } = useLeads();
+  const { data: leadSources = [] } = useLeadSourcesList();
 
   const { data: leadQuotations } = useQuery({
     queryKey: ['lead_quotations', lead?.id],
@@ -51,6 +62,21 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
   const [followUpNotes, setFollowUpNotes] = useState<string>('');
   
   const [showLogForm, setShowLogForm] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const [editFormData, setEditFormData] = useState({
+    contact_name: '',
+    contact_phone: '',
+    contact_whatsapp: '',
+    contact_email: '',
+    company_name: '',
+    nationality: 'Oman',
+    source_id: '',
+    referral_name: '',
+    notes: '',
+  });
+
   const [newLog, setNewLog] = useState({
     type: 'call' as 'call' | 'whatsapp' | 'email' | 'meeting' | 'note',
     direction: 'outbound' as 'inbound' | 'outbound',
@@ -101,10 +127,76 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
       setNextFollowUpDate(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '');
       setFollowUpNotes(lead.follow_up_notes || '');
       setShowLogForm(false);
+      setIsEditingDetails(false);
+      setShowDeleteConfirm(false);
+      setEditFormData({
+        contact_name: lead.contact_name || '',
+        contact_phone: lead.contact_phone || '',
+        contact_whatsapp: lead.contact_whatsapp || '',
+        contact_email: lead.contact_email || '',
+        company_name: lead.company_name || '',
+        nationality: lead.nationality || 'Oman',
+        source_id: lead.source_id || '',
+        referral_name: lead.referral_name || '',
+        notes: lead.notes || '',
+      });
     }
   }, [lead]);
 
   if (!lead) return null;
+
+  const handleSaveDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFormData.contact_name.trim()) {
+      toast.error('Contact name is required');
+      return;
+    }
+
+    try {
+      await updateLeadMutation.mutateAsync({
+        id: lead.id,
+        updates: {
+          contact_name: editFormData.contact_name.trim(),
+          contact_phone: editFormData.contact_phone.trim() || undefined,
+          contact_whatsapp: editFormData.contact_whatsapp.trim() || undefined,
+          contact_email: editFormData.contact_email.trim() || undefined,
+          company_name: editFormData.company_name.trim() || undefined,
+          nationality: editFormData.nationality.trim() || undefined,
+          source_id: editFormData.source_id || undefined,
+          referral_name: editFormData.referral_name.trim() || undefined,
+          notes: editFormData.notes.trim() || undefined,
+        }
+      });
+      toast.success('Lead details updated successfully!');
+      setIsEditingDetails(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update lead');
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    const hasQuotations = leadQuotations && leadQuotations.length > 0;
+    const isConverted = lead.status === 'converted';
+
+    if (hasQuotations || isConverted) {
+      toast.error(
+        hasQuotations 
+          ? `Cannot delete this lead because it has ${leadQuotations.length} linked quotation(s). Mark it as 'Lost' instead.`
+          : `Cannot delete a converted lead. Mark as 'Lost' or contact admin.`
+      );
+      setShowDeleteConfirm(false);
+      return;
+    }
+
+    try {
+      await deleteLeadMutation.mutateAsync(lead.id);
+      toast.success('Lead deleted successfully');
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete lead');
+    }
+  };
 
   const handleUpdateStatus = (newStatus: string) => {
     setStatus(newStatus);
@@ -312,6 +404,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
 
   const cleanPhone = lead.contact_phone ? lead.contact_phone.replace(/\D/g, '') : '';
   const waUrl = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone.startsWith('968') ? cleanPhone : `968${cleanPhone}`}` : '';
+  const matchedSource = leadSources.find(s => s.id === lead.source_id);
 
   return createPortal(
     <AnimatePresence>
@@ -330,13 +423,21 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border">
-              <div>
-                <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
-                  {lead.lead_code || 'LEAD'}
-                </span>
-                <h2 className="text-xl font-syne font-bold text-foreground mt-1.5">{lead.contact_name}</h2>
+              <div className="min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
+                    {lead.lead_code || 'LEAD'}
+                  </span>
+                  {matchedSource && (
+                    <span className="text-[10px] text-muted-foreground bg-white/5 border border-border px-2 py-0.5 rounded flex items-center gap-1">
+                      <Compass size={10} />
+                      {matchedSource.name}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-syne font-bold text-foreground mt-1.5 truncate">{lead.contact_name}</h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => {
                     onClose();
@@ -355,51 +456,309 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
 
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              
-              {/* 1. Contact Info Card */}
-              <div className="bg-white/5 border border-border/80 rounded-2xl p-5 space-y-4">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Contact Details</h3>
-                <div className="space-y-3">
-                  {lead.contact_phone && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-muted-foreground">Phone</span>
-                      <a href={`tel:${lead.contact_phone}`} className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5">
-                        <Phone size={14} />
-                        <span>{lead.contact_phone}</span>
-                      </a>
-                    </div>
-                  )}
 
-                  {lead.contact_phone && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-muted-foreground">WhatsApp</span>
-                      <a href={waUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-emerald-400 hover:underline flex items-center gap-1.5">
-                        <MessageSquare size={14} />
-                        <span>Open WhatsApp</span>
-                      </a>
+              {/* Delete Confirmation Alert Banner */}
+              {showDeleteConfirm && (
+                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-3 animate-in fade-in">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle size={20} className="text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-bold text-red-400">Delete Lead permanently?</h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {leadQuotations && leadQuotations.length > 0
+                          ? `This lead has ${leadQuotations.length} linked quotation(s). Deleting is blocked to protect billing history.`
+                          : lead.status === 'converted'
+                          ? "This lead has been converted to an active client. Delete is not permitted."
+                          : "This action will permanently delete this lead and its logged interaction history. This cannot be undone."}
+                      </p>
                     </div>
-                  )}
-
-                  {lead.contact_email && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-muted-foreground">Email</span>
-                      <a href={`mailto:${lead.contact_email}`} className="text-sm font-medium text-foreground hover:underline flex items-center gap-1.5">
-                        <Mail size={14} />
-                        <span>{lead.contact_email}</span>
-                      </a>
-                    </div>
-                  )}
-
-                  {lead.company_name && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-muted-foreground">Company</span>
-                      <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                        <Building2 size={14} className="text-muted-foreground/60" />
-                        <span>{lead.company_name}</span>
-                      </span>
-                    </div>
-                  )}
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-3 py-1.5 rounded-xl border border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    {(!leadQuotations || leadQuotations.length === 0) && lead.status !== 'converted' ? (
+                      <button
+                        type="button"
+                        disabled={deleteLeadMutation.isPending}
+                        onClick={handleDeleteLead}
+                        className="px-3.5 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                      >
+                        <Trash2 size={13} />
+                        <span>{deleteLeadMutation.isPending ? 'Deleting...' : 'Yes, Delete'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleUpdateStatus('lost');
+                          setShowDeleteConfirm(false);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold transition-all"
+                      >
+                        Mark as Lost Instead
+                      </button>
+                    )}
+                  </div>
                 </div>
+              )}
+              
+              {/* 1. Contact Info Card & Edit Mode */}
+              <div className="bg-white/5 border border-border/80 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Contact & Company</h3>
+                  <div className="flex items-center gap-1.5">
+                    {!isEditingDetails ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDetails(true)}
+                          className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all text-[11px] font-bold flex items-center gap-1 shadow-sm active:scale-95"
+                          title="Edit contact details"
+                        >
+                          <Edit3 size={12} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(true)}
+                          className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all text-[11px] font-bold flex items-center gap-1 active:scale-95"
+                          title="Delete lead"
+                        >
+                          <Trash2 size={12} />
+                          <span>Delete</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingDetails(false)}
+                        className="px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground text-[11px] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isEditingDetails ? (
+                  <form onSubmit={handleSaveDetails} className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={editFormData.contact_name}
+                        onChange={e => setEditFormData({ ...editFormData, contact_name: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs font-semibold focus:border-primary outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="+968 9000 0000"
+                          value={editFormData.contact_phone}
+                          onChange={e => setEditFormData({ ...editFormData, contact_phone: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          WhatsApp
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="+968 9000 0000"
+                          value={editFormData.contact_whatsapp}
+                          onChange={e => setEditFormData({ ...editFormData, contact_whatsapp: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="client@company.om"
+                          value={editFormData.contact_email}
+                          onChange={e => setEditFormData({ ...editFormData, contact_email: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          Company Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="LLC / SPC"
+                          value={editFormData.company_name}
+                          onChange={e => setEditFormData({ ...editFormData, company_name: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          Nationality
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Oman / Expat"
+                          value={editFormData.nationality}
+                          onChange={e => setEditFormData({ ...editFormData, nationality: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                          Lead Source
+                        </label>
+                        <select
+                          value={editFormData.source_id}
+                          onChange={e => setEditFormData({ ...editFormData, source_id: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                        >
+                          <option value="">-- Select Source --</option>
+                          {leadSources.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                        Referral / Extra Details
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Referred by..."
+                        value={editFormData.referral_name}
+                        onChange={e => setEditFormData({ ...editFormData, referral_name: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground/80 font-bold uppercase mb-1">
+                        Internal Notes
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Special client requirements, CR details, etc."
+                        value={editFormData.notes}
+                        onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-foreground text-xs focus:border-primary outline-none resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingDetails(false)}
+                        className="flex-1 py-2 rounded-xl border border-border text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={updateLeadMutation.isPending}
+                        className="flex-1 py-2 rounded-xl bg-primary text-[#0A0F1E] text-xs font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                      >
+                        <Save size={13} />
+                        <span>{updateLeadMutation.isPending ? 'Saving...' : 'Save Changes'}</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-3">
+                    {lead.contact_phone && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">Phone</span>
+                        <a href={`tel:${lead.contact_phone}`} className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5">
+                          <Phone size={14} />
+                          <span>{lead.contact_phone}</span>
+                        </a>
+                      </div>
+                    )}
+
+                    {lead.contact_phone && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">WhatsApp</span>
+                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-emerald-400 hover:underline flex items-center gap-1.5">
+                          <MessageSquare size={14} />
+                          <span>Open WhatsApp</span>
+                        </a>
+                      </div>
+                    )}
+
+                    {lead.contact_email && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">Email</span>
+                        <a href={`mailto:${lead.contact_email}`} className="text-sm font-medium text-foreground hover:underline flex items-center gap-1.5">
+                          <Mail size={14} />
+                          <span>{lead.contact_email}</span>
+                        </a>
+                      </div>
+                    )}
+
+                    {lead.company_name && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">Company</span>
+                        <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                          <Building2 size={14} className="text-muted-foreground/60" />
+                          <span>{lead.company_name}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {lead.nationality && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">Nationality</span>
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Globe size={13} className="text-muted-foreground/60" />
+                          <span>{lead.nationality}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {lead.referral_name && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-muted-foreground">Referred By</span>
+                        <span className="text-xs font-semibold text-primary">
+                          {lead.referral_name}
+                        </span>
+                      </div>
+                    )}
+
+                    {lead.notes && (
+                      <div className="pt-2 border-t border-border/40">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase block mb-1">Notes</span>
+                        <p className="text-xs text-foreground bg-muted/20 p-2.5 rounded-xl border border-border/40 whitespace-pre-wrap">
+                          {lead.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 2. Interested Services Section */}
