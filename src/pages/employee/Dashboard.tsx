@@ -58,6 +58,9 @@ const EmployeeDashboard = () => {
         setMode('ops');
       } else {
         setMode('sales');
+        if (localStorage.getItem('employee_mode') === 'ops') {
+          localStorage.setItem('employee_mode', 'sales');
+        }
       }
     }
   }, [profile, canDoSales, canDoOps, isPro]);

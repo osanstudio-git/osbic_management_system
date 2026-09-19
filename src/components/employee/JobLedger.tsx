@@ -369,8 +369,29 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
     }
   };
 
-  const mode = localStorage.getItem('employee_mode') || 'sales';
-  const isSalesMode = mode === 'sales';
+  const canDoSales = profile?.can_do_sales ?? false;
+  const canDoOps = profile?.can_do_ops ?? false;
+  const isManager = profile?.is_manager ?? false;
+  const isAdmin = profile?.role === 'admin';
+  const canDoAccounts = profile?.can_do_accounts ?? false;
+
+  // Dynamically resolve mode based on actual current permissions rather than stale localStorage
+  let isSalesMode = true;
+  if (isAdmin || isManager || canDoAccounts) {
+    isSalesMode = true;
+  } else if (canDoSales && canDoOps) {
+    const saved = localStorage.getItem('employee_mode');
+    isSalesMode = saved !== 'ops';
+  } else if (canDoSales) {
+    isSalesMode = true;
+    if (localStorage.getItem('employee_mode') === 'ops') {
+      localStorage.setItem('employee_mode', 'sales');
+    }
+  } else if (canDoOps) {
+    isSalesMode = false;
+  } else {
+    isSalesMode = true;
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-8">
