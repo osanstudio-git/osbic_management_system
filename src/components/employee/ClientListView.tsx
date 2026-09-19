@@ -33,12 +33,14 @@ const DeleteClientModal = ({
   isOpen, 
   onClose, 
   client, 
-  onConfirm 
+  onConfirm,
+  isDeleting = false
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
   client: ClientProfile | null;
   onConfirm: (id: string) => void;
+  isDeleting?: boolean;
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
@@ -49,7 +51,7 @@ const DeleteClientModal = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-card border border-border w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
-        <button onClick={onClose} className="absolute right-4 top-4 p-2 text-muted-foreground hover:bg-muted rounded-full">
+        <button disabled={isDeleting} onClick={onClose} className="absolute right-4 top-4 p-2 text-muted-foreground hover:bg-muted rounded-full disabled:opacity-50">
           <X size={20} />
         </button>
         
@@ -70,23 +72,29 @@ const DeleteClientModal = ({
           </p>
           <input
             type="text"
+            disabled={isDeleting}
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-destructive outline-none transition-colors"
+            className="w-full bg-background border border-border rounded-lg py-2 px-3 text-sm focus:border-destructive outline-none transition-colors disabled:opacity-50"
             placeholder={client.full_name}
           />
         </div>
         
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <button 
+            disabled={isDeleting}
+            onClick={onClose} 
+            className="px-5 py-2.5 rounded-xl font-bold text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
             {isRtl ? 'إلغاء' : 'Cancel'}
           </button>
           <button 
-            disabled={confirmText !== client.full_name}
+            disabled={confirmText !== client.full_name || isDeleting}
             onClick={() => onConfirm(client.id)}
-            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-destructive text-destructive-foreground hover:brightness-110 disabled:opacity-50 transition-all shadow-lg shadow-destructive/20"
+            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-destructive text-destructive-foreground hover:brightness-110 disabled:opacity-50 transition-all shadow-lg shadow-destructive/20 flex items-center gap-2"
           >
-            {isRtl ? 'حذف العميل' : 'Delete Client'}
+            {isDeleting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+            <span>{isDeleting ? (isRtl ? 'جارٍ الحذف...' : 'Deleting...') : (isRtl ? 'حذف العميل' : 'Delete Client')}</span>
           </button>
         </div>
       </div>
@@ -98,15 +106,22 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, jobs, o
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [clientToDelete, setClientToDelete] = React.useState<ClientProfile | null>(null);
   const [filterType, setFilterType] = React.useState<'all' | 'mine' | 'assigned'>('all');
-  const { mutate: deleteClient } = useDeleteClient();
+  const { mutate: deleteClient, isPending: isDeletingClient } = useDeleteClient();
   const { profile } = useAuth();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
   
   const handleDeleteConfirm = (id: string) => {
-    deleteClient(id);
-    setDeleteModalOpen(false);
-    setClientToDelete(null);
+    deleteClient(id, {
+      onSuccess: () => {
+        setDeleteModalOpen(false);
+        setClientToDelete(null);
+      },
+      onError: () => {
+        setDeleteModalOpen(false);
+        setClientToDelete(null);
+      }
+    });
   };
 
   return (
@@ -336,6 +351,7 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, jobs, o
         }}
         client={clientToDelete}
         onConfirm={handleDeleteConfirm}
+        isDeleting={isDeletingClient}
       />
     </div>
   );

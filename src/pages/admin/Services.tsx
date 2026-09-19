@@ -577,11 +577,9 @@ const ServicesList = () => {
           onConfirm={() => {
             deleteService(serviceToDelete.id, {
               onSuccess: () => {
-                toast.success('Service deleted successfully');
                 setServiceToDelete(null);
               },
-              onError: (err: any) => {
-                toast.error(err.message || 'Failed to delete service');
+              onError: () => {
                 setServiceToDelete(null);
               }
             });

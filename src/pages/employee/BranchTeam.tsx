@@ -11,6 +11,7 @@ import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import { useAdminJobs } from '../../hooks/shared/useJobs';
 import { useAdminLeads } from '../../hooks/shared/useLeads';
 import { AllocationModal } from '../../components/employee/AllocationModal';
+import { RoundRobinDistributionModal } from '../../components/employee/RoundRobinDistributionModal';
 import CreateEmployeeSlideOver from '../../components/admin/CreateEmployeeSlideOver';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -30,6 +31,7 @@ const BranchTeam: React.FC = () => {
   const [selectedStaffForAllocation, setSelectedStaffForAllocation] = useState<any>(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isRoundRobinOpen, setIsRoundRobinOpen] = useState(false);
 
   // Quick Lead Assignment state
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -119,23 +121,31 @@ const BranchTeam: React.FC = () => {
       {/* ─── Unassigned Branch Leads Delegation Banner (if any) ─── */}
       {unassignedLeads.length > 0 && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 Action Required: {unassignedLeads.length} Unassigned Leads in this Branch
               </h3>
             </div>
-            <span className="text-xs text-muted-foreground">Assign now to start customer follow-up</span>
+            
+            <button
+              type="button"
+              onClick={() => setIsRoundRobinOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <Zap size={14} />
+              <span>Smart Auto-Distribute ({unassignedLeads.length})</span>
+            </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <div className="flex flex-col sm:flex-row gap-3 items-center pt-1 border-t border-amber-500/20">
             <select
               value={selectedLeadId || ''}
               onChange={e => setSelectedLeadId(e.target.value)}
               className="w-full sm:w-1/2 bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-amber-500 outline-none"
             >
-              <option value="">-- Choose Lead to Assign --</option>
+              <option value="">-- Or Assign Individual Lead Manually --</option>
               {unassignedLeads.map(l => (
                 <option key={l.id} value={l.id}>
                   {l.contact_name} ({l.company_name || 'Individual'}) - {l.contact_phone || 'No phone'}
@@ -159,9 +169,9 @@ const BranchTeam: React.FC = () => {
             <button
               onClick={handleQuickLeadAssign}
               disabled={isAssigningLead || !selectedLeadId || !assigneeId}
-              className="w-full sm:w-auto px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 shrink-0"
+              className="w-full sm:w-auto px-5 py-2 bg-muted hover:bg-card border border-border text-foreground rounded-xl text-xs font-bold transition-all disabled:opacity-50 shrink-0"
             >
-              {isAssigningLead ? 'Assigning...' : 'Assign Lead'}
+              {isAssigningLead ? 'Assigning...' : 'Assign Single'}
             </button>
           </div>
         </div>
@@ -311,6 +321,16 @@ const BranchTeam: React.FC = () => {
           setIsCreateOpen(false);
           refetchEmployees();
         }}
+      />
+
+      {/* Smart Round-Robin Distribution Modal */}
+      <RoundRobinDistributionModal
+        isOpen={isRoundRobinOpen}
+        onClose={() => setIsRoundRobinOpen(false)}
+        unassignedLeads={unassignedLeads}
+        employees={employees}
+        allJobs={allJobs}
+        allLeads={leads}
       />
 
     </div>

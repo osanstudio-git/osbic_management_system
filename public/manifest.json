@@ -1,8 +1,8 @@
 {
-  "name": "OSBIC Client Portal",
-  "short_name": "OSBIC Portal",
-  "description": "Access your OSBIC projects and services.",
-  "start_url": "/login",
+  "name": "OSBIC Connect",
+  "short_name": "OSBIC Connect",
+  "description": "OSBIC Business Intelligence & Operations Management System",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0F1E",
   "theme_color": "#0A0F1E",

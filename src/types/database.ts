@@ -239,6 +239,75 @@ export interface Database {
         created_at: string
       }, 'id' | 'created_at'>
 
+      branch_cash_reconciliations: TableDef<{
+        id: string
+        branch_id: string
+        reconciliation_date: string
+        opening_cash: number
+        closing_cash_actual: number
+        pos_card_total_actual: number
+        expected_cash: number
+        expected_card: number
+        variance: number
+        bank_deposit_amount: number | null
+        deposit_reference: string | null
+        deposit_slip_url: string | null
+        status: 'draft' | 'submitted' | 'verified' | 'discrepancy'
+        notes: string | null
+        created_by: string | null
+        verified_by: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'status' | 'opening_cash' | 'closing_cash_actual' | 'pos_card_total_actual' | 'expected_cash' | 'expected_card' | 'variance'>
+
+      branch_document_vault: TableDef<{
+        id: string
+        branch_id: string
+        client_id: string | null
+        job_id: string | null
+        document_type: 'cr_certificate' | 'company_stamp' | 'passport' | 'civil_id' | 'tenancy_contract' | 'pki_token' | 'power_of_attorney' | 'municipal_license' | 'other'
+        document_name: string
+        document_identifier: string | null
+        client_name: string
+        contact_phone: string | null
+        locker_location: string | null
+        status: 'in_vault' | 'with_pro' | 'returned_to_client' | 'archived'
+        current_holder_id: string | null
+        checkout_reason: string | null
+        checkout_time: string | null
+        expected_return_date: string | null
+        received_by: string | null
+        received_at: string
+        returned_to_client_at: string | null
+        returned_by: string | null
+        notes: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'status' | 'received_at'>
+
+      branch_document_vault_logs: TableDef<{
+        id: string
+        vault_item_id: string
+        action: 'received_in_vault' | 'checked_out_to_pro' | 'returned_to_vault' | 'handed_over_to_client' | 'note_added'
+        performed_by: string | null
+        recipient_holder_id: string | null
+        notes: string | null
+        created_at: string
+      }, 'id' | 'created_at'>
+
+      branch_monthly_targets: TableDef<{
+        id: string
+        branch_id: string
+        target_month: string
+        revenue_target: number
+        deals_target: number
+        leads_target: number | null
+        notes: string | null
+        created_by: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'revenue_target' | 'deals_target'>
+
       messages: TableDef<{
         id: string
         job_id: string
@@ -631,6 +700,30 @@ export interface Database {
         created_at: string
         created_by: string | null
       }, 'id' | 'created_at' | 'status' | 'expense_type'>
+
+      branch_client_escalations: TableDef<{
+        id: string
+        branch_id: string
+        job_id: string | null
+        lead_id: string | null
+        client_name: string
+        client_phone: string | null
+        client_email: string | null
+        assigned_staff_id: string | null
+        logged_by: string
+        category: 'sla_breach' | 'milestone_delay' | 'quality_complaint' | 'fee_dispute' | 'unresponsive_staff' | 'general'
+        severity: 'low' | 'medium' | 'high' | 'critical'
+        status: 'open' | 'investigating' | 'resolved' | 'escalated_to_hq'
+        title: string
+        description: string
+        feedback_channel: 'walk_in' | 'whatsapp' | 'phone_call' | 'portal_review' | 'manager_flag'
+        resolution_notes: string | null
+        resolved_by: string | null
+        resolved_at: string | null
+        rating: number | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at'>
     }
     Views: {
       [_ in never]: never

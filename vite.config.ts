@@ -41,15 +41,15 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'OSBIC Client Portal', // Focused on Clients
-        short_name: 'OSBIC Portal',
-        description: 'Access your OSBIC projects and services.',
+        name: 'OSBIC Connect',
+        short_name: 'OSBIC Connect',
+        description: 'OSBIC Business Intelligence & Operations Management System',
         theme_color: '#0A0F1E',
         background_color: '#0A0F1E',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
-        start_url: '/login', // Universal starting redirect page for clients/staff
+        start_url: '/',
         icons: [
           {
             src: 'logo-192.png',

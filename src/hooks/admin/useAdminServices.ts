@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 import type { Database } from '../../types/database';
 
 export interface WorkflowStep {
@@ -310,7 +311,23 @@ export const useDeleteService = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      // 1. Check for any existing jobs (active or historical)
+      // 1. Try atomic PostgreSQL RPC function first
+      try {
+        const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('delete_service_safely', { p_service_id: id });
+        if (!rpcErr && rpcRes) {
+          if (rpcRes.success === false) {
+            throw new Error(rpcRes.error || 'Cannot delete service linked to existing jobs');
+          }
+          return true;
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes('Cannot delete service')) {
+          throw err;
+        }
+        console.warn('RPC delete_service_safely failed or unavailable, running client-side cascade:', err);
+      }
+
+      // 2. Check for any existing jobs (active or historical) in both jobs and job_services
       const { data: existingJobs, error: jError } = await supabase
         .from('jobs')
         .select('id')
@@ -322,26 +339,47 @@ export const useDeleteService = () => {
         throw new Error('This service cannot be deleted because it is linked to existing jobs. Please mark it as inactive instead.');
       }
 
-      // 2. Clear out any lightweight dependencies (leads, packages)
+      const { data: existingJobServices, error: jsError } = await supabase
+        .from('job_services')
+        .select('id')
+        .eq('service_id', id)
+        .limit(1);
+
+      if (!jsError && existingJobServices && existingJobServices.length > 0) {
+        throw new Error('This service cannot be deleted because it is linked to active job operations. Please mark it as inactive instead.');
+      }
+
+      // 3. Clear out document requirements (must be done before deleting services)
+      await supabase.from('service_document_requirements').delete().eq('service_id', id);
+
+      // 4. Clear out lightweight dependencies (leads, packages)
       await supabase.from('service_interests').delete().eq('service_id', id);
       await supabase.from('package_services').delete().eq('service_id', id);
 
-      // 3. Delete workflow steps (dependency)
+      // 5. Delete workflow steps (dependency)
       const { error: stError } = await supabase
         .from('workflow_steps')
         .delete()
         .eq('service_id', id);
       if (stError) throw stError;
 
-      // 4. Delete service
+      // 6. Delete service
       const { error: sError } = await supabase
         .from('services')
         .delete()
         .eq('id', id);
       if (sError) throw sError;
+
+      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      toast.success('Service deleted successfully');
+    },
+    onError: (err: any) => {
+      console.error('Delete service error:', err);
+      toast.error(err.message || 'Failed to delete service');
     },
   });
 };

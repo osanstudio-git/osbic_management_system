@@ -7,22 +7,81 @@ interface InvoiceDocumentProps {
   isSimple?: boolean;
 }
 
-// Helper to convert numbers to words (simplified for OMR)
-const numberToWords = (amount: number) => {
-  const whole = Math.floor(amount);
-  // Very simplified English conversion for the sake of the invoice model
-  const units = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
-  if (whole <= 10) return `${units[whole]} Rials only`;
-  return `${whole} Rials only`; // A robust converter would be larger, keeping it simple
+// Convert numbers to English words including Rials and Baizas for OMR
+const numberToWords = (amount: number): string => {
+  if (amount === 0 || isNaN(amount)) return 'Zero Rials only';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 
+                'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const convertLessThanOneThousand = (n: number): string => {
+    let result = '';
+    if (n >= 100) {
+      result += ones[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      result += tens[Math.floor(n / 10)] + ' ';
+      n %= 10;
+    }
+    if (n > 0) {
+      result += ones[n] + ' ';
+    }
+    return result.trim();
+  };
+
+  const convertGroup = (n: number): string => {
+    if (n === 0) return '';
+    let result = '';
+    if (n >= 1000000) {
+      result += convertLessThanOneThousand(Math.floor(n / 1000000)) + ' Million ';
+      n %= 1000000;
+    }
+    if (n >= 1000) {
+      result += convertLessThanOneThousand(Math.floor(n / 1000)) + ' Thousand ';
+      n %= 1000;
+    }
+    if (n > 0) {
+      result += convertLessThanOneThousand(n);
+    }
+    return result.trim();
+  };
+
+  const rials = Math.floor(amount);
+  const baizas = Math.round((amount - rials) * 1000);
+
+  let output = '';
+  if (rials > 0) {
+    output += convertGroup(rials) + (rials === 1 ? ' Rial' : ' Rials');
+  }
+
+  if (baizas > 0) {
+    if (rials > 0) output += ' and ';
+    output += convertGroup(baizas) + (baizas === 1 ? ' Baiza' : ' Baizas');
+  }
+
+  return (output ? output + ' only' : 'Zero Rials only');
 };
 
 export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(({ invoice, isSimple = false }, ref) => {
   const isPaid = invoice.status === 'paid';
   const isQuotation = invoice.type === 'quotation';
-  const themeColor = '#3b98d3'; // The brand blue color
+  const themeColor = '#0088cc'; // OSBIC brand blue color
+
+  const items = invoice.items && invoice.items.length > 0 ? invoice.items : [];
+  const subtotal = Number(invoice.subtotal) || 0;
+  const taxRate = Number(invoice.tax_percentage) || 0;
+  const taxAmount = Number(invoice.tax_amount) || 0;
+  const discountAmount = Number(invoice.discount_amount) || 0;
+  const totalAmount = Number(invoice.total_amount) || (subtotal - discountAmount + taxAmount);
+  const totalQuantity = isSimple ? 1 : items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   return (
-    <div ref={ref} className="bg-white text-black p-10 min-h-[1056px] w-[794px] max-w-full mx-auto shadow-2xl relative overflow-hidden font-sans text-[11px] leading-relaxed print:w-full print:min-h-0 print:h-auto print:shadow-none print:p-0 print:m-0 print:overflow-visible">
+    <div 
+      ref={ref} 
+      className="bg-white text-gray-900 p-8 sm:p-10 w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-2xl relative overflow-hidden font-sans text-[11px] leading-relaxed box-border print:w-full print:min-h-0 print:h-auto print:shadow-none print:p-6 print:m-0 print:overflow-visible"
+    >
       
       {/* PAID Watermark Sticker */}
       {isPaid && (
@@ -35,143 +94,159 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
       )}
 
       {/* Header */}
-      <div className="flex justify-between items-start relative z-10 print:mb-2">
-        <div>
-          <h1 className="text-[13px] font-bold text-gray-900 mb-1">OSBIC INTERNATIONAL LLC (OMAN)</h1>
-          <p>Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
-          <p>Muscat, Oman. Landmark ASAS SERVICE CENTER</p>
-          <p>Ghala Industrial Area Muscat Sultanate of Oman</p>
-          <p className="mt-1">Phone no. : +968 72596531, 72229827</p>
-          <p>Email : Ayoob@osangroupoman.com</p>
+      <div className="flex justify-between items-start relative z-10 pb-4 border-b border-gray-200 print:pb-2">
+        <div className="space-y-0.5">
+          <h1 className="text-sm font-black text-gray-900 tracking-tight">OSBIC INTERNATIONAL LLC (OMAN)</h1>
+          <p className="text-gray-600 text-[10.5px]">Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
+          <p className="text-gray-600 text-[10.5px]">Muscat, Oman. Landmark: ASAS SERVICE CENTER</p>
+          <p className="text-gray-600 text-[10.5px]">Ghala Industrial Area, Muscat, Sultanate of Oman</p>
+          <p className="text-gray-700 text-[10.5px] font-medium pt-1">Phone: +968 72596531, +968 72229827</p>
+          <p className="text-gray-700 text-[10.5px] font-medium">Email: Ayoob@osangroupoman.com</p>
         </div>
         
         {/* Blue OSBIC Box */}
-        <div className="w-20 h-20 bg-[#0088cc] flex items-center justify-center text-white text-[10px] font-bold tracking-widest">
+        <div className="w-20 h-20 bg-[#0088cc] rounded-lg flex items-center justify-center text-white text-xs font-black tracking-widest shadow-sm shrink-0">
           OSBIC
         </div>
       </div>
 
-      <div className="w-full border-t border-gray-300 mt-4 mb-4 print:my-2" />
-
       {/* Title */}
-      <div className="text-center relative z-10 mb-6 print:mb-2">
-        <h2 className="text-xl font-bold" style={{ color: themeColor }}>
+      <div className="text-center relative z-10 my-5 print:my-3">
+        <h2 className="text-xl font-bold uppercase tracking-wider" style={{ color: themeColor }}>
           {isQuotation ? 'Quotation' : 'Invoice'}
         </h2>
       </div>
 
       {/* Client Info & Invoice Details */}
-      <div className="flex justify-between items-start mb-6 print:mb-3 relative z-10">
+      <div className="grid grid-cols-2 gap-4 mb-6 pb-4 border-b border-gray-100 print:mb-4 relative z-10">
         <div>
-          <h3 className="font-bold text-gray-900 mb-2 print:mb-1">Bill To</h3>
-          <p className="font-bold text-gray-900 text-xs">{invoice.client?.full_name || invoice.lead?.contact_name || 'Client Name'}</p>
+          <h3 className="font-bold text-gray-500 uppercase tracking-widest text-[9.5px] mb-1">Bill To</h3>
+          <p className="font-bold text-gray-900 text-sm">{invoice.client?.full_name || invoice.lead?.contact_name || 'Client Name'}</p>
+          {invoice.client?.company_name && (
+            <p className="text-gray-600 text-[10.5px] font-medium">{invoice.client.company_name}</p>
+          )}
+          {invoice.client?.phone && (
+            <p className="text-gray-500 text-[10px] mt-0.5">{invoice.client.phone}</p>
+          )}
         </div>
         <div className="text-right">
-          <h3 className="font-bold text-gray-900 mb-2 print:mb-1">Invoice Details</h3>
-          <p><span className="text-gray-600">Invoice No. :</span> {invoice.invoice_number || 'DRAFT'}</p>
-          <p><span className="text-gray-600">Date :</span> {format(new Date(invoice.issue_date || new Date()), 'dd-MM-yyyy')}</p>
+          <h3 className="font-bold text-gray-500 uppercase tracking-widest text-[9.5px] mb-1">Invoice Details</h3>
+          <p className="text-[11px]"><span className="text-gray-500">Invoice No:</span> <span className="font-bold text-gray-900">{invoice.invoice_number || 'DRAFT'}</span></p>
+          <p className="text-[11px]"><span className="text-gray-500">Issue Date:</span> <span className="font-medium text-gray-900">{format(new Date(invoice.issue_date || new Date()), 'dd-MM-yyyy')}</span></p>
         </div>
       </div>
 
       {/* Items Table */}
-      <div className="relative z-10 mb-6 print:mb-3">
-        <table className="w-full text-left border-collapse text-[11px] print:text-[10px]">
+      <div className="relative z-10 mb-6 print:mb-4">
+        <table className="w-full text-left border-collapse table-fixed text-[11px] print:text-[10px]">
           <thead>
-            <tr className="text-white font-bold" style={{ backgroundColor: themeColor, height: '40px' }}>
-              <th className="px-2 align-middle w-8" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>#</th>
-              <th className="px-2 align-middle" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Service Name</th>
-              <th className="px-2 align-middle text-center w-16" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Quantity</th>
-              <th className="px-2 align-middle text-right w-24" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Price/ Unit</th>
-              <th className="px-2 align-middle text-center w-16" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>VAT %</th>
-              <th className="px-2 align-middle text-right w-24" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Final Rate</th>
-              <th className="px-2 align-middle text-right w-24" style={{ height: '40px', lineHeight: '40px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Amount</th>
+            <tr className="text-white font-bold" style={{ backgroundColor: themeColor }}>
+              <th className="py-2.5 px-3 w-[6%] text-center align-middle rounded-l-md">#</th>
+              <th className="py-2.5 px-3 w-[46%] text-left align-middle">Service Name</th>
+              <th className="py-2.5 px-3 w-[12%] text-center align-middle">Quantity</th>
+              <th className="py-2.5 px-3 w-[18%] text-right align-middle">Price / Unit</th>
+              <th className="py-2.5 px-3 w-[8%] text-center align-middle">VAT %</th>
+              <th className="py-2.5 px-3 w-[18%] text-right align-middle rounded-r-md">Amount</th>
             </tr>
           </thead>
           <tbody>
             {isSimple ? (
-              <tr className="border-b border-gray-300">
-                <td className="py-3 px-2 align-middle print:py-2">1</td>
-                <td className="py-3 px-2 align-middle print:py-2 font-bold">
-                  {invoice.items?.[0]?.description || invoice.metadata?.service_name || 'Professional Services'}
+              <tr className="border-b border-gray-200">
+                <td className="py-3 px-3 text-center align-middle text-gray-500">1</td>
+                <td className="py-3 px-3 text-left align-middle font-semibold text-gray-900">
+                  {items[0]?.description || invoice.metadata?.service_name || 'Professional Services'}
                 </td>
-                <td className="py-3 px-2 align-middle print:py-2 text-center">1</td>
-                <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {invoice.subtotal.toFixed(3)}</td>
-                <td className="py-3 px-2 align-middle print:py-2 text-center">{invoice.tax_percentage}%</td>
-                <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {invoice.subtotal.toFixed(3)}</td>
-                <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {invoice.subtotal.toFixed(3)}</td>
+                <td className="py-3 px-3 text-center align-middle font-medium">1</td>
+                <td className="py-3 px-3 text-right align-middle font-mono font-medium">OMR {subtotal.toFixed(3)}</td>
+                <td className="py-3 px-3 text-center align-middle text-gray-600">{taxRate}%</td>
+                <td className="py-3 px-3 text-right align-middle font-mono font-bold text-gray-900">OMR {subtotal.toFixed(3)}</td>
               </tr>
             ) : (
-              invoice.items?.map((item, idx) => (
-                <tr key={idx} className="border-b border-gray-300">
-                  <td className="py-3 px-2 align-middle print:py-2">{idx + 1}</td>
-                  <td className="py-3 px-2 align-middle print:py-2 font-bold">{item.description}</td>
-                  <td className="py-3 px-2 align-middle print:py-2 text-center">{item.quantity}</td>
-                  <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {item.unit_price.toFixed(3)}</td>
-                  <td className="py-3 px-2 align-middle print:py-2 text-center">{invoice.tax_percentage}%</td>
-                  <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {item.unit_price.toFixed(3)}</td>
-                  <td className="py-3 px-2 align-middle print:py-2 text-right">OMR {item.total.toFixed(3)}</td>
+              items.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50/50 transition-colors">
+                  <td className="py-3 px-3 text-center align-middle text-gray-500">{idx + 1}</td>
+                  <td className="py-3 px-3 text-left align-middle font-semibold text-gray-900 break-words">{item.description}</td>
+                  <td className="py-3 px-3 text-center align-middle font-medium">{item.quantity}</td>
+                  <td className="py-3 px-3 text-right align-middle font-mono font-medium">OMR {Number(item.unit_price || 0).toFixed(3)}</td>
+                  <td className="py-3 px-3 text-center align-middle text-gray-600">{taxRate}%</td>
+                  <td className="py-3 px-3 text-right align-middle font-mono font-bold text-gray-900">OMR {Number(item.total || 0).toFixed(3)}</td>
                 </tr>
               ))
             )}
-            {(!invoice.items || invoice.items.length === 0) && (
+            {items.length === 0 && !isSimple && (
               <tr>
-                <td colSpan={7} className="py-3 text-center text-gray-400 italic">No items added yet.</td>
+                <td colSpan={6} className="py-6 text-center text-gray-400 italic">No services added yet.</td>
               </tr>
             )}
-            {/* Total Row */}
-            <tr className="border-b-2 border-black font-bold">
-              <td className="py-2.5 px-2 align-middle print:py-2"></td>
-              <td className="py-2.5 px-2 align-middle print:py-2">Total</td>
-              <td className="py-2.5 px-2 align-middle print:py-2 text-center">{isSimple ? 1 : (invoice.items?.reduce((sum, item) => sum + item.quantity, 0) || 0)}</td>
-              <td className="py-2.5 px-2 align-middle print:py-2"></td>
-              <td className="py-2.5 px-2 align-middle print:py-2"></td>
-              <td className="py-2.5 px-2 align-middle print:py-2"></td>
-              <td className="py-2.5 px-2 align-middle print:py-2 text-right">OMR {invoice.subtotal.toFixed(3)}</td>
+            {/* Total Summary Table Row */}
+            <tr className="border-b-2 border-gray-900 font-bold bg-gray-50/60">
+              <td className="py-2.5 px-3 text-center align-middle"></td>
+              <td className="py-2.5 px-3 text-left align-middle font-bold text-gray-900 uppercase tracking-wider text-[10px]">Total</td>
+              <td className="py-2.5 px-3 text-center align-middle font-bold">{totalQuantity}</td>
+              <td className="py-2.5 px-3 text-right align-middle"></td>
+              <td className="py-2.5 px-3 text-center align-middle"></td>
+              <td className="py-2.5 px-3 text-right align-middle font-mono font-bold text-gray-900">OMR {subtotal.toFixed(3)}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       {/* Description & Financial Summary Grid */}
-      <div className="grid grid-cols-2 gap-8 relative z-10 mb-4 print:mb-2 text-[11px] print:text-[10px]">
+      <div className="grid grid-cols-2 gap-8 relative z-10 mb-6 print:mb-4 text-[11px] print:text-[10px]">
         
         {/* Left Side: Description & Words */}
-        <div className="space-y-2 print:space-y-1">
+        <div className="space-y-4 print:space-y-2">
+           {invoice.notes && (
+             <div>
+               <h4 className="font-bold text-gray-700 uppercase tracking-wider text-[9.5px] mb-1">Description / Reference</h4>
+               <p className="text-gray-800 uppercase font-medium bg-gray-50 p-2.5 rounded-lg border border-gray-100">{invoice.notes}</p>
+             </div>
+           )}
            <div>
-             <h4 className="font-bold mb-1">Description</h4>
-             <p className="text-gray-600 uppercase">{invoice.notes || ' '}</p>
-           </div>
-           <div>
-             <h4 className="font-bold mb-1">Invoice Amount In Words</h4>
-             <p className="text-gray-600">{numberToWords(invoice.total_amount)}</p>
+             <h4 className="font-bold text-gray-700 uppercase tracking-wider text-[9.5px] mb-1">Invoice Amount In Words</h4>
+             <p className="text-gray-800 font-semibold italic bg-gray-50 p-2.5 rounded-lg border border-gray-100">{numberToWords(totalAmount)}</p>
            </div>
         </div>
 
         {/* Right Side: Totals Table */}
         <div className="w-full flex justify-end">
-           <table className="w-full max-w-[250px] text-right border-collapse">
+           <table className="w-full max-w-[280px] text-right border-collapse text-[11px] print:text-[10px]">
              <tbody>
                <tr>
-                 <td className="py-2.5 px-2 align-middle text-gray-600 print:py-1.5">Sub Total</td>
-                 <td className="py-2.5 px-2 align-middle print:py-1.5 font-bold">OMR {invoice.subtotal.toFixed(3)}</td>
+                 <td className="py-2 px-3 align-middle text-gray-600 font-medium">Sub Total</td>
+                 <td className="py-2 px-3 align-middle font-mono font-bold text-gray-900">OMR {subtotal.toFixed(3)}</td>
                </tr>
-               <tr className="text-white font-bold" style={{ backgroundColor: themeColor, height: '36px' }}>
-                 <td className="px-2 align-middle" style={{ height: '36px', lineHeight: '36px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>Total</td>
-                 <td className="px-2 align-middle" style={{ height: '36px', lineHeight: '36px', paddingTop: 0, paddingBottom: 0, verticalAlign: 'middle' }}>OMR {invoice.total_amount.toFixed(3)}</td>
+               {discountAmount > 0 && (
+                 <tr>
+                   <td className="py-1.5 px-3 align-middle text-emerald-600 font-medium">Discount</td>
+                   <td className="py-1.5 px-3 align-middle font-mono font-bold text-emerald-600">-OMR {discountAmount.toFixed(3)}</td>
+                 </tr>
+               )}
+               {taxRate > 0 && (
+                 <tr>
+                   <td className="py-1.5 px-3 align-middle text-gray-600 font-medium">VAT ({taxRate}%)</td>
+                   <td className="py-1.5 px-3 align-middle font-mono font-bold text-gray-900">OMR {taxAmount.toFixed(3)}</td>
+                 </tr>
+               )}
+               <tr className="text-white font-bold rounded-lg" style={{ backgroundColor: themeColor }}>
+                 <td className="py-2.5 px-3 align-middle rounded-l-md font-bold uppercase tracking-wider text-[10px]">Total</td>
+                 <td className="py-2.5 px-3 align-middle rounded-r-md font-mono font-black text-sm">OMR {totalAmount.toFixed(3)}</td>
                </tr>
                <tr>
-                 <td className="py-2.5 px-2 align-middle text-gray-600 border-b border-gray-200 print:py-1.5">Received</td>
-                 <td className="py-2.5 px-2 align-middle border-b border-gray-200 print:py-1.5 font-bold">OMR {(isPaid ? invoice.total_amount : 0).toFixed(3)}</td>
+                 <td className="py-2 px-3 align-middle text-gray-600 border-b border-gray-200 font-medium">Received</td>
+                 <td className="py-2 px-3 align-middle border-b border-gray-200 font-mono font-bold text-gray-900">OMR {(isPaid ? totalAmount : 0).toFixed(3)}</td>
                </tr>
                <tr>
-                 <td className="py-2.5 px-2 align-middle text-gray-600 border-b border-gray-200 print:py-1.5">Balance</td>
-                 <td className="py-2.5 px-2 align-middle border-b border-gray-200 print:py-1.5 font-bold text-red-500">OMR {(isPaid ? 0 : invoice.total_amount).toFixed(3)}</td>
-               </tr>
-               <tr>
-                 <td className="py-2.5 px-2 align-middle text-gray-600 border-b border-gray-200 print:py-1.5">
-                   {isPaid ? 'Payment mode' : 'Payment Terms'}
+                 <td className="py-2 px-3 align-middle text-gray-600 border-b border-gray-200 font-medium">Balance</td>
+                 <td className={`py-2 px-3 align-middle border-b border-gray-200 font-mono font-bold ${isPaid ? 'text-gray-900' : 'text-rose-600'}`}>
+                   OMR {(isPaid ? 0 : totalAmount).toFixed(3)}
                  </td>
-                 <td className="py-2.5 px-2 align-middle border-b border-gray-200 print:py-1.5 font-bold">
+               </tr>
+               <tr>
+                 <td className="py-2 px-3 align-middle text-gray-600 border-b border-gray-200 font-medium">
+                   {isPaid ? 'Payment Mode' : 'Payment Terms'}
+                 </td>
+                 <td className="py-2 px-3 align-middle border-b border-gray-200 font-bold text-gray-900 text-[10.5px]">
                    {invoice.terms || (isPaid ? 'Bank Transfer' : 'Payment is due within 10 days.')}
                  </td>
                </tr>
@@ -182,19 +257,19 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
       </div>
 
       {/* Terms and Conditions */}
-      <div className="relative z-10 space-y-1 mb-6 print:mb-2 text-[10px] print:text-[8.5px]">
-        <h4 className="font-bold print:mb-0.5">Terms and Conditions</h4>
-        <p className="mb-1 text-[10px] print:text-[8px] print:mb-0.5">Thanks for doing business with us!</p>
+      <div className="relative z-10 space-y-2 mb-6 print:mb-3 text-[10px] print:text-[8.5px] border-t border-gray-100 pt-3">
+        <h4 className="font-bold text-gray-900 uppercase tracking-wider text-[9.5px]">Terms and Conditions</h4>
+        <p className="text-gray-600">Thanks for doing business with us!</p>
         
-        <div className="space-y-0.5 leading-tight text-[10px] print:text-[8px]" dir="rtl" style={{ textAlign: 'right', fontFamily: 'Arial, sans-serif' }}>
-          <p className="font-bold">ملاحظة: تم إنجاز المعاملة</p>
+        <div className="space-y-0.5 leading-tight text-[10px] print:text-[8.5px] text-gray-700" dir="rtl" style={{ textAlign: 'right', fontFamily: 'Arial, sans-serif' }}>
+          <p className="font-bold text-gray-900">ملاحظة: تم إنجاز المعاملة</p>
           <p>- عدم تحمل الشركة أي قرارات وزارية مفاجئة.</p>
           <p>- لن تتحمل الشركة أي تأخير صدر من قبل العميل.</p>
           <p>- لن يتم إسترجاع مبلغ المكتب إذا تم البدء في المعاملة.</p>
           <p>- لن يتحمل المكتب أي رسوم إضافية تفرض من قبل الحكومة.</p>
         </div>
 
-        <div className="space-y-0.5 mt-2 print:mt-1 leading-tight text-[10px] print:text-[8px]">
+        <div className="space-y-0.5 mt-2 leading-tight text-[10px] print:text-[8.5px] text-gray-700">
           <p>The company shall not bear responsibility for any sudden ministerial decisions.</p>
           <p>- The company shall not be held liable for any delays caused by the client.</p>
           <p>- The clearance fee is non-refundable once the transaction has commenced.</p>
@@ -203,26 +278,26 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
       </div>
 
       {/* Pay To & Signature Block */}
-      <div className="grid grid-cols-2 gap-8 relative z-10 text-[10px] print:text-[8.5px]">
+      <div className="grid grid-cols-2 gap-8 relative z-10 text-[10px] print:text-[8.5px] border-t border-gray-100 pt-3">
         <div>
-          <h4 className="font-bold mb-1">Pay To:</h4>
-          <div className="space-y-0.5 print:space-y-0">
-            <p>Bank Name : BANK MUSCAT</p>
-            <p>Bank Account No. : 0423081077790019</p>
-            <p>Bank SWIFT code : BMUSOMRXXX</p>
-            <p>Account holder's name : OSBIC INTERNATIONAL LLC</p>
-            <p>IBAN : OM550270423081077790019</p>
+          <h4 className="font-bold text-gray-900 uppercase tracking-wider text-[9.5px] mb-1">Pay To:</h4>
+          <div className="space-y-0.5 text-gray-700">
+            <p><span className="text-gray-500 font-medium">Bank Name:</span> BANK MUSCAT</p>
+            <p><span className="text-gray-500 font-medium">Bank Account No:</span> 0423081077790019</p>
+            <p><span className="text-gray-500 font-medium">Bank SWIFT code:</span> BMUSOMRXXX</p>
+            <p><span className="text-gray-500 font-medium">Account holder:</span> OSBIC INTERNATIONAL LLC</p>
+            <p><span className="text-gray-500 font-medium">IBAN:</span> OM550270423081077790019</p>
           </div>
         </div>
         
-        <div className="text-right flex flex-col justify-end pt-4 print:pt-1">
-          <p className="mt-2 print:mt-0 font-bold">For :OSBIC INTERNATIONAL LLC (OMAN)</p>
+        <div className="text-right flex flex-col justify-end">
+          <p className="font-bold text-gray-900">For: OSBIC INTERNATIONAL LLC (OMAN)</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 mt-12 print:mt-4 relative z-10 text-center font-bold text-[10px] print:text-[8.5px]">
-        <div>Customer Signatory</div>
-        <div>Authorized Signatory</div>
+      <div className="grid grid-cols-2 mt-10 print:mt-6 relative z-10 text-center font-bold text-[10px] print:text-[8.5px] text-gray-800">
+        <div className="border-t border-gray-400 mx-8 pt-2">Customer Signatory</div>
+        <div className="border-t border-gray-400 mx-8 pt-2">Authorized Signatory</div>
       </div>
 
     </div>
@@ -230,3 +305,4 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
 });
 
 InvoiceDocument.displayName = 'InvoiceDocument';
+

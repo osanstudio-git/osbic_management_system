@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -327,6 +328,62 @@ export const useDeleteClient = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // 1. Try atomic PostgreSQL RPC function first
+      try {
+        const { data: rpcRes, error: rpcErr } = await db.rpc('delete_client_safely', { p_client_id: id });
+        if (!rpcErr && rpcRes) {
+          if (rpcRes.success === false) {
+            throw new Error(rpcRes.error || 'Cannot delete client with active jobs or invoices');
+          }
+          return true;
+        }
+      } catch (err: any) {
+        if (err.message && (err.message.includes('Cannot delete client') || err.message.includes('active job') || err.message.includes('paid/recorded'))) {
+          throw err;
+        }
+        // If RPC function not yet created in Supabase, proceed with client-side cascade
+        console.warn('RPC delete_client_safely failed or unavailable, running client-side cascade:', err);
+      }
+
+      // 2. Pre-check: Check if client has active jobs
+      const { data: activeJobs, error: jobsErr } = await db
+        .from('jobs')
+        .select('id, status')
+        .eq('client_id', id)
+        .not('status', 'in', '("cancelled","draft")');
+
+      if (!jobsErr && activeJobs && activeJobs.length > 0) {
+        throw new Error(`Cannot delete client: They have ${activeJobs.length} active job(s) in progress. Please cancel or complete the jobs first.`);
+      }
+
+      // 3. Pre-check: Check if client has paid invoices
+      const { data: paidInvoices, error: invErr } = await db
+        .from('invoices')
+        .select('id, status')
+        .eq('client_id', id)
+        .in('status', ['paid', 'partially_paid']);
+
+      if (!invErr && paidInvoices && paidInvoices.length > 0) {
+        throw new Error(`Cannot delete client: They have ${paidInvoices.length} paid invoice(s). Please deactivate/archive the client instead to preserve financial records.`);
+      }
+
+      // 4. Cascade cleanup of safe dependent rows
+      await db.from('leads').update({ client_id: null }).eq('client_id', id);
+      await db.from('client_requests').delete().eq('client_id', id);
+      await db.from('client_packages').delete().eq('client_id', id);
+      await db.from('client_feedbacks').delete().eq('client_id', id);
+      await db.from('invoices').delete().eq('client_id', id);
+
+      // Clean up draft/cancelled jobs if any
+      const { data: draftJobs } = await db.from('jobs').select('id').eq('client_id', id);
+      if (draftJobs && draftJobs.length > 0) {
+        const jobIds = draftJobs.map((j: any) => j.id);
+        await db.from('job_service_documents').delete().in('job_id', jobIds);
+        await db.from('job_services').delete().in('job_id', jobIds);
+        await db.from('jobs').delete().eq('client_id', id);
+      }
+
+      // 5. Delete profile
       const { error } = await db
         .from('profiles')
         .delete()
@@ -338,6 +395,12 @@ export const useDeleteClient = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'clients'] });
       queryClient.invalidateQueries({ queryKey: ['employee', 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client'] });
+      toast.success('Client deleted successfully');
+    },
+    onError: (err: any) => {
+      console.error('Delete client error:', err);
+      toast.error(err.message || 'Failed to delete client');
     },
   });
 };

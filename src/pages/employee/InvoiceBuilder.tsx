@@ -144,61 +144,132 @@ const InvoiceBuilder = () => {
 
   // Handle URL Params and selection changes for Auto-Drafting from a Job
   useEffect(() => {
-    if (isNew && jobs && jobs.length > 0) {
+    let isCancelled = false;
+
+    const fetchJobServicesAndPopulate = async () => {
+      if (!isNew || !jobs || jobs.length === 0) return;
+
       const params = new URLSearchParams(window.location.search);
-      const autofillJobId = params.get('job_id') || formData.job_id;
-      const autofillClientId = params.get('client_id') || formData.client_id;
+      const autofillJobId = formData.job_id || params.get('job_id');
+      const autofillClientId = formData.client_id || params.get('client_id');
       
       const urlBaseFee = params.get('base_fee');
       const urlMinFee = params.get('min_fee');
 
-      if (autofillJobId) {
-        const jobDetail = jobs.find(j => j.id === autofillJobId);
-        if (jobDetail) {
-          const serviceName = jobDetail.service_name || 'Service';
-          
-          // Use URL base_fee first, then job.work_fee, fallback to 0
-          const finalWorkFee = urlBaseFee ? parseFloat(urlBaseFee) : (jobDetail.work_fee || 0);
-          
-          // Use URL min_fee first, then job.ministry_fee, fallback to 0
-          const finalMinistryFee = urlMinFee ? parseFloat(urlMinFee) : (jobDetail.ministry_fee || 0);
+      if (!autofillJobId) {
+        if (formData.items?.length === 0) {
+          setFormData(prev => ({ ...prev, items: [{ description: '', quantity: 1, unit_price: 0, total: 0 }] }));
+        }
+        return;
+      }
 
-          // Combine work fee + ministry fee into a single total service line item
-          const totalFee = finalWorkFee + finalMinistryFee;
-          const autoItems: InvoiceItem[] = [];
-          if (totalFee > 0) {
-            autoItems.push({ 
-              description: serviceName, 
-              quantity: 1, 
-              unit_price: totalFee, 
-              total: totalFee 
+      const jobDetail = jobs.find(j => j.id === autofillJobId);
+      if (!jobDetail) return;
+
+      // 1. Fetch itemized services from job_services table
+      const { data: jobServicesList } = await supabase
+        .from('job_services')
+        .select('*')
+        .eq('job_id', autofillJobId)
+        .order('display_order', { ascending: true });
+
+      // 2. Fetch any additional services
+      const { data: addServicesList } = await supabase
+        .from('job_additional_services')
+        .select('*')
+        .eq('job_id', autofillJobId);
+
+      if (isCancelled) return;
+
+      const autoItems: InvoiceItem[] = [];
+
+      if (jobServicesList && jobServicesList.length > 0) {
+        jobServicesList.forEach((js: any) => {
+          const unitFee = (Number(js.work_fee) || 0) + (Number(js.ministry_fee) || 0);
+          const qty = Number(js.quantity) || 1;
+          const label = js.applicant_name 
+            ? `${js.service_name || 'Service'} (${js.applicant_name})`
+            : (js.service_name || 'Service');
+
+          autoItems.push({
+            description: label,
+            quantity: qty,
+            unit_price: unitFee,
+            total: unitFee * qty
+          });
+        });
+      }
+
+      if (addServicesList && addServicesList.length > 0) {
+        addServicesList.forEach((as: any) => {
+          const unitFee = (Number(as.work_fee) || 0) + (Number(as.ministry_fee) || 0);
+          const qty = Number(as.quantity) || 1;
+          autoItems.push({
+            description: as.custom_name || 'Additional Service',
+            quantity: qty,
+            unit_price: unitFee,
+            total: unitFee * qty
+          });
+        });
+      }
+
+      // Fallback if no job_services rows found
+      if (autoItems.length === 0) {
+        const rawServiceName = jobDetail.service_name || 'Service';
+        const finalWorkFee = urlBaseFee ? parseFloat(urlBaseFee) : (jobDetail.work_fee || 0);
+        const finalMinistryFee = urlMinFee ? parseFloat(urlMinFee) : (jobDetail.ministry_fee || 0);
+        const totalFee = finalWorkFee + finalMinistryFee;
+
+        // Check if service name is compound (e.g. "Medical Attestation + Visa Processing")
+        if (rawServiceName.includes(' + ') || rawServiceName.includes(' & ') || rawServiceName.includes(', ')) {
+          const parts = rawServiceName.split(/\s*(?:\+|\&|\,)\s*/).filter(Boolean);
+          const splitFee = parts.length > 0 ? (totalFee / parts.length) : totalFee;
+          parts.forEach(part => {
+            autoItems.push({
+              description: part.trim(),
+              quantity: 1,
+              unit_price: splitFee,
+              total: splitFee
             });
-          }
-
-          // Auto-fill REF field with the job code + service name (not the employee name)
-          const autoNotes = `${jobDetail.job_code} - ${serviceName}`;
-
-          setFormData(prev => {
-            // Only update if the items description is currently empty to avoid wiping user customizations
-            const hasExistingCustomItems = prev.items && prev.items.length > 0 && prev.items.some(item => item.description.trim() !== '');
-            if (prev.job_id === autofillJobId && hasExistingCustomItems) {
-              return prev;
-            }
-            const currentNotes = prev.notes || '';
-            const shouldAutofillNotes = currentNotes === '' || currentNotes === 'Thank you for your business.' || currentNotes.startsWith('REF BY:');
-            return {
-              ...prev,
-              client_id: autofillClientId || jobDetail.client_id,
-              job_id: autofillJobId,
-              notes: shouldAutofillNotes ? autoNotes : currentNotes,
-              items: autoItems.length > 0 ? autoItems : [{ description: '', quantity: 1, unit_price: 0, total: 0 }]
-            };
+          });
+        } else if (totalFee > 0) {
+          autoItems.push({
+            description: rawServiceName,
+            quantity: 1,
+            unit_price: totalFee,
+            total: totalFee
           });
         }
-      } else if (formData.items?.length === 0) {
-        setFormData(prev => ({ ...prev, items: [{ description: '', quantity: 1, unit_price: 0, total: 0 }] }));
       }
-    }
+
+      const autoNotes = `${jobDetail.job_code} - ${jobDetail.service_name || 'Services'}`;
+
+      setFormData(prev => {
+        const hasExistingCustomItems = prev.items && prev.items.length > 0 && prev.items.some(item => item.description.trim() !== '');
+        if (prev.job_id === autofillJobId && hasExistingCustomItems && prev.items.length === autoItems.length) {
+          return prev;
+        }
+        const currentNotes = prev.notes || '';
+        const shouldAutofillNotes = currentNotes === '' || currentNotes === 'Thank you for your business.' || currentNotes.startsWith('REF BY:');
+        return {
+          ...prev,
+          client_id: autofillClientId || jobDetail.client_id,
+          job_id: autofillJobId,
+          notes: shouldAutofillNotes ? autoNotes : currentNotes,
+          items: autoItems.length > 0 ? autoItems : [{ description: '', quantity: 1, unit_price: 0, total: 0 }]
+        };
+      });
+
+      if (autoItems.length > 1) {
+        setInvoiceMode('detailed');
+      }
+    };
+
+    fetchJobServicesAndPopulate();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [isNew, jobs, formData.job_id]);
 
   // Recalculate totals whenever items, tax, or discount changes
@@ -299,7 +370,7 @@ const InvoiceBuilder = () => {
     pageStyle: `
       @page {
         size: A4 portrait;
-        margin: 0mm !important;
+        margin: 8mm 10mm !important;
       }
       @media print {
         html, body {
@@ -746,7 +817,7 @@ const InvoiceBuilder = () => {
            <div className="sticky top-8 rounded-2xl overflow-hidden border border-border shadow-2xl print:shadow-none print:border-none print:overflow-visible print:static">
               <style>{`
                 @media print {
-                  @page { margin: 0mm !important; size: A4 portrait; }
+                  @page { margin: 8mm 10mm !important; size: A4 portrait; }
                   html, body {
                     width: auto;
                     height: auto;

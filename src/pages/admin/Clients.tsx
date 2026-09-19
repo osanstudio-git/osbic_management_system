@@ -6,7 +6,7 @@ import {
   Eye, Edit3, UserPlus, Archive, Trash2,
   Users, UserCheck, UserMinus
 } from 'lucide-react';
-import { useAdminClients } from '../../hooks/admin/useAdminClients';
+import { useAdminClients, useDeleteClient } from '../../hooks/admin/useAdminClients';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import CreateClientSlideOver from '../../components/shared/clients/CreateClientSlideOver';
 import Skeleton from '../../components/ui/Skeleton';
@@ -22,13 +22,13 @@ const Clients = () => {
   const { selectedBranchId } = useBranch();
   const { data: clients, isLoading: isClientsLoading } = useAdminClients();
   const { data: employees, isLoading: isEmployeesLoading } = useAdminEmployees();
+  const { mutate: deleteClientMutation, isPending: isDeletingClient } = useDeleteClient();
   const isLoading = isClientsLoading || isEmployeesLoading;
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const [clientToDelete, setClientToDelete] = useState<any>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const [clientToToggle, setClientToToggle] = useState<any>(null);
   const [isToggling, setIsToggling] = useState(false);
@@ -39,7 +39,8 @@ const Clients = () => {
     try {
       const db = (await import('../../lib/supabase')).supabase as any;
       await db.from('profiles').update({ is_active: !clientToToggle.is_active }).eq('id', clientToToggle.id);
-      window.location.reload();
+      setIsToggling(false);
+      setClientToToggle(null);
     } catch (err) {
       console.error(err);
       setIsToggling(false);
@@ -47,23 +48,16 @@ const Clients = () => {
     }
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = () => {
     if (!clientToDelete) return;
-    setIsDeleting(true);
-    try {
-      const db = (await import('../../lib/supabase')).supabase as any;
-      
-      // Before deleting the client profile, we need to ensure any dependent tables
-      // that don't have CASCADE delete are cleaned up, but the prompt says 
-      // "verified deletion" for the current UI. Profiles usually CASCADE to jobs, etc.
-      // But let's just run the delete as it was.
-      await db.from('profiles').delete().eq('id', clientToDelete.id);
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-      setIsDeleting(false);
-      setClientToDelete(null);
-    }
+    deleteClientMutation(clientToDelete.id, {
+      onSuccess: () => {
+        setClientToDelete(null);
+      },
+      onError: () => {
+        setClientToDelete(null);
+      }
+    });
   };
 
   const branchClients = clients?.filter(c => {
@@ -319,7 +313,7 @@ const Clients = () => {
           onClose={() => setClientToDelete(null)}
           onConfirm={handleDeleteConfirm}
           clientCode={clientToDelete.client_code || clientToDelete.full_name}
-          isDeleting={isDeleting}
+          isDeleting={isDeletingClient}
         />
       )}
 

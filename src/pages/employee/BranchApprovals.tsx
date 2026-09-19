@@ -9,9 +9,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
 import { useAdminJobs, useOperationalRequests, useResolveOperationalRequest } from '../../hooks/shared/useJobs';
 import { useInvoices } from '../../hooks/employee/useInvoices';
+import { useBranchEscalations } from '../../hooks/employee/useBranchEscalations';
+import { ClientEscalationsModal } from '../../components/employee/ClientEscalationsModal';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { ShieldAlert } from 'lucide-react';
 
 const BranchApprovals: React.FC = () => {
   const navigate = useNavigate();
@@ -20,11 +23,15 @@ const BranchApprovals: React.FC = () => {
   const branchId = profile?.branch_id || selectedBranchId;
 
   const [activeTab, setActiveTab] = useState<'milestones' | 'payments' | 'sla'>('milestones');
+  const [isEscalationsOpen, setIsEscalationsOpen] = useState(false);
 
   const { data: allJobs = [], isLoading: loadingJobs, refetch: refetchJobs } = useAdminJobs(branchId);
   const { data: invoices = [], isLoading: loadingInvoices, refetch: refetchInvoices } = useInvoices();
   const { data: slaRequests = [], isLoading: loadingSLA } = useOperationalRequests();
   const { mutate: resolveSlaRequest, isPending: isResolvingSla } = useResolveOperationalRequest();
+  const { data: escalations = [] } = useBranchEscalations(branchId);
+
+  const openEscalationsCount = escalations.filter(e => e.status === 'open' || e.status === 'investigating').length;
 
   // 1. Pending Milestone Approvals: Jobs in progress with steps pending verification
   const pendingMilestoneJobs = allJobs.filter(j => 
@@ -123,6 +130,17 @@ const BranchApprovals: React.FC = () => {
             Review job milestones, sign off on custom payment terms, and resolve operational SLA extensions.
           </p>
         </div>
+
+        <button
+          onClick={() => setIsEscalationsOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95"
+        >
+          <ShieldAlert size={14} />
+          <span>Client Escalations ({openEscalationsCount})</span>
+          {openEscalationsCount > 0 && (
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+          )}
+        </button>
       </div>
 
       {/* ─── Navigation Tabs ─── */}
@@ -335,6 +353,12 @@ const BranchApprovals: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Client Escalations & Feedback Modal */}
+      <ClientEscalationsModal
+        isOpen={isEscalationsOpen}
+        onClose={() => setIsEscalationsOpen(false)}
+      />
 
     </div>
   );

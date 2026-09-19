@@ -213,18 +213,34 @@ export const useDeleteLead = () => {
       await supabase.from('lead_services').delete().eq('lead_id', leadId);
 
       // 2. Delete lead record
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('leads')
         .delete()
-        .eq('id', leadId);
+        .eq('id', leadId)
+        .select();
 
       if (error) throw error;
       return leadId;
     },
-    onSuccess: () => {
+    onSuccess: (deletedLeadId) => {
+      // Optimistically remove from all cached lists immediately
+      queryClient.setQueriesData({ queryKey: ['leads'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((item: any) => item.id !== deletedLeadId);
+      });
+      queryClient.setQueriesData({ queryKey: ['admin', 'leads'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((item: any) => item.id !== deletedLeadId);
+      });
+      queryClient.setQueriesData({ queryKey: ['marketing', 'leads'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((item: any) => item.id !== deletedLeadId);
+      });
+
+      // Refetch all related queries to keep server sync
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'leads'] });
-      queryClient.invalidateQueries({ queryKey: ['marketing', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing'] });
       queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
     }
   });
