@@ -488,7 +488,7 @@ export interface Database {
         job_id: string | null
         employee_id: string | null
         type: 'quotation' | 'invoice'
-        status: 'draft' | 'unpaid' | 'paid' | 'cancelled'
+        status: 'draft' | 'unpaid' | 'paid' | 'partially_paid' | 'cancelled'
         subtotal: number
         tax_percentage: number
         tax_amount: number

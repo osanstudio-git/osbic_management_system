@@ -21,7 +21,7 @@ export interface Invoice {
   job_id?: string | null;
   employee_id?: string;
   type: 'quotation' | 'invoice';
-  status: 'draft' | 'unpaid' | 'paid' | 'cancelled' | 'accepted' | 'sent' | 'viewed' | 'rejected' | 'expired';
+  status: 'draft' | 'unpaid' | 'paid' | 'partially_paid' | 'cancelled' | 'accepted' | 'sent' | 'viewed' | 'rejected' | 'expired';
   subtotal: number;
   tax_percentage: number;
   tax_amount: number;
