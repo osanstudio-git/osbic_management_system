@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, CheckCircle2, CreditCard, CheckSquare, Square, Calendar, Camera, Layers, Settings2, Sliders, UserCheck, User, Building2, Building, Check } from 'lucide-react';
+import { 
+  ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, 
+  CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
+  Camera, Layers, Settings2, Sliders, UserCheck, User, 
+  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle 
+} from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
@@ -132,6 +137,19 @@ const QuotationBuilder = () => {
   const [documentsTab, setDocumentsTab] = useState<'checklist' | 'raw'>('checklist');
   const [customDocName, setCustomDocName] = useState('');
 
+  // Auto-Save & Draft Persistence states
+  type AutoSaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'offline';
+  const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+  const [restoredDraftInfo, setRestoredDraftInfo] = useState<{ savedAt: string } | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+
+  // Concurrency Mutex & Timers
+  const isSavingRef = useRef<boolean>(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedRef = useRef<boolean>(false);
+  const draftStorageKey = `quotation_draft_${isNew ? 'new' : id}`;
+
   const [formData, setFormData] = useState<Invoice>({
     client_id: '',
     lead_id: null,
@@ -163,6 +181,25 @@ const QuotationBuilder = () => {
     }
   });
 
+  // Track network connectivity
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (autoSaveStatus === 'offline') setAutoSaveStatus('unsaved');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setAutoSaveStatus('offline');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [autoSaveStatus]);
+
+  // Handle Initial Data Loading & Draft Recovery
   useEffect(() => {
     if (initialData && !isNew) {
       const initCompanyName = initialData.metadata?.company_name || initialData.client?.company_name || initialData.lead?.company_name || '';
@@ -170,25 +207,63 @@ const QuotationBuilder = () => {
       const initPhone = initialData.metadata?.recipient_phone || initialData.client?.phone || initialData.lead?.contact_phone || '';
       const initDisplayMode = initialData.metadata?.recipient_display_mode || (initCompanyName ? 'both' : 'contact');
 
-      setFormData(prev => ({
+      const formattedInitial: Invoice = {
         ...initialData,
         metadata: {
           ...initialData.metadata,
-          recipient_name: initContactName || prev.metadata?.recipient_name || '',
-          company_name: initCompanyName || prev.metadata?.company_name || '',
-          recipient_phone: initPhone || prev.metadata?.recipient_phone || '',
+          recipient_name: initContactName || initialData.metadata?.recipient_name || '',
+          company_name: initCompanyName || initialData.metadata?.company_name || '',
+          recipient_phone: initPhone || initialData.metadata?.recipient_phone || '',
           recipient_display_mode: initDisplayMode,
-          prepared_by: initialData.metadata?.prepared_by || initialData.employee?.full_name || prev.metadata?.prepared_by || profile?.full_name || '',
-          prepared_by_employee_id: initialData.metadata?.prepared_by_employee_id || initialData.employee_id || prev.metadata?.prepared_by_employee_id || profile?.id || ''
+          prepared_by: initialData.metadata?.prepared_by || initialData.employee?.full_name || profile?.full_name || '',
+          prepared_by_employee_id: initialData.metadata?.prepared_by_employee_id || initialData.employee_id || profile?.id || ''
         }
-      }));
+      };
+
+      // Check for unsaved local draft that is newer than database
+      const cachedDraftStr = localStorage.getItem(draftStorageKey);
+      if (cachedDraftStr && !viewMode) {
+        try {
+          const cached = JSON.parse(cachedDraftStr);
+          if (cached && cached.data) {
+            setFormData(cached.data);
+            setRestoredDraftInfo({ savedAt: cached.savedAt });
+            setAutoSaveStatus('unsaved');
+            hasInitializedRef.current = true;
+            return;
+          }
+        } catch (e) {
+          console.warn('Error reading cached draft', e);
+        }
+      }
+
+      setFormData(formattedInitial);
       if (initialData.metadata?.isSimple) {
         setQuotationMode('simple');
       } else {
         setQuotationMode('detailed');
       }
+      hasInitializedRef.current = true;
+    } else if (isNew) {
+      // Check for new draft in localStorage
+      const cachedDraftStr = localStorage.getItem(draftStorageKey);
+      if (cachedDraftStr && !viewMode) {
+        try {
+          const cached = JSON.parse(cachedDraftStr);
+          if (cached && cached.data && (cached.data.client_id || cached.data.lead_id || (cached.data.items && cached.data.items.length > 0))) {
+            setFormData(cached.data);
+            setRestoredDraftInfo({ savedAt: cached.savedAt });
+            setAutoSaveStatus('unsaved');
+            hasInitializedRef.current = true;
+            return;
+          }
+        } catch (e) {
+          console.warn('Error reading new cached draft', e);
+        }
+      }
+      hasInitializedRef.current = true;
     }
-  }, [initialData, isNew, profile]);
+  }, [initialData, isNew, profile, draftStorageKey, viewMode]);
 
   // Sync profile full_name if new quotation and not yet set
   useEffect(() => {
@@ -646,13 +721,99 @@ const QuotationBuilder = () => {
     toast.success('Added required document');
   };
 
+  // Auto-Save Effect (Local Storage Cache + Debounced Cloud Sync for Existing Quotations)
+  useEffect(() => {
+    if (!hasInitializedRef.current || viewMode) return;
+
+    // 1. Immediately cache to local storage (0ms latency, works offline)
+    try {
+      localStorage.setItem(draftStorageKey, JSON.stringify({
+        data: formData,
+        savedAt: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.warn('LocalStorage draft cache failed', e);
+    }
+
+    if (!isOnline) {
+      setAutoSaveStatus('offline');
+      return;
+    }
+
+    // 2. Debounced background save to Supabase for existing quotations
+    if (!isNew && formData.id) {
+      setAutoSaveStatus('unsaved');
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+
+      debounceTimerRef.current = setTimeout(async () => {
+        if (isSavingRef.current) return;
+        if (!formData.client_id && !formData.lead_id) return;
+        if (!formData.items || formData.items.length === 0 || formData.items.some(i => !i.description)) return;
+
+        isSavingRef.current = true;
+        setAutoSaveStatus('saving');
+
+        try {
+          const quotationPayload: Invoice = {
+            ...formData,
+            type: 'quotation',
+            employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
+            metadata: {
+              ...formData.metadata,
+              prepared_by: formData.metadata?.prepared_by || profile?.full_name || 'OSBIC TEAM',
+              prepared_by_employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
+              isSimple: quotationMode === 'simple'
+            }
+          };
+
+          await saveQuotation(quotationPayload);
+          setAutoSaveStatus('saved');
+          setLastSavedTime(new Date());
+        } catch (err) {
+          console.warn('Background auto-save failed', err);
+          setAutoSaveStatus('unsaved');
+        } finally {
+          isSavingRef.current = false;
+        }
+      }, 2500);
+    } else {
+      setAutoSaveStatus('unsaved');
+    }
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [formData, isNew, viewMode, isOnline, draftStorageKey, profile, quotationMode, saveQuotation]);
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftStorageKey);
+    setRestoredDraftInfo(null);
+    if (isNew) {
+      navigate('/employee/invoices?tab=quotations');
+    } else if (initialData) {
+      setFormData(initialData);
+      setAutoSaveStatus('saved');
+      toast.success('Restored last saved server version');
+    }
+  };
+
   const handleSave = async () => {
+    // Prevent double clicking / concurrent duplicate insertions
+    if (isSavingRef.current) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
     if (!formData.client_id && !formData.lead_id) {
       return toast.error('Please select a client or lead');
     }
     if (!formData.items || formData.items.length === 0 || formData.items.some(i => !i.description)) {
       return toast.error('Please complete all item descriptions');
     }
+
+    isSavingRef.current = true;
+    setAutoSaveStatus('saving');
 
     try {
       if (formData.lead_id && formData.lead) {
@@ -679,7 +840,16 @@ const QuotationBuilder = () => {
           isSimple: quotationMode === 'simple'
         }
       };
+
       const savedId = await saveQuotation(quotationPayload);
+
+      // Lock new ID into local state immediately to prevent duplicate creation on next save
+      setFormData(prev => ({ ...prev, id: savedId }));
+      setAutoSaveStatus('saved');
+      setLastSavedTime(new Date());
+      setRestoredDraftInfo(null);
+      localStorage.removeItem(draftStorageKey);
+
       toast.success('Quotation saved successfully');
       if (isNew) {
         navigate(`/employee/quotations/${savedId}`, { replace: true });
@@ -687,6 +857,9 @@ const QuotationBuilder = () => {
     } catch (err) {
       console.error(err);
       toast.error('Failed to save quotation');
+      setAutoSaveStatus('unsaved');
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
@@ -719,7 +892,7 @@ const QuotationBuilder = () => {
     <div className="max-w-7xl mx-auto pb-24 print:p-0 print:m-0">
 
       {/* HEADER (Hidden in Print) */}
-      <div className="flex items-center justify-between mb-8 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:hidden">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/employee/invoices?tab=quotations')}
@@ -728,9 +901,47 @@ const QuotationBuilder = () => {
             <ChevronLeft size={18} />
           </button>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
-              {formData.invoice_number || 'DRAFT QUOTATION'}
-            </p>
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {formData.invoice_number || 'DRAFT QUOTATION'}
+              </p>
+              {!viewMode && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-muted/40 border border-border text-[10px] font-medium text-muted-foreground">
+                  {autoSaveStatus === 'saving' && (
+                    <>
+                      <Loader2 size={11} className="animate-spin text-primary" />
+                      <span>Saving draft...</span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'saved' && (
+                    <>
+                      <CheckCircle2 size={11} className="text-emerald-500" />
+                      <span className="text-emerald-500 font-semibold">
+                        All changes saved {lastSavedTime ? `(${lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
+                      </span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'unsaved' && (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>Draft saved locally</span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'offline' && (
+                    <>
+                      <WifiOff size={11} className="text-amber-500" />
+                      <span className="text-amber-500 font-semibold">Offline (Saved locally)</span>
+                    </>
+                  )}
+                  {autoSaveStatus === 'idle' && (
+                    <>
+                      <Check size={11} className="text-muted-foreground" />
+                      <span>Ready</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
             <h1 className="text-2xl font-syne font-bold text-foreground tracking-tight flex items-center gap-3">
               {isNew ? 'Create Quotation' : viewMode ? 'View Quotation' : 'Edit Quotation'}
             </h1>
@@ -765,14 +976,55 @@ const QuotationBuilder = () => {
           ) : (
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
+              disabled={isSaving || isSavingRef.current}
+              className="flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={16} /> {isSaving ? 'Saving...' : 'Save Draft'}
+              {isSaving || isSavingRef.current ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Save Quotation
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
+
+      {/* Restored Draft Banner */}
+      {!viewMode && restoredDraftInfo && (
+        <div className="mb-6 p-4 rounded-2xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+              <RotateCcw size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-foreground">Auto-Restored Unsaved Draft</p>
+              <p className="text-[11px] text-muted-foreground">
+                Your previous progress has been preserved from {new Date(restoredDraftInfo.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+            >
+              Discard Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => setRestoredDraftInfo(null)}
+              className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all shadow-sm"
+            >
+              Continue Working
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className={`flex flex-col ${viewMode ? 'items-center' : 'lg:flex-row'} gap-8 print:block`}>
 
