@@ -10,7 +10,7 @@ import { useBranch } from '../../contexts/BranchContext';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import { useAdminJobs } from '../../hooks/shared/useJobs';
 import { useAdminLeads } from '../../hooks/shared/useLeads';
-import { AllocationModal } from '../../components/employee/AllocationModal';
+import { WorkloadAllocationModal } from '../../components/employee/WorkloadAllocationModal';
 import { RoundRobinDistributionModal } from '../../components/employee/RoundRobinDistributionModal';
 import CreateEmployeeSlideOver from '../../components/admin/CreateEmployeeSlideOver';
 import toast from 'react-hot-toast';
@@ -298,19 +298,15 @@ const BranchTeam: React.FC = () => {
         )}
       </div>
 
-      {/* Allocation Modal */}
+      {/* Workload Allocation / Delegation Modal */}
       {isAllocationModalOpen && (
-        <AllocationModal
-          {...({
-            isOpen: isAllocationModalOpen,
-            onClose: () => setIsAllocationModalOpen(false),
-            activeJobs: allJobs,
-            employees: employees,
-            selectedEmployeeId: selectedStaffForAllocation?.id,
-            payment: null,
-            jobServices: [],
-            onSuccess: () => setIsAllocationModalOpen(false)
-          } as any)}
+        <WorkloadAllocationModal
+          isOpen={isAllocationModalOpen}
+          onClose={() => setIsAllocationModalOpen(false)}
+          activeJobs={allJobs}
+          employees={employees}
+          selectedEmployeeId={selectedStaffForAllocation?.id}
+          onSuccess={() => setIsAllocationModalOpen(false)}
         />
       )}
 

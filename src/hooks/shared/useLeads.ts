@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { format } from 'date-fns';
 
 export interface Lead {
   id: string;
@@ -54,6 +55,7 @@ export interface LeadInteraction {
   employee_id: string;
   type: 'call' | 'whatsapp' | 'email' | 'meeting' | 'note';
   direction: 'inbound' | 'outbound';
+  outcome_type?: 'positive' | 'negative' | 'neutral';
   duration_mins?: number;
   outcome?: string;
   notes: string;
@@ -254,6 +256,7 @@ export const useCreateInteraction = () => {
       lead_id: string;
       type: 'call' | 'whatsapp' | 'email' | 'meeting' | 'note';
       direction: 'inbound' | 'outbound';
+      outcome_type?: 'positive' | 'negative' | 'neutral';
       notes: string;
       outcome?: string;
       next_action?: string;
@@ -365,6 +368,8 @@ export interface DailySalesSheetData {
   metrics: {
     newLeadsCount: number;
     interactionsCount: number;
+    positiveCallsCount: number;
+    negativeCallsCount: number;
     quotesCount: number;
     quotesTotalAmount: number;
     convertedDealsCount: number;
@@ -490,6 +495,8 @@ export const useDailySalesSheetData = (employeeId?: string, targetDateStr?: stri
       const quotations = quotationsData || [];
       const quotesTotalAmount = quotations.reduce((sum: number, q: any) => sum + Number(q.total_amount || 0), 0);
       const convertedDealsAmount = convertedDeals.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0);
+      const positiveCallsCount = interactions.filter(i => i.outcome_type === 'positive').length;
+      const negativeCallsCount = interactions.filter(i => i.outcome_type === 'negative').length;
 
       return {
         date: effectiveDate,
@@ -497,6 +504,8 @@ export const useDailySalesSheetData = (employeeId?: string, targetDateStr?: stri
         metrics: {
           newLeadsCount: newLeads.length,
           interactionsCount: interactions.length,
+          positiveCallsCount,
+          negativeCallsCount,
           quotesCount: quotations.length,
           quotesTotalAmount,
           convertedDealsCount: convertedDeals.length,
@@ -513,3 +522,207 @@ export const useDailySalesSheetData = (employeeId?: string, targetDateStr?: stri
   });
 };
 
+// ─── Weekly Sales Sheet ───────────────────────────────────────────────────────
+
+export interface WeeklySalesSheetDayData {
+  date: string;
+  dayLabel: string;
+  newLeadsCount: number;
+  interactionsCount: number;
+  positiveCallsCount: number;
+  negativeCallsCount: number;
+  quotesCount: number;
+  quotesTotalAmount: number;
+  convertedDealsCount: number;
+  convertedDealsAmount: number;
+  newLeads: Lead[];
+  interactions: (LeadInteraction & { lead?: Lead | null })[];
+  quotations: any[];
+  convertedDeals: any[];
+}
+
+export interface WeeklySalesSheetData {
+  weekStart: string;
+  weekEnd: string;
+  employee: {
+    id: string;
+    full_name: string;
+    email: string;
+    branch_name?: string;
+  };
+  days: WeeklySalesSheetDayData[];
+  totals: {
+    newLeadsCount: number;
+    interactionsCount: number;
+    positiveCallsCount: number;
+    negativeCallsCount: number;
+    quotesCount: number;
+    quotesTotalAmount: number;
+    convertedDealsCount: number;
+    convertedDealsAmount: number;
+  };
+}
+
+export const useWeeklySalesSheetData = (employeeId?: string, weekStartDate?: string) => {
+  return useQuery({
+    queryKey: ['weekly_sales_sheet', employeeId, weekStartDate],
+    enabled: !!employeeId && !!weekStartDate,
+    queryFn: async (): Promise<WeeklySalesSheetData> => {
+      const [yr, mo, dy] = weekStartDate!.split('-').map(Number);
+      const weekStart = new Date(yr, mo - 1, dy);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const startIso = new Date(yr, mo - 1, dy, 0, 0, 0).toISOString();
+      const endIso = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59, 999).toISOString();
+
+      const { data: empProfile } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, branch_id, branches:branch_id(name, code)')
+        .eq('id', employeeId!)
+        .single();
+
+      const employee = {
+        id: employeeId!,
+        full_name: empProfile?.full_name || 'Sales Representative',
+        email: empProfile?.email || '',
+        branch_name: (empProfile?.branches as any)?.name || 'Head Office'
+      };
+
+      const [leadsRes, interactionsRes, quotationsRes, convertedLeadsRes, convertedJobsRes] = await Promise.all([
+        supabase.from('leads').select('*, lead_sources:source_id(name)').eq('assigned_to', employeeId!).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('lead_interactions').select('*, lead:leads!lead_id(id, lead_code, contact_name, company_name, contact_phone, status)').eq('employee_id', employeeId!).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('*, items:invoice_items(*), client:profiles!client_id(full_name, company_name), lead:leads!lead_id(contact_name, company_name, lead_code)').eq('type', 'quotation').or(`employee_id.eq.${employeeId},metadata->>prepared_by_employee_id.eq.${employeeId}`).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('leads').select('*, converted_job:jobs!converted_job_id(*)').eq('assigned_to', employeeId!).eq('status', 'converted').gte('converted_at', startIso).lte('converted_at', endIso).order('converted_at', { ascending: false }),
+        supabase.from('jobs').select('*, client:profiles!client_id(full_name, company_name), service:services!service_id(name_en, name_ar)').eq('sales_employee_id', employeeId!).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+      ]);
+
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const days: WeeklySalesSheetDayData[] = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString();
+        const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString();
+        const inDay = (dt: string) => dt >= dayStart && dt <= dayEnd;
+
+        const dayLeads = ((leadsRes.data || []) as Lead[]).filter(l => inDay(l.created_at));
+        const dayInteractions = ((interactionsRes.data || []) as (LeadInteraction & { lead?: Lead | null })[]).filter(item => inDay(item.created_at));
+        const dayQuotations = (quotationsRes.data || []).filter((q: any) => inDay(q.created_at));
+        const dayConvertedLeads = (convertedLeadsRes.data || []).filter((l: any) => l.converted_at && inDay(l.converted_at));
+        const dayConvertedJobs = (convertedJobsRes.data || []).filter((j: any) => inDay(j.created_at));
+
+        const convertedDeals = [
+          ...dayConvertedLeads.map((l: any) => ({
+            id: l.id,
+            title: l.contact_name + (l.company_name ? ` (${l.company_name})` : ''),
+            job_code: l.converted_job?.job_code || 'JOB-CONVERTED',
+            amount: Number(l.converted_job?.total_fee || 0),
+            service_name: l.converted_job?.service_name || 'Business Service',
+          })),
+          ...dayConvertedJobs
+            .filter((j: any) => !dayConvertedLeads.some((l: any) => l.converted_job_id === j.id))
+            .map((j: any) => ({
+              id: j.id,
+              title: (j.client?.full_name || '') + (j.client?.company_name ? ` (${j.client.company_name})` : ''),
+              job_code: j.job_code || 'JOB',
+              amount: Number(j.total_fee || 0),
+              service_name: j.service?.name_en || 'Service',
+            }))
+        ];
+
+        return {
+          date: dateStr,
+          dayLabel: dayNames[d.getDay()],
+          newLeadsCount: dayLeads.length,
+          interactionsCount: dayInteractions.length,
+          positiveCallsCount: dayInteractions.filter(inter => inter.outcome_type === 'positive').length,
+          negativeCallsCount: dayInteractions.filter(inter => inter.outcome_type === 'negative').length,
+          quotesCount: dayQuotations.length,
+          quotesTotalAmount: dayQuotations.reduce((s, q: any) => s + Number(q.total_amount || 0), 0),
+          convertedDealsCount: convertedDeals.length,
+          convertedDealsAmount: convertedDeals.reduce((s, dl: any) => s + Number(dl.amount || 0), 0),
+          newLeads: dayLeads,
+          interactions: dayInteractions,
+          quotations: dayQuotations,
+          convertedDeals,
+        };
+      });
+
+      const totals = days.reduce((acc, day) => ({
+        newLeadsCount: acc.newLeadsCount + day.newLeadsCount,
+        interactionsCount: acc.interactionsCount + day.interactionsCount,
+        positiveCallsCount: acc.positiveCallsCount + day.positiveCallsCount,
+        negativeCallsCount: acc.negativeCallsCount + day.negativeCallsCount,
+        quotesCount: acc.quotesCount + day.quotesCount,
+        quotesTotalAmount: acc.quotesTotalAmount + day.quotesTotalAmount,
+        convertedDealsCount: acc.convertedDealsCount + day.convertedDealsCount,
+        convertedDealsAmount: acc.convertedDealsAmount + day.convertedDealsAmount,
+      }), {
+        newLeadsCount: 0, interactionsCount: 0, positiveCallsCount: 0, negativeCallsCount: 0,
+        quotesCount: 0, quotesTotalAmount: 0, convertedDealsCount: 0, convertedDealsAmount: 0,
+      });
+
+      return {
+        weekStart: format(weekStart, 'yyyy-MM-dd'),
+        weekEnd: format(weekEnd, 'yyyy-MM-dd'),
+        employee,
+        days,
+        totals,
+      };
+    }
+  });
+};
+
+// ─── Submit / Check Daily Report ─────────────────────────────────────────────
+
+export const useSubmitDailyReport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      employee_id: string;
+      report_date: string;
+      metrics: any;
+      notes?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('daily_reports')
+        .upsert([{
+          employee_id: payload.employee_id,
+          report_date: payload.report_date,
+          submitted_at: new Date().toISOString(),
+          metrics: payload.metrics,
+          notes: payload.notes || null,
+        }], { onConflict: 'employee_id,report_date' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily_reports'] });
+    }
+  });
+};
+
+export const useCheckDailyReport = (employeeId?: string, date?: string) => {
+  return useQuery({
+    queryKey: ['daily_reports', employeeId, date],
+    enabled: !!employeeId && !!date,
+    retry: false,
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('daily_reports')
+          .select('id, submitted_at, report_date')
+          .eq('employee_id', employeeId!)
+          .eq('report_date', date!)
+          .maybeSingle();
+        if (error) return null;
+        return data;
+      } catch {
+        return null;
+      }
+    }
+  });
+};

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Phone, MessageSquare, Mail, Users, FileText, 
   Calendar, Clock, CheckCircle2, ArrowUpRight, ArrowDownLeft,
-  Loader2, Sparkles, Building2
+  Loader2, Sparkles, Building2, ThumbsUp, ThumbsDown, Minus
 } from 'lucide-react';
 import { useCreateInteraction, useUpdateLead, type Lead } from '../../hooks/shared/useLeads';
 import { format, addDays } from 'date-fns';
@@ -21,6 +21,7 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
 
   const [type, setType] = useState<'call' | 'whatsapp' | 'email' | 'meeting' | 'note'>('call');
   const [direction, setDirection] = useState<'outbound' | 'inbound'>('outbound');
+  const [outcomeType, setOutcomeType] = useState<'positive' | 'negative' | 'neutral'>('neutral');
   const [notes, setNotes] = useState('');
   const [outcome, setOutcome] = useState('Interested in services');
   const [newStatus, setNewStatus] = useState<string>(lead?.status || 'contacted');
@@ -53,6 +54,7 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
         lead_id: lead.id,
         type,
         direction,
+        outcome_type: outcomeType,
         notes: notes.trim(),
         outcome: outcome.trim()
       });
@@ -174,6 +176,36 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
                 >
                   <ArrowDownLeft size={12} /> Inbound (Client called)
                 </button>
+              </div>
+            </div>
+
+            {/* Call Result */}
+            <div>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
+                Call Result
+              </label>
+              <div className="flex items-center gap-2">
+                {[
+                  { id: 'positive', label: 'Positive', icon: ThumbsUp, active: 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-200' },
+                  { id: 'neutral',  label: 'Neutral',  icon: Minus,     active: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-200' },
+                  { id: 'negative', label: 'Negative', icon: ThumbsDown, active: 'bg-red-500 text-white border-red-500 shadow-sm shadow-red-200' },
+                ].map(item => {
+                  const Icon = item.icon;
+                  const isActive = outcomeType === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setOutcomeType(item.id as any)}
+                      className={`flex-1 py-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-[11px] transition-all ${
+                        isActive ? item.active : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Icon size={13} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

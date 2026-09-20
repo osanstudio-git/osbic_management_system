@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Building2, Users, Briefcase, DollarSign, Clock, 
-  CheckCircle2, AlertCircle, ArrowUpRight, UserCheck, 
-  ChevronRight, ArrowRight, ShieldCheck, FileCheck, 
+import {
+  Building2, Users, Briefcase, DollarSign, Clock,
+  CheckCircle2, AlertCircle, ArrowUpRight, UserCheck,
+  ChevronRight, ArrowRight, ShieldCheck, FileCheck,
   Sparkles, Zap, PhoneCall, RefreshCw
 } from 'lucide-react';
 import { useBranch } from '../../contexts/BranchContext';
@@ -13,7 +13,7 @@ import { useAdminJobs } from '../../hooks/shared/useJobs';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import { useAdminLeads } from '../../hooks/shared/useLeads';
 import { useInvoices } from '../../hooks/employee/useInvoices';
-import { AllocationModal } from './AllocationModal';
+import { WorkloadAllocationModal } from './WorkloadAllocationModal';
 import { QuickTaskModal } from './QuickTaskModal';
 import { DailyReconciliationModal } from './DailyReconciliationModal';
 import { DocumentVaultModal } from './DocumentVaultModal';
@@ -80,9 +80,9 @@ export const BranchOverviewDashboard: React.FC = () => {
     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
   // Jobs awaiting milestone / payment / SLA approval
-  const pendingMilestoneJobs = allJobs.filter(j => 
-    j.status === 'pending' || 
-    j.status === 'awaiting_approval' || 
+  const pendingMilestoneJobs = allJobs.filter(j =>
+    j.status === 'pending' ||
+    j.status === 'awaiting_approval' ||
     (j.total_steps > 0 && j.completed_steps === 0) ||
     !j.advance_paid
   ).slice(0, 5);
@@ -92,7 +92,7 @@ export const BranchOverviewDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-16">
-      
+
       {/* ─── Hero Header & Branch Identity ─── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-card via-card/90 to-primary/10 border border-border p-6 lg:p-8 shadow-2xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
@@ -193,13 +193,12 @@ export const BranchOverviewDashboard: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-foreground">Today's Cash Drawer & POS Register</h3>
-              <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                reconciliationStatus === 'verified' || reconciliationStatus === 'submitted'
+              <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${reconciliationStatus === 'verified' || reconciliationStatus === 'submitted'
                   ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                   : reconciliationStatus === 'discrepancy'
                     ? 'bg-red-500/15 text-red-400 border border-red-500/30'
                     : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-              }`}>
+                }`}>
                 {isReconciledToday ? reconciliationStatus : 'Pending Shift Closeout'}
               </span>
             </div>
@@ -242,7 +241,7 @@ export const BranchOverviewDashboard: React.FC = () => {
         </div>
 
         {/* Unassigned Leads & Auto-Distribute */}
-        <div 
+        <div
           className="bg-card border border-border p-5 rounded-2xl shadow-sm hover:border-amber-500/40 transition-all flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between text-muted-foreground mb-3">
@@ -275,7 +274,7 @@ export const BranchOverviewDashboard: React.FC = () => {
                 </button>
               )}
             </div>
-            <div 
+            <div
               onClick={() => navigate('/employee/leads')}
               className="text-xs text-muted-foreground mt-2 flex items-center gap-1 cursor-pointer hover:text-foreground"
             >
@@ -286,7 +285,7 @@ export const BranchOverviewDashboard: React.FC = () => {
         </div>
 
         {/* Physical Document Vault */}
-        <div 
+        <div
           onClick={() => setIsVaultOpen(true)}
           className="bg-card border border-border p-5 rounded-2xl shadow-sm hover:border-amber-500/40 transition-all flex flex-col justify-between cursor-pointer group"
         >
@@ -343,7 +342,7 @@ export const BranchOverviewDashboard: React.FC = () => {
 
       {/* ─── Main Section: Team Workload Radar & Milestone Approvals ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
+
         {/* LEFT (7 cols): Team Workload & Delegation Radar */}
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
@@ -354,7 +353,7 @@ export const BranchOverviewDashboard: React.FC = () => {
               </h2>
               <p className="text-xs text-muted-foreground">Monitor real-time task loads and balance customer assignments</p>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/employee/team')}
               className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
             >
@@ -369,8 +368,8 @@ export const BranchOverviewDashboard: React.FC = () => {
               </div>
             ) : (
               employees.map(emp => {
-                const empActiveJobs = allJobs.filter(j => 
-                  (j.employee_id === emp.id || j.ops_employee_id === emp.id) && 
+                const empActiveJobs = allJobs.filter(j =>
+                  (j.employee_id === emp.id || j.ops_employee_id === emp.id) &&
                   j.status !== 'completed' && j.status !== 'cancelled'
                 ).length;
 
@@ -402,9 +401,8 @@ export const BranchOverviewDashboard: React.FC = () => {
                         <span className={`text-sm font-bold font-mono ${isOverloaded ? 'text-amber-500' : isOptimal ? 'text-emerald-500' : 'text-foreground'}`}>
                           {empActiveJobs} Active Jobs
                         </span>
-                        <span className={`block text-[9px] font-bold uppercase ${
-                          emp.is_active ? 'text-emerald-400' : 'text-gray-400'
-                        }`}>
+                        <span className={`block text-[9px] font-bold uppercase ${emp.is_active ? 'text-emerald-400' : 'text-gray-400'
+                          }`}>
                           {emp.is_active ? 'Online' : 'Offline'}
                         </span>
                       </div>
@@ -437,7 +435,7 @@ export const BranchOverviewDashboard: React.FC = () => {
               </h2>
               <p className="text-xs text-muted-foreground">Milestones & custom terms requiring manager approval</p>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/employee/approvals')}
               className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
             >
@@ -453,8 +451,8 @@ export const BranchOverviewDashboard: React.FC = () => {
               </div>
             ) : (
               pendingMilestoneJobs.map(job => (
-                <div 
-                  key={job.id} 
+                <div
+                  key={job.id}
                   onClick={() => navigate(`/employee/tasks?jobId=${job.id}`)}
                   className="p-3 rounded-xl border border-border bg-background/50 hover:bg-muted/30 transition-all cursor-pointer space-y-2 group"
                 >
@@ -481,7 +479,7 @@ export const BranchOverviewDashboard: React.FC = () => {
 
       {/* Allocation Modal for quick lead/job transfer */}
       {isAllocationModalOpen && (
-        <AllocationModal
+        <WorkloadAllocationModal
           isOpen={isAllocationModalOpen}
           onClose={() => setIsAllocationModalOpen(false)}
           activeJobs={allJobs}
@@ -495,7 +493,7 @@ export const BranchOverviewDashboard: React.FC = () => {
         <QuickTaskModal
           isOpen={isQuickTaskOpen}
           onClose={() => setIsQuickTaskOpen(false)}
-          onJobCreated={() => {}}
+          onJobCreated={() => { }}
         />
       )}
 
