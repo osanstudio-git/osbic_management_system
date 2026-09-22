@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, ShieldAlert, Landmark, Briefcase, CreditCard } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { X, CheckCircle2, CreditCard, Sparkles, AlertCircle, ArrowUpRight, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const AllocationModal = ({ 
@@ -20,6 +20,7 @@ export const AllocationModal = ({
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [leftoverFromPrevious, setLeftoverFromPrevious] = useState(0);
+  const [otherAllocationsMap, setOtherAllocationsMap] = useState<Record<string, number>>({});
  
   // Auto-allocate payment funds step-by-step or load existing allocations on mount
   React.useEffect(() => {
@@ -47,6 +48,13 @@ export const AllocationModal = ({
       const prevLeftover = Math.max(0, totalOtherPaymentsAmount - totalOtherAllocations);
       setLeftoverFromPrevious(prevLeftover);
 
+      // Map other allocations per service
+      const otherMap: Record<string, number> = {};
+      jobAllocations.filter(a => a.payment_id !== payment.id && a.allocation_type === 'ministry_fee').forEach(a => {
+        otherMap[a.job_service_id] = (otherMap[a.job_service_id] || 0) + Number(a.amount);
+      });
+      setOtherAllocationsMap(otherMap);
+
       // Load existing allocations for the CURRENT payment from DB
       const currentAllocations = jobAllocations.filter(a => a.payment_id === payment.id && a.allocation_type === 'ministry_fee');
       const mapped: Record<string, string> = {};
@@ -65,20 +73,13 @@ export const AllocationModal = ({
 
       const finalAllocations: Record<string, string> = { ...mapped };
 
+      // Auto-fill services that have a predefined ministry fee if they have not been allocated yet
       for (const service of jobServices) {
-        // Only allocate to services with a ministry fee
-        if (!(service.ministry_fee > 0)) continue;
+        const baseGovFee = Number(service.ministry_fee) || 0;
+        if (baseGovFee <= 0) continue;
 
-        // Calculate what has been allocated by OTHER payments
-        const currentMinistryAllocated = (service.ministry_fee_allocated || 0) + (service.ministry_fee_pending || 0);
-
-        // Revert any pending/allocated amount from the current payment's existing database record
-        const revertedMin = currentAllocations.filter(o => o.job_service_id === service.id && o.allocation_type === 'ministry_fee').reduce((sum, o) => sum + o.amount, 0) || 0;
-
-        const otherMinistryAllocated = Math.max(0, currentMinistryAllocated - revertedMin);
-
-        const hasPredefinedCosts = (service.ministry_fee || 0) > 0;
-        const ministryRemaining = hasPredefinedCosts ? Math.max(0, (service.ministry_fee || 0) - otherMinistryAllocated) : 0;
+        const otherMinistryAllocated = otherMap[service.id] || 0;
+        const ministryRemaining = Math.max(0, baseGovFee - otherMinistryAllocated);
 
         let needed = ministryRemaining;
 
@@ -107,7 +108,8 @@ export const AllocationModal = ({
  
   // Total allocated so far in this modal
   const totalAllocated = Object.values(allocations).reduce((sum, amountStr) => sum + (parseFloat(amountStr) || 0), 0);
-  const remainingToAllocate = Math.max(0, (payment.amount + leftoverFromPrevious) - totalAllocated);
+  const totalPool = payment.amount + leftoverFromPrevious;
+  const remainingToAllocate = Math.max(0, totalPool - totalAllocated);
 
   const handleAllocate = (serviceId: string, amountStr: string) => {
     setAllocations(prev => ({
@@ -163,7 +165,7 @@ export const AllocationModal = ({
           .eq('payment_id', payment.id);
       }
 
-      // 2. Prepare new allocation records
+      // 2. Prepare new allocation records (allow custom amounts based on activities)
       const recordsToInsert = [];
       const serviceUpdates = [];
 
@@ -172,15 +174,10 @@ export const AllocationModal = ({
         if (amount <= 0) continue;
         
         const service = jobServices.find(s => s.id === serviceId);
-        // Note: We need to fetch fresh values after revert
         const revertedMin = oldAllocations?.filter(o => o.job_service_id === serviceId && o.allocation_type === 'ministry_fee').reduce((sum, o) => sum + o.amount, 0) || 0;
 
-        const currentMinistryAllocated = Math.max(0, (service.ministry_fee_allocated || 0) + (service.ministry_fee_pending || 0) - revertedMin);
-        
-        const hasPredefinedCosts = (service.ministry_fee || 0) > 0;
-        const ministryRemaining = hasPredefinedCosts ? Math.max(0, (service.ministry_fee || 0) - currentMinistryAllocated) : amount;
-
-        const allocMinistry = Math.min(amount, ministryRemaining);
+        // Custom amount allowed (not capped by service.ministry_fee)
+        const allocMinistry = amount;
         
         if (allocMinistry > 0) {
           recordsToInsert.push({
@@ -193,8 +190,8 @@ export const AllocationModal = ({
         }
 
         // Prepare service updates (adjust from reverted baseline)
-        const baseMinAlloc = Math.max(0, (service.ministry_fee_allocated || 0) - (isVerified ? revertedMin : 0));
-        const baseMinPend = Math.max(0, (service.ministry_fee_pending || 0) - (isVerified ? 0 : revertedMin));
+        const baseMinAlloc = Math.max(0, (service?.ministry_fee_allocated || 0) - (isVerified ? revertedMin : 0));
+        const baseMinPend = Math.max(0, (service?.ministry_fee_pending || 0) - (isVerified ? 0 : revertedMin));
 
         serviceUpdates.push({
           id: serviceId,
@@ -226,7 +223,7 @@ export const AllocationModal = ({
         if (updateError) throw updateError;
       }
 
-      toast.success('Funds allocated successfully!');
+      toast.success('Gov fees allocated successfully!');
       onSuccess();
     } catch (e: any) {
       toast.error(e.message || 'Failed to allocate funds');
@@ -241,22 +238,31 @@ export const AllocationModal = ({
         initial={{ opacity: 0, scale: 0.95 }} 
         animate={{ opacity: 1, scale: 1 }} 
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border w-full max-w-[440px] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[72vh]"
+        className="bg-card border border-border w-full max-w-[480px] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[82vh]"
       >
+        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
           <div>
-            <h2 className="text-lg font-syne font-bold text-foreground">Allocate Payment Funds</h2>
-            <p className="text-xs text-muted-foreground mt-1">Distribute this payment across job services to unlock them for Operations.</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-syne font-bold text-foreground">Allocate Government Fees</h2>
+              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={10} /> Flexible
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pre-filled with default fee. You can adjust upwards if extra activities or changes require higher gov fees.
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6 bg-emerald-500/5 border-b border-emerald-500/10 flex justify-between items-center">
+        {/* Funds Overview */}
+        <div className="p-5 bg-emerald-500/5 border-b border-emerald-500/10 flex justify-between items-center">
           <div>
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Available Funds</p>
-            <p className="text-2xl font-mono font-bold text-foreground">{(payment.amount + leftoverFromPrevious).toFixed(3)} OMR</p>
+            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Payment Available</p>
+            <p className="text-2xl font-mono font-bold text-foreground">{totalPool.toFixed(3)} OMR</p>
             {leftoverFromPrevious > 0 && (
               <p className="text-[9px] text-muted-foreground mt-0.5 font-bold">
                 (Includes {leftoverFromPrevious.toFixed(3)} OMR leftover)
@@ -271,6 +277,7 @@ export const AllocationModal = ({
           </div>
         </div>
 
+        {/* Service Allocation Cards */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
           {clientPaysMinistryFee ? (
             <div className="text-center py-8 text-muted-foreground text-xs space-y-3">
@@ -282,44 +289,83 @@ export const AllocationModal = ({
                 The client is paying the ministry fees directly via their own card. Fund allocation is bypassed and not required for this job.
               </p>
             </div>
-          ) : jobServices.filter(s => (s.ministry_fee || 0) > 0).length === 0 ? (
+          ) : jobServices.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs">
               <CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={24} />
-              No ministry fees require allocation for this job.
+              No services found for this job.
             </div>
           ) : (
-            jobServices.filter(s => (s.ministry_fee || 0) > 0).map(service => {
+            jobServices.map(service => {
               const amountStr = allocations[service.id] ?? '';
-              const currentMinistryAllocated = (service.ministry_fee_allocated || 0) + (service.ministry_fee_pending || 0);
-              const hasPredefinedCosts = (service.ministry_fee || 0) > 0;
-              const ministryRemaining = hasPredefinedCosts ? Math.max(0, (service.ministry_fee || 0) - currentMinistryAllocated) : remainingToAllocate;
-              const totalRemaining = ministryRemaining;
+              const currentVal = parseFloat(amountStr) || 0;
+              const baseGovFee = Number(service.ministry_fee) || 0;
+              const otherAllocated = otherAllocationsMap[service.id] || 0;
+              const totalAllocatedForService = currentVal + otherAllocated;
+              
+              const isExceedingBase = baseGovFee > 0 && totalAllocatedForService > baseGovFee;
+              const isBaseMet = baseGovFee > 0 && totalAllocatedForService >= baseGovFee;
+              const extraAmount = Math.max(0, totalAllocatedForService - baseGovFee);
 
-              const isFullyFunded = hasPredefinedCosts && totalRemaining === 0;
+              const prevVal = parseFloat(allocations[service.id] || '0') || 0;
+              const maxPossibleForThisService = prevVal + remainingToAllocate;
 
               return (
-                <div key={service.id} className="border border-border rounded-xl p-4 space-y-4">
-                  <div className="flex justify-between items-start">
+                <div key={service.id} className="border border-border rounded-2xl p-4 space-y-3 bg-card hover:border-primary/30 transition-all shadow-sm">
+                  <div className="flex justify-between items-start gap-2">
                     <div>
                       <h4 className="font-bold text-sm text-foreground">{service.service_name}</h4>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Ministry Fee: {service.ministry_fee?.toFixed(3)} OMR</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          Default Gov Fee: {baseGovFee > 0 ? `${baseGovFee.toFixed(3)} OMR` : '0.000 OMR (Flexible)'}
+                        </span>
+                        {otherAllocated > 0 && (
+                          <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                            Prev: {otherAllocated.toFixed(3)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {isFullyFunded ? (
-                      <span className="px-2 py-1 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-widest rounded">Ministry Funded</span>
+
+                    {isExceedingBase ? (
+                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold uppercase tracking-wider rounded-md flex items-center gap-1 shrink-0">
+                        <ArrowUpRight size={11} /> +{extraAmount.toFixed(3)} OMR
+                      </span>
+                    ) : isBaseMet ? (
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider rounded-md shrink-0">
+                        Funded
+                      </span>
+                    ) : currentVal > 0 ? (
+                      <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider rounded-md shrink-0">
+                        Partial
+                      </span>
                     ) : (
-                      <span className="px-2 py-1 bg-rose-500/10 text-rose-500 text-[10px] font-bold uppercase tracking-widest rounded">Unfunded</span>
+                      <span className="px-2 py-0.5 bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider rounded-md shrink-0">
+                        Unallocated
+                      </span>
                     )}
                   </div>
 
                   <div className="pt-2 border-t border-border/50">
-                    <div className="flex justify-between items-end mb-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Allocate to Task</label>
-                      <span className="text-[9px] text-muted-foreground">
-                        {hasPredefinedCosts ? `Due: ${totalRemaining.toFixed(3)} OMR` : 'No Fixed Due Amount'}
-                      </span>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Allocated Amount (OMR)
+                      </label>
+                      {baseGovFee > 0 && Math.abs(currentVal - Math.max(0, baseGovFee - otherAllocated)) > 0.001 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const neededBase = Math.max(0, baseGovFee - otherAllocated);
+                            const allowed = Math.min(neededBase, maxPossibleForThisService);
+                            handleAllocate(service.id, allowed.toFixed(3));
+                          }}
+                          className="text-[9px] text-primary hover:underline flex items-center gap-1 font-semibold"
+                        >
+                          <RotateCcw size={10} /> Reset to Default ({Math.max(0, baseGovFee - otherAllocated).toFixed(3)})
+                        </button>
+                      )}
                     </div>
                     
-                    <div className="relative">
+                    <div className="relative flex items-center">
                       <input 
                         type="text"
                         value={amountStr}
@@ -334,33 +380,40 @@ export const AllocationModal = ({
                           }
                           
                           const parsed = parseFloat(text);
-                          const val = Math.min(totalRemaining, parsed);
-                          const prevVal = parseFloat(allocations[service.id] || '0') || 0;
+                          const maxAllowed = maxPossibleForThisService;
                           
-                          if (val - prevVal <= remainingToAllocate) {
-                            if (parsed > totalRemaining) {
-                               handleAllocate(service.id, totalRemaining.toString());
-                            } else {
-                               handleAllocate(service.id, text);
-                            }
+                          if (parsed > maxAllowed) {
+                            handleAllocate(service.id, parseFloat(maxAllowed.toFixed(3)).toString());
+                          } else {
+                            handleAllocate(service.id, text);
                           }
                         }}
                         placeholder="0.000"
-                        className="w-full bg-background text-foreground placeholder:text-muted-foreground border border-border rounded-lg pl-3 pr-16 py-2 text-sm outline-none focus:border-primary disabled:opacity-50 font-mono"
-                        disabled={isFullyFunded}
+                        className="w-full bg-background text-foreground placeholder:text-muted-foreground border border-border rounded-xl pl-3 pr-20 py-2 text-sm outline-none focus:border-primary font-mono transition-all"
                       />
-                      <button 
-                        onClick={() => {
-                          const prevVal = parseFloat(allocations[service.id] || '0') || 0;
-                          const maxPossible = Math.min(totalRemaining, prevVal + remainingToAllocate);
-                          handleAllocate(service.id, maxPossible.toString());
-                        }}
-                        disabled={isFullyFunded || remainingToAllocate <= 0}
-                        className="absolute right-1.5 top-1.5 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2 py-1.5 rounded-md hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
-                      >
-                        MAX
-                      </button>
+
+                      <div className="absolute right-1.5 flex items-center gap-1">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const maxPossible = maxPossibleForThisService;
+                            handleAllocate(service.id, parseFloat(maxPossible.toFixed(3)).toString());
+                          }}
+                          disabled={remainingToAllocate <= 0 && currentVal >= maxPossibleForThisService}
+                          className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-1.5 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-40"
+                          title="Allocate maximum available from payment"
+                        >
+                          MAX
+                        </button>
+                      </div>
                     </div>
+
+                    {isExceedingBase && (
+                      <p className="text-[10px] text-amber-500/90 font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle size={12} />
+                        Customized for extra activities (+{extraAmount.toFixed(3)} OMR above default feed)
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -368,7 +421,8 @@ export const AllocationModal = ({
           )}
         </div>
 
-        <div className="p-6 border-t border-border bg-muted/10 flex justify-end gap-3">
+        {/* Footer actions */}
+        <div className="p-5 border-t border-border bg-muted/10 flex justify-end gap-3">
           {clientPaysMinistryFee ? (
             <button 
               onClick={onClose}
@@ -383,10 +437,10 @@ export const AllocationModal = ({
               </button>
               <button 
                 onClick={handleSave}
-                disabled={isSaving || (jobServices.filter(s => (s.ministry_fee || 0) > 0).length > 0 && totalAllocated === 0)}
-                className="px-6 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+                disabled={isSaving || (jobServices.length > 0 && totalAllocated === 0)}
+                className="px-6 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : <><CheckCircle2 size={14} /> Confirm Allocation</>}
+                {isSaving ? 'Saving...' : <><CheckCircle2 size={15} /> Confirm Allocation</>}
               </button>
             </>
           )}
@@ -395,3 +449,4 @@ export const AllocationModal = ({
     </div>
   );
 };
+
