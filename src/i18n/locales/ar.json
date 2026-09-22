@@ -21,7 +21,17 @@
     "forgotPassword": "نسيت كلمة المرور؟"
   },
   "sidebar": {
-    "home": "الرئيسية",
+    "home": "لوحة القيادة",
+    "team": "فريق الفرع",
+    "approvals": "مركز الموافقات",
+    "pipeline": "مخطط العمليات",
+    "my_clients": "عملاء الفرع",
+    "my_tasks": "الوظائف والمهام",
+    "reports": "التقارير",
+    "invoices": "الفواتير وعروض الأسعار",
+    "messages": "الرسائل",
+    "notifications": "الإشعارات",
+    "profile": "الحساب والأمان",
     "employees": "الموظفين",
     "clients": "العملاء",
     "services": "الخدمات",
@@ -29,13 +39,10 @@
     "finance": "المالية",
     "audit": "سجل التدقيق",
     "dashboard": "لوحة القيادة",
-    "my_tasks": "الوظائف النشطة",
-    "notifications": "الإشعارات",
-    "profile": "الحساب والأمان",
     "support": "الدعم الفني",
-    "reports": "التقارير",
-    "pipeline": "المسار",
-    "messages": "الرسائل",
-    "ops_queue": "مهامي"
+    "ops_queue": "مهامي",
+    "marketing": "التسويق والإعلانات",
+    "accounts": "الحسابات والسجلات"
   }
 }
+

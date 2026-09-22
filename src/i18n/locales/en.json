@@ -21,7 +21,17 @@
     "forgotPassword": "Forgot password?"
   },
   "sidebar": {
-    "home": "Home",
+    "home": "Dashboard",
+    "team": "Branch Team",
+    "approvals": "Approval Hub",
+    "pipeline": "Workflow Pipeline",
+    "my_clients": "My Clients",
+    "my_tasks": "Active Jobs",
+    "reports": "Reports",
+    "invoices": "Invoices & Quotes",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "profile": "Profile & Security",
     "employees": "Employees",
     "clients": "Clients",
     "services": "Services",
@@ -29,13 +39,10 @@
     "finance": "Finance",
     "audit": "Audit Log",
     "dashboard": "Dashboard",
-    "my_tasks": "Active Jobs",
-    "notifications": "Notifications",
-    "profile": "Profile & Security",
     "support": "Support Center",
-    "reports": "Reports",
-    "pipeline": "Pipeline",
-    "messages": "Messages",
-    "ops_queue": "My Tasks"
+    "ops_queue": "My Tasks",
+    "marketing": "Marketing & Ads",
+    "accounts": "Accounts & Ledger"
   }
 }
+

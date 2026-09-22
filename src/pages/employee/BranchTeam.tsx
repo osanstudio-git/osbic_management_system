@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { 
   Users, UserCheck, Shield, Zap, Briefcase, 
   Search, Filter, Plus, ArrowRightLeft, CheckCircle2, 
-  Clock, Phone, Mail, Building2, ChevronRight, UserPlus
+  Clock, Phone, Mail, Building2, ChevronRight, UserPlus,
+  LayoutGrid, List
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
@@ -28,6 +29,7 @@ const BranchTeam: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<'all' | 'sales' | 'marketing' | 'operations' | 'accounts' | 'pro'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedStaffForAllocation, setSelectedStaffForAllocation] = useState<any>(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -93,7 +95,7 @@ const BranchTeam: React.FC = () => {
             Team Supervision & Workload
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your branch workforce, delegate customer jobs, and balance operational responsibilities.
+            Manage your branch workforce ({filteredEmployees.length} staff members), delegate customer jobs, and balance operational responsibilities.
           </p>
         </div>
 
@@ -177,7 +179,7 @@ const BranchTeam: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Search and Department Filters ─── */}
+      {/* ─── Search, Department Filters & View Toggle ─── */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="relative w-full sm:w-80">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -190,31 +192,169 @@ const BranchTeam: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-1.5 bg-card border border-border p-1 rounded-xl overflow-x-auto w-full sm:w-auto">
-          {(['all', 'sales', 'marketing', 'operations', 'accounts', 'pro'] as const).map(dept => (
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-1.5 bg-card border border-border p-1 rounded-xl overflow-x-auto">
+            {(['all', 'sales', 'marketing', 'operations', 'accounts', 'pro'] as const).map(dept => (
+              <button
+                key={dept}
+                onClick={() => setDepartmentFilter(dept)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                  departmentFilter === dept 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {dept === 'all' ? 'All Staff' : dept}
+              </button>
+            ))}
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-card border border-border p-1 rounded-xl gap-1">
             <button
-              key={dept}
-              onClick={() => setDepartmentFilter(dept)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                departmentFilter === dept 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Grid View"
             >
-              {dept === 'all' ? 'All Staff' : dept}
+              <LayoutGrid size={16} />
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              title="List View"
+            >
+              <List size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ─── Employees Directory Grid ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEmployees.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-muted-foreground text-xs bg-card border border-border rounded-2xl">
-            No employees found matching your filters.
+      {/* ─── Employees Directory (Grid vs List) ─── */}
+      {filteredEmployees.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground text-xs bg-card border border-border rounded-2xl">
+          No employees found matching your filters.
+        </div>
+      ) : viewMode === 'list' ? (
+        /* ─── List / Table View ─── */
+        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="py-3.5 px-4">Employee</th>
+                  <th className="py-3.5 px-4">Department / Role</th>
+                  <th className="py-3.5 px-4">Contact</th>
+                  <th className="py-3.5 px-4 text-center">Active Jobs</th>
+                  <th className="py-3.5 px-4 text-center">Completed</th>
+                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {filteredEmployees.map(emp => {
+                  const empActiveJobs = allJobs.filter(j => 
+                    (j.employee_id === emp.id || j.ops_employee_id === emp.id) && 
+                    j.status !== 'completed' && j.status !== 'cancelled'
+                  );
+                  const empCompletedJobs = allJobs.filter(j => 
+                    (j.employee_id === emp.id || j.ops_employee_id === emp.id) && 
+                    j.status === 'completed'
+                  );
+                  const isOverloaded = empActiveJobs.length >= 8;
+                  const isOptimal = empActiveJobs.length >= 3 && empActiveJobs.length < 8;
+
+                  return (
+                    <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-xs shrink-0">
+                            {emp.full_name?.slice(0, 2).toUpperCase() || 'EM'}
+                          </div>
+                          <div>
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                              <span>{emp.full_name}</span>
+                              {emp.is_manager && (
+                                <span className="text-[8px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.2 rounded font-bold uppercase">
+                                  Manager
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">{emp.role}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span className="px-2.5 py-1 rounded-lg bg-muted border border-border text-[11px] font-semibold text-foreground capitalize">
+                          {emp.department || 'Operations'}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-0.5 text-muted-foreground">
+                          <div className="flex items-center gap-1.5 truncate max-w-[200px]">
+                            <Mail size={12} className="text-muted-foreground/70 shrink-0" />
+                            <span className="truncate">{emp.email}</span>
+                          </div>
+                          {emp.phone && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone size={12} className="text-muted-foreground/70 shrink-0" />
+                              <span>{emp.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${
+                          isOverloaded 
+                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30' 
+                            : isOptimal 
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-muted text-foreground'
+                        }`}>
+                          {empActiveJobs.length} Jobs
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-500">
+                        {empCompletedJobs.length}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          emp.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${emp.is_active ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          {emp.is_active ? 'Online' : 'Offline'}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => {
+                            setSelectedStaffForAllocation(emp);
+                            setIsAllocationModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-muted hover:bg-card border border-border hover:border-primary/40 rounded-lg text-xs font-bold text-foreground transition-all inline-flex items-center gap-1"
+                        >
+                          <ArrowRightLeft size={12} />
+                          Delegate
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          filteredEmployees.map(emp => {
+        </div>
+      ) : (
+        /* ─── Grid / Card View ─── */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredEmployees.map(emp => {
             const empActiveJobs = allJobs.filter(j => 
               (j.employee_id === emp.id || j.ops_employee_id === emp.id) && 
               j.status !== 'completed' && j.status !== 'cancelled'
@@ -295,8 +435,8 @@ const BranchTeam: React.FC = () => {
               </div>
             );
           })
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Workload Allocation / Delegation Modal */}
       {isAllocationModalOpen && (

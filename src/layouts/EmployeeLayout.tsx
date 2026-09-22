@@ -81,26 +81,26 @@ const EmployeeLayout: React.FC = () => {
   };
 
   const navItems = [
-    { key: 'home', icon: LayoutDashboard, path: '/employee' },
+    { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
     ...(profile?.is_manager ? [
-      { key: 'team', icon: Users, path: '/employee/team' },
-      { key: 'approvals', icon: ShieldCheck, path: '/employee/approvals' },
-      { key: 'pipeline', icon: Globe, path: '/employee/pipeline' },
+      { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
+      { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
+      { key: 'pipeline', label: isRtl ? 'مخطط العمليات' : 'Workflow Pipeline', icon: Globe, path: '/employee/pipeline' },
     ] : []),
-    { key: 'my_clients', icon: Users, path: '/employee/clients' },
-    { key: 'my_tasks', icon: ClipboardList, path: '/employee/tasks' },
+    { key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
+    { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
     // Ops queue — shown if employee can do ops work
-    ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', icon: Zap, path: '/employee/my-tasks' }] : []),
+    ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
     // PRO queue — shown for PRO agents
-    ...(profile?.is_pro ? [{ key: 'pro_queue', icon: Shield, path: '/employee/pro-queue' }] : []),
-    { key: 'reports', icon: PieChart, path: '/employee/reports' },
-    { key: 'invoices', icon: FileText, path: '/employee/invoices' },
-    { key: 'messages', icon: MessageSquare, path: '/employee/messages' },
-    { key: 'notifications', icon: Bell, path: '/employee/notifications' },
-    { key: 'profile', icon: User, path: '/employee/profile' },
-    ...(profile?.can_do_sales ? [{ key: 'leads', icon: Users, path: '/employee/leads' }] : []),
-    ...(profile?.can_do_marketing || profile?.is_manager || profile?.role === 'admin' ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
-    ...(profile?.can_do_accounts ? [{ key: 'accounts', icon: FileText, path: '/employee/accounts' }] : []),
+    ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
+    { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
+    { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
+    { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
+    { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
+    { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
+    ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
+    ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
+    ...(profile?.can_do_accounts ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
   ].filter(item => {
     // PRO agents: only home, pro queue, and profile
     if (profile?.is_pro) {

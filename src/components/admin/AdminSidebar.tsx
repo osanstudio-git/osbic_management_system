@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Zap
+  Zap,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +58,7 @@ const AdminSidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileM
     { id: 'packages', icon: Boxes, label: 'Packages', path: '/admin/packages' },
     { id: 'jobs', icon: ClipboardList, label: 'sidebar.jobs', path: '/admin/jobs' },
     { id: 'leads', icon: Zap, label: 'Leads Pipeline', path: '/admin/leads' },
+    { id: 'marketing', icon: Megaphone, label: 'sidebar.marketing', path: '/admin/marketing' },
     { id: 'approvals', icon: Shield, label: 'sidebar.approvals', path: '/admin/approvals', badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined },
     { id: 'finance', icon: Wallet, label: 'sidebar.finance', path: '/admin/finance' },
     { id: 'messages', icon: MessageSquare, label: 'Messages', path: '/admin/messages' },

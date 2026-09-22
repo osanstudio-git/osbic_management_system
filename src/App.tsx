@@ -478,6 +478,7 @@ function App() {
               <Route path="audit" element={<Audit />} />
               <Route path="settings" element={<Settings />} />
               <Route path="leads" element={<AdminLeads />} />
+              <Route path="marketing" element={<MarketingHub />} />
             </Route>
 
             {/* Employee Portal */}
