@@ -434,7 +434,7 @@ const BranchTeam: React.FC = () => {
                 </div>
               </div>
             );
-          })
+          })}
         </div>
       )}
 
