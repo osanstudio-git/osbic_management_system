@@ -44,7 +44,7 @@ export const useInvoices = (clientId?: string) => {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['invoices', clientId, profile?.id, profile?.is_manager],
+    queryKey: ['invoices', clientId, profile?.id, profile?.is_manager, profile?.branch_id],
     queryFn: async () => {
       const isRegularEmployee = profile && !profile.is_manager && profile.role === 'employee';
 
@@ -73,9 +73,9 @@ export const useInvoices = (clientId?: string) => {
         .from('invoices')
         .select(`
           *,
-          client:profiles!client_id(*),
-          lead:leads!lead_id(*),
-          job:jobs!job_id(job_code, employee_id, assigned_by, service:services(name_en)),
+          client:profiles!client_id(id, full_name, company_name, email, phone),
+          lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_name),
           items:invoice_items(*)
         `)
         .order('created_at', { ascending: false });
@@ -92,14 +92,25 @@ export const useInvoices = (clientId?: string) => {
           query = query.eq('employee_id', profile.id);
         }
       } else if (profile?.is_manager && profile?.branch_id) {
-        // Branch Manager: see all invoices within their branch
-        query = query.eq('branch_id', profile.branch_id);
+        // Branch Manager: fetch all invoices created by staff in this branch
+        const { data: branchStaff } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('branch_id', profile.branch_id);
+        const branchStaffIds = (branchStaff || []).map((s: any) => s.id).filter(Boolean);
+
+        if (branchStaffIds.length > 0) {
+          query = (query as any).or(`employee_id.in.(${branchStaffIds.join(',')}),metadata->>branch_id.eq.${profile.branch_id}`);
+        }
       }
       // Super Admin: no branch filter — see all invoices
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data as Invoice[];
+      if (error) {
+        console.error('Invoices fetch error:', error);
+        throw error;
+      }
+      return (data || []) as Invoice[];
     },
     enabled: !!profile
   });
@@ -142,9 +153,9 @@ export const useInvoice = (id?: string) => {
         .from('invoices')
         .select(`
           *,
-          client:profiles!client_id(*),
-          lead:leads!lead_id(*),
-          job:jobs!job_id(job_code, service:services(name_en)),
+          client:profiles!client_id(id, full_name, company_name, email, phone),
+          lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_name),
           items:invoice_items(*)
         `)
         .eq('id', id!)
