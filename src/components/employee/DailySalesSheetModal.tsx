@@ -4,14 +4,14 @@ import {
   X, Calendar, Download, Printer, RefreshCw, 
   FileText, TrendingUp, Phone, Users, CheckCircle2,
   ChevronLeft, ChevronRight, Loader2, Sparkles, Building2,
-  Send, CalendarRange
+  Send, CalendarRange, BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
-import { useDailySalesSheetData, useWeeklySalesSheetData, useSubmitDailyReport, useCheckDailyReport } from '../../hooks/shared/useLeads';
-import { DailySalesSheetDocument, WeeklySalesSheetDocument } from './DailySalesSheetDocument';
+import { useDailySalesSheetData, useWeeklySalesSheetData, useMonthlySalesSheetData, useSubmitDailyReport, useCheckDailyReport } from '../../hooks/shared/useLeads';
+import { DailySalesSheetDocument, WeeklySalesSheetDocument, MonthlySalesSheetDocument } from './DailySalesSheetDocument';
 import { useReactToPrint } from 'react-to-print';
-import { format, subDays, addDays, startOfWeek } from 'date-fns';
+import { format, subDays, addDays, startOfWeek, subMonths, addMonths } from 'date-fns';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -25,7 +25,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
   const isManagerOrAdmin = role === 'admin' || profile?.is_manager;
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedEmpId, setSelectedEmpId] = useState<string>(defaultEmployeeId || profile?.id || '');
 
@@ -35,6 +35,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
     return format(mon, 'yyyy-MM-dd');
   };
   const [weekStartDate, setWeekStartDate] = useState<string>(getWeekStart(todayStr));
+  const [monthYear, setMonthYear] = useState<string>(format(new Date(), 'yyyy-MM'));
 
   const { data: employees = [] } = useAdminEmployees(profile?.branch_id || undefined);
   const activeEmployees = employees.filter(e => e.is_active && (e.can_do_sales || e.department === 'sales' || isManagerOrAdmin));
@@ -51,10 +52,14 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
     viewMode === 'weekly' ? effectiveEmpId : undefined,
     weekStartDate
   );
+  const { data: monthlySheetData, isLoading: isMonthlyLoading, refetch: refetchMonthly, isRefetching: isMonthlyRefetching } = useMonthlySalesSheetData(
+    viewMode === 'monthly' ? effectiveEmpId : undefined,
+    monthYear
+  );
 
-  const isLoading = viewMode === 'daily' ? isDailyLoading : isWeeklyLoading;
-  const isRefetching = viewMode === 'daily' ? isDailyRefetching : isWeeklyRefetching;
-  const refetch = viewMode === 'daily' ? refetchDaily : refetchWeekly;
+  const isLoading = viewMode === 'daily' ? isDailyLoading : viewMode === 'weekly' ? isWeeklyLoading : isMonthlyLoading;
+  const isRefetching = viewMode === 'daily' ? isDailyRefetching : viewMode === 'weekly' ? isWeeklyRefetching : isMonthlyRefetching;
+  const refetch = viewMode === 'daily' ? refetchDaily : viewMode === 'weekly' ? refetchWeekly : refetchMonthly;
 
   const submitReport = useSubmitDailyReport();
   const { data: submittedReport, refetch: refetchSubmitStatus } = useCheckDailyReport(effectiveEmpId, selectedDate);
@@ -63,10 +68,40 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
     contentRef: printRef,
     documentTitle: viewMode === 'daily'
       ? `Daily_Sales_Report_${salesSheetData?.employee.full_name?.replace(/\s+/g, '_')}_${selectedDate}`
-      : `Weekly_Sales_Report_${weeklySheetData?.employee.full_name?.replace(/\s+/g, '_')}_${weekStartDate}`,
+      : viewMode === 'weekly'
+      ? `Weekly_Sales_Report_${weeklySheetData?.employee.full_name?.replace(/\s+/g, '_')}_${weekStartDate}`
+      : `Monthly_Sales_Report_${monthlySheetData?.employee.full_name?.replace(/\s+/g, '_')}_${monthYear}`,
   });
 
   const exportToCSV = () => {
+    // ── Monthly CSV ──
+    if (viewMode === 'monthly') {
+      if (!monthlySheetData) return;
+      const lines: string[] = [];
+      lines.push(`OSBIC INTERNATIONAL — MONTHLY SALES REPORT (MSR)`);
+      lines.push(`Month,"${monthlySheetData.monthLabel}"`);
+      lines.push(`Sales Executive,"${monthlySheetData.employee.full_name}"`);
+      lines.push(`Branch,"${monthlySheetData.employee.branch_name || 'Main Branch'}"`);
+      lines.push('');
+      lines.push('MONTHLY TOTALS');
+      lines.push('New Clients,Calls,+ve Calls,-ve Calls,Active Leads,Lost Leads,Quotes,Quote Value (OMR),Deals,Deal Value (OMR)');
+      const t = monthlySheetData.totals;
+      lines.push(`${t.newClientsConnectedCount},${t.interactionsCount},${t.positiveCallsCount},${t.negativeCallsCount},${t.positiveLeadsCount},${t.negativeLeadsCount},${t.quotesCount},${t.quotesTotalAmount.toFixed(3)},${t.convertedDealsCount},${t.convertedDealsAmount.toFixed(3)}`);
+      lines.push('');
+      lines.push('WEEKLY BREAKDOWN');
+      lines.push('Week,From,To,New Clients,Calls,+ve Calls,-ve Calls,Quotes,Quote Value (OMR),Deals,Deal Value (OMR)');
+      monthlySheetData.weeks.forEach(w => {
+        lines.push(`${w.weekLabel},${w.weekStart},${w.weekEnd},${w.newClientsConnectedCount},${w.interactionsCount},${w.positiveCallsCount},${w.negativeCallsCount},${w.quotesCount},${w.quotesTotalAmount.toFixed(3)},${w.convertedDealsCount},${w.convertedDealsAmount.toFixed(3)}`);
+      });
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Monthly_Sales_Sheet_${monthlySheetData.employee.full_name?.replace(/\s+/g, '_')}_${monthYear}.csv`;
+      link.click();
+      toast.success('Monthly Sales Sheet exported to CSV!');
+      return;
+    }
+
     // ── Weekly CSV ──
     if (viewMode === 'weekly') {
       if (!weeklySheetData) return;
@@ -178,10 +213,15 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
       const current = new Date(selectedDate + 'T00:00:00');
       const shifted = days > 0 ? addDays(current, days) : subDays(current, Math.abs(days));
       setSelectedDate(format(shifted, 'yyyy-MM-dd'));
-    } else {
+    } else if (viewMode === 'weekly') {
       const current = new Date(weekStartDate + 'T00:00:00');
       const shifted = days > 0 ? addDays(current, 7) : subDays(current, 7);
       setWeekStartDate(format(shifted, 'yyyy-MM-dd'));
+    } else {
+      const [yr, mo] = monthYear.split('-').map(Number);
+      const current = new Date(yr, mo - 1, 1);
+      const shifted = days > 0 ? addMonths(current, 1) : subMonths(current, 1);
+      setMonthYear(format(shifted, 'yyyy-MM'));
     }
   };
 
@@ -234,7 +274,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
               </div>
               <div>
                 <h2 className="text-lg font-syne font-bold text-foreground flex items-center gap-2 flex-wrap">
-                  {viewMode === 'daily' ? 'Daily Sales Sheet (DSR)' : 'Weekly Sales Sheet (WSR)'}
+                  {viewMode === 'daily' ? 'Daily Sales Sheet (DSR)' : viewMode === 'weekly' ? 'Weekly Sales Sheet (WSR)' : 'Monthly Sales Sheet (MSR)'}
                   <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
                     Live CRM
                   </span>
@@ -247,7 +287,9 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                 <p className="text-xs text-muted-foreground">
                   {viewMode === 'daily'
                     ? 'View and export daily inquiries, client touchpoints, quotes, and won deals.'
-                    : 'Weekly summary — aggregated performance across 7 days.'}
+                    : viewMode === 'weekly'
+                    ? 'Weekly summary — aggregated performance across 7 days.'
+                    : 'Monthly overview — week-by-week breakdown with lead pipeline snapshot.'}
                 </p>
               </div>
             </div>
@@ -273,6 +315,15 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                 >
                   <CalendarRange size={13} /> Weekly
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('monthly')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    viewMode === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <BarChart3 size={13} /> Monthly
+                </button>
               </div>
 
               <button
@@ -286,7 +337,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
 
               <button
                 onClick={exportToCSV}
-                disabled={isLoading || (!salesSheetData && !weeklySheetData)}
+                disabled={isLoading || (!salesSheetData && !weeklySheetData && !monthlySheetData)}
                 className="px-3.5 py-2.5 bg-muted/60 hover:bg-muted border border-border text-foreground rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
               >
                 <Download size={15} />
@@ -295,7 +346,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
 
               <button
                 onClick={() => handlePrint()}
-                disabled={isLoading || (!salesSheetData && !weeklySheetData)}
+                disabled={isLoading || (!salesSheetData && !weeklySheetData && !monthlySheetData)}
                 className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-primary/20 active:scale-95 disabled:opacity-50"
               >
                 <Printer size={15} />
@@ -342,9 +393,13 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                     onChange={e => setSelectedDate(e.target.value)}
                     className="bg-transparent border-none text-foreground font-bold px-2 py-1 text-xs outline-none cursor-pointer"
                   />
-                ) : (
+                ) : viewMode === 'weekly' ? (
                   <span className="px-2 py-1 text-foreground font-bold text-xs whitespace-nowrap">
                     {format(new Date(weekStartDate + 'T00:00:00'), 'dd MMM')} – {format(addDays(new Date(weekStartDate + 'T00:00:00'), 6), 'dd MMM yyyy')}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 text-foreground font-bold text-xs whitespace-nowrap">
+                    {format(new Date(monthYear + '-01'), 'MMMM yyyy')}
                   </span>
                 )}
                 <button
@@ -384,7 +439,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                       Yesterday
                     </button>
                   </>
-                ) : (
+                ) : viewMode === 'weekly' ? (
                   <>
                     <button
                       type="button"
@@ -407,6 +462,31 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                       }`}
                     >
                       Last Week
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setMonthYear(format(new Date(), 'yyyy-MM'))}
+                      className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition-all ${
+                        monthYear === format(new Date(), 'yyyy-MM')
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      This Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMonthYear(format(subMonths(new Date(), 1), 'yyyy-MM'))}
+                      className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition-all ${
+                        monthYear === format(subMonths(new Date(), 1), 'yyyy-MM')
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Last Month
                     </button>
                   </>
                 )}
@@ -438,7 +518,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
               <div className="py-24 flex flex-col items-center justify-center gap-3 text-muted-foreground">
                 <Loader2 size={32} className="animate-spin text-primary" />
                 <p className="text-xs font-medium">
-                  {viewMode === 'daily' ? 'Generating Daily Sales Report...' : 'Aggregating Weekly Data...'}
+                  {viewMode === 'daily' ? 'Generating Daily Sales Report...' : viewMode === 'weekly' ? 'Aggregating Weekly Data...' : 'Generating Monthly Report...'}
                 </p>
               </div>
             ) : viewMode === 'daily' && salesSheetData ? (
@@ -449,9 +529,13 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
               <div className="w-full max-w-[794px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-border/40">
                 <WeeklySalesSheetDocument ref={printRef} data={weeklySheetData} />
               </div>
+            ) : viewMode === 'monthly' && monthlySheetData ? (
+              <div className="w-full max-w-[794px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-border/40">
+                <MonthlySalesSheetDocument ref={printRef} data={monthlySheetData} />
+              </div>
             ) : (
               <div className="py-24 text-center text-muted-foreground text-xs">
-                No activity data available for the selected {viewMode === 'daily' ? 'date' : 'week'}.
+                No activity data available for the selected {viewMode === 'daily' ? 'date' : viewMode === 'weekly' ? 'week' : 'month'}.
               </div>
             )}
           </div>

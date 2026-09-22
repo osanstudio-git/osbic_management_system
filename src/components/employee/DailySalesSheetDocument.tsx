@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { format } from 'date-fns';
-import type { DailySalesSheetData, WeeklySalesSheetData } from '../../hooks/shared/useLeads';
+import type { DailySalesSheetData, WeeklySalesSheetData, MonthlySalesSheetData } from '../../hooks/shared/useLeads';
 
 interface Props {
   data: DailySalesSheetData;
@@ -52,37 +52,45 @@ export const DailySalesSheetDocument = forwardRef<HTMLDivElement, Props>(({ data
         </div>
       </div>
 
-      {/* ─── Daily KPI Summary Metrics (7 cols) ─── */}
-      <div className="grid grid-cols-7 gap-2 mb-6">
-        <div className="p-2 border border-gray-200 rounded text-center bg-gray-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500 block">New Leads</span>
-          <span className="text-base font-black text-gray-900">{data.metrics.newLeadsCount}</span>
+      {/* ─── Daily KPI Summary Metrics (9 cols) ─── */}
+      <div className="grid grid-cols-9 gap-1.5 mb-6">
+        <div className="p-2 border border-blue-200 rounded text-center bg-blue-50">
+          <span className="text-[7px] font-bold uppercase tracking-wider text-blue-600 block">New Clients</span>
+          <span className="text-sm font-black text-blue-700">{data.metrics.newClientsConnectedCount}</span>
         </div>
         <div className="p-2 border border-gray-200 rounded text-center bg-gray-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500 block">Total Calls</span>
-          <span className="text-base font-black text-blue-600">{data.metrics.interactionsCount}</span>
+          <span className="text-[7px] font-bold uppercase tracking-wider text-gray-500 block">Total Calls</span>
+          <span className="text-sm font-black text-blue-600">{data.metrics.interactionsCount}</span>
         </div>
         <div className="p-2 border border-emerald-200 rounded text-center bg-emerald-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-600 block">✓ Positive</span>
-          <span className="text-base font-black text-emerald-600">{data.metrics.positiveCallsCount}</span>
+          <span className="text-[7px] font-bold uppercase tracking-wider text-emerald-600 block">✓ +ve Calls</span>
+          <span className="text-sm font-black text-emerald-600">{data.metrics.positiveCallsCount}</span>
         </div>
         <div className="p-2 border border-red-200 rounded text-center bg-red-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-red-500 block">✗ Negative</span>
-          <span className="text-base font-black text-red-500">{data.metrics.negativeCallsCount}</span>
+          <span className="text-[7px] font-bold uppercase tracking-wider text-red-500 block">✗ -ve Calls</span>
+          <span className="text-sm font-black text-red-500">{data.metrics.negativeCallsCount}</span>
+        </div>
+        <div className="p-2 border border-emerald-300 rounded text-center bg-emerald-50">
+          <span className="text-[7px] font-bold uppercase tracking-wider text-emerald-700 block">Active Leads</span>
+          <span className="text-sm font-black text-emerald-700">{data.metrics.positiveLeadsCount}</span>
+        </div>
+        <div className="p-2 border border-red-300 rounded text-center bg-red-50">
+          <span className="text-[7px] font-bold uppercase tracking-wider text-red-600 block">Lost Leads</span>
+          <span className="text-sm font-black text-red-600">{data.metrics.negativeLeadsCount}</span>
+        </div>
+        <div className="p-2 border border-amber-200 rounded text-center bg-amber-50">
+          <span className="text-[7px] font-bold uppercase tracking-wider text-amber-600 block">Quoted</span>
+          <span className="text-sm font-black text-amber-600">{data.metrics.quotesCount}</span>
+          <span className="text-[7px] text-amber-700 block font-mono">{data.metrics.quotesTotalAmount.toFixed(3)}</span>
         </div>
         <div className="p-2 border border-gray-200 rounded text-center bg-gray-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500 block">Quotes Sent</span>
-          <span className="text-base font-black text-amber-600">{data.metrics.quotesCount}</span>
-          <span className="text-[8px] text-gray-500 block font-mono">OMR {data.metrics.quotesTotalAmount.toFixed(3)}</span>
+          <span className="text-[7px] font-bold uppercase tracking-wider text-gray-500 block">Deals Won</span>
+          <span className="text-sm font-black text-emerald-600">{data.metrics.convertedDealsCount}</span>
+          <span className="text-[7px] text-gray-500 block font-mono">{data.metrics.convertedDealsAmount.toFixed(3)}</span>
         </div>
-        <div className="p-2 border border-gray-200 rounded text-center bg-gray-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500 block">Deals Won</span>
-          <span className="text-base font-black text-emerald-600">{data.metrics.convertedDealsCount}</span>
-          <span className="text-[8px] text-gray-500 block font-mono">OMR {data.metrics.convertedDealsAmount.toFixed(3)}</span>
-        </div>
-        <div className="p-2 border border-gray-200 rounded text-center bg-gray-50">
-          <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500 block">Next Day Agenda</span>
-          <span className="text-base font-black text-purple-600">{data.metrics.scheduledFollowUpsCount}</span>
+        <div className="p-2 border border-purple-200 rounded text-center bg-purple-50">
+          <span className="text-[7px] font-bold uppercase tracking-wider text-purple-500 block">Next Agenda</span>
+          <span className="text-sm font-black text-purple-600">{data.metrics.scheduledFollowUpsCount}</span>
         </div>
       </div>
 
@@ -450,3 +458,172 @@ export const WeeklySalesSheetDocument = forwardRef<HTMLDivElement, WeeklyProps>(
 });
 
 WeeklySalesSheetDocument.displayName = 'WeeklySalesSheetDocument';
+
+// ─────────────────────────────────────────────────────────────
+// Monthly Sales Sheet Document
+// ─────────────────────────────────────────────────────────────
+
+interface MonthlyProps {
+  data: MonthlySalesSheetData;
+}
+
+export const MonthlySalesSheetDocument = forwardRef<HTMLDivElement, MonthlyProps>(({ data }, ref) => {
+  const themeColor = '#7c3aed';
+  const lightBg = '#f5f3ff';
+
+  const kpis = [
+    { label: 'New Clients',     value: data.totals.newClientsConnectedCount, color: 'text-blue-700',    bg: 'bg-blue-50',    border: 'border-blue-200' },
+    { label: 'Total Calls',     value: data.totals.interactionsCount,        color: 'text-indigo-700',  bg: 'bg-indigo-50',  border: 'border-indigo-200' },
+    { label: '✓ +ve Calls',    value: data.totals.positiveCallsCount,       color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+    { label: '✗ -ve Calls',    value: data.totals.negativeCallsCount,       color: 'text-red-600',     bg: 'bg-red-50',     border: 'border-red-200' },
+    { label: 'Active Leads',    value: data.totals.positiveLeadsCount,       color: 'text-emerald-800', bg: 'bg-emerald-50', border: 'border-emerald-300' },
+    { label: 'Lost Leads',      value: data.totals.negativeLeadsCount,       color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-300' },
+    { label: 'Quoted',          value: data.totals.quotesCount,              color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+    { label: 'Quote Value',     value: `OMR ${data.totals.quotesTotalAmount.toFixed(3)}`, color: 'text-amber-900', bg: 'bg-amber-50', border: 'border-amber-200', small: true },
+    { label: 'Deals Won',       value: data.totals.convertedDealsCount,      color: 'text-violet-700',  bg: 'bg-violet-50',  border: 'border-violet-200' },
+    { label: 'Deal Revenue',    value: `OMR ${data.totals.convertedDealsAmount.toFixed(3)}`, color: 'text-violet-900', bg: 'bg-violet-50', border: 'border-violet-200', small: true },
+  ];
+
+  return (
+    <div
+      ref={ref}
+      className="bg-white text-black p-8 min-h-[1056px] w-[794px] max-w-full mx-auto shadow-2xl font-sans text-[11px] leading-relaxed print:w-[210mm] print:min-h-[297mm] print:m-0 print:shadow-none print:p-8"
+    >
+      {/* Header */}
+      <div className="flex justify-between items-start border-b-2 pb-4 mb-4" style={{ borderColor: themeColor }}>
+        <div>
+          <h1 className="text-3xl font-black tracking-widest uppercase" style={{ color: themeColor }}>OSBIC</h1>
+          <p className="font-bold text-xs text-gray-800">OSBIC International LLC — Management System</p>
+          <p className="text-[10px] text-gray-500">Oman Company Formation &amp; Corporate Services</p>
+        </div>
+        <div className="text-right">
+          <div className="inline-block px-3 py-1 text-white font-bold text-[11px] uppercase tracking-wider rounded" style={{ backgroundColor: themeColor }}>
+            Monthly Sales Report (MSR)
+          </div>
+          <p className="text-[10px] text-gray-600 font-semibold mt-1">{data.monthLabel}</p>
+        </div>
+      </div>
+
+      {/* Info Bar */}
+      <div className="grid grid-cols-3 border border-purple-200 rounded mb-5 text-[10px]" style={{ backgroundColor: lightBg }}>
+        <div className="p-2.5 border-r border-purple-200">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block">Sales Executive</span>
+          <span className="font-bold text-gray-900 text-xs uppercase">{data.employee.full_name}</span>
+        </div>
+        <div className="p-2.5 border-r border-purple-200">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block">Branch Office</span>
+          <span className="font-bold text-gray-900 text-xs uppercase">{data.employee.branch_name || 'Main Branch'}</span>
+        </div>
+        <div className="p-2.5">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block">Generated At</span>
+          <span className="font-bold text-gray-900 text-xs">{format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
+        </div>
+      </div>
+
+      {/* KPI Totals Grid */}
+      <div className="py-1 px-2.5 font-bold text-white uppercase tracking-wider text-[9px] rounded-t" style={{ backgroundColor: themeColor }}>
+        Monthly Performance Summary — {data.monthLabel}
+      </div>
+      <div className="grid grid-cols-5 border border-t-0 border-gray-200 mb-5">
+        {kpis.map((kpi, i) => (
+          <div key={i} className={`p-2 text-center border-r border-gray-200 last:border-r-0 ${kpi.bg} ${i >= 5 ? 'border-t border-gray-200' : ''}`}>
+            <span className="text-[7px] font-bold uppercase tracking-wider text-gray-500 block">{kpi.label}</span>
+            <span className={`${'small' in kpi ? 'text-[9px]' : 'text-sm'} font-black ${kpi.color}`}>{kpi.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Weekly Breakdown Table */}
+      <div className="mb-5">
+        <div className="py-1 px-2.5 font-bold text-white uppercase tracking-wider text-[9px] rounded-t" style={{ backgroundColor: themeColor }}>
+          Week-by-Week Breakdown — {data.monthLabel}
+        </div>
+        <table className="w-full border border-gray-200 border-t-0 text-[9px] text-left">
+          <thead className="bg-gray-100 font-bold text-gray-700">
+            <tr>
+              <th className="p-1.5 border-b border-r">Period</th>
+              <th className="p-1.5 border-b border-r text-center">Dates</th>
+              <th className="p-1.5 border-b border-r text-center">New Clients</th>
+              <th className="p-1.5 border-b border-r text-center">Calls</th>
+              <th className="p-1.5 border-b border-r text-center text-emerald-700">✓ Pos</th>
+              <th className="p-1.5 border-b border-r text-center text-red-600">✗ Neg</th>
+              <th className="p-1.5 border-b border-r text-center">Quoted</th>
+              <th className="p-1.5 border-b border-r text-right">Quote Value</th>
+              <th className="p-1.5 border-b border-r text-center">Deals</th>
+              <th className="p-1.5 border-b text-right">Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.weeks.map((week, idx) => (
+              <tr key={week.weekLabel} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <td className="p-1.5 border-r font-bold text-gray-900">{week.weekLabel}</td>
+                <td className="p-1.5 border-r font-mono text-gray-600 text-center text-[8px]">
+                  {format(new Date(week.weekStart + 'T00:00:00'), 'dd/MM')} – {format(new Date(week.weekEnd + 'T00:00:00'), 'dd/MM')}
+                </td>
+                <td className="p-1.5 border-r text-center font-bold text-blue-700">{week.newClientsConnectedCount || '—'}</td>
+                <td className="p-1.5 border-r text-center font-bold">{week.interactionsCount || '—'}</td>
+                <td className="p-1.5 border-r text-center font-bold text-emerald-700">{week.positiveCallsCount || '—'}</td>
+                <td className="p-1.5 border-r text-center font-bold text-red-600">{week.negativeCallsCount || '—'}</td>
+                <td className="p-1.5 border-r text-center font-bold text-amber-700">{week.quotesCount || '—'}</td>
+                <td className="p-1.5 border-r text-right font-mono">
+                  {week.quotesTotalAmount > 0 ? `OMR ${week.quotesTotalAmount.toFixed(3)}` : '—'}
+                </td>
+                <td className="p-1.5 border-r text-center font-bold text-violet-700">{week.convertedDealsCount || '—'}</td>
+                <td className="p-1.5 text-right font-mono font-bold text-violet-800">
+                  {week.convertedDealsAmount > 0 ? `OMR ${week.convertedDealsAmount.toFixed(3)}` : '—'}
+                </td>
+              </tr>
+            ))}
+            {/* Totals Row */}
+            <tr className="bg-purple-100 font-black border-t-2 border-purple-400">
+              <td className="p-1.5 border-r" colSpan={2}>MONTHLY TOTAL</td>
+              <td className="p-1.5 border-r text-center text-blue-700">{data.totals.newClientsConnectedCount}</td>
+              <td className="p-1.5 border-r text-center">{data.totals.interactionsCount}</td>
+              <td className="p-1.5 border-r text-center text-emerald-700">{data.totals.positiveCallsCount}</td>
+              <td className="p-1.5 border-r text-center text-red-600">{data.totals.negativeCallsCount}</td>
+              <td className="p-1.5 border-r text-center text-amber-700">{data.totals.quotesCount}</td>
+              <td className="p-1.5 border-r text-right font-mono">OMR {data.totals.quotesTotalAmount.toFixed(3)}</td>
+              <td className="p-1.5 border-r text-center text-violet-700">{data.totals.convertedDealsCount}</td>
+              <td className="p-1.5 text-right font-mono text-violet-800">OMR {data.totals.convertedDealsAmount.toFixed(3)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Lead Pipeline Snapshot */}
+      <div className="mb-5">
+        <div className="py-1 px-2.5 font-bold text-white uppercase tracking-wider text-[9px] rounded-t" style={{ backgroundColor: themeColor }}>
+          Lead Pipeline Snapshot (as of today)
+        </div>
+        <div className="grid grid-cols-2 border border-t-0 border-gray-200">
+          <div className="p-3 border-r border-gray-200 bg-emerald-50">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 block mb-1">✓ Active / Positive Leads (interested → converted)</span>
+            <span className="text-3xl font-black text-emerald-700">{data.totals.positiveLeadsCount}</span>
+            <span className="text-[9px] text-emerald-600 block mt-1">Leads in interested, qualified, quoted, negotiating or converted stages</span>
+          </div>
+          <div className="p-3 bg-red-50">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-red-600 block mb-1">✗ Negative Leads (lost / cancelled)</span>
+            <span className="text-3xl font-black text-red-600">{data.totals.negativeLeadsCount}</span>
+            <span className="text-[9px] text-red-500 block mt-1">Leads marked as lost or cancelled</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sign-off */}
+      <div className="grid grid-cols-2 gap-8 pt-6 mt-6 border-t border-gray-300 text-[10px]">
+        <div>
+          <p className="text-gray-500 font-bold uppercase text-[9px] mb-8">Sales Executive Sign-off:</p>
+          <div className="border-b border-gray-400 w-48 mb-1" />
+          <p className="font-bold text-gray-800">{data.employee.full_name}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-gray-500 font-bold uppercase text-[9px] mb-8">Sales Lead Review &amp; Approval:</p>
+          <div className="border-b border-gray-400 w-48 ml-auto mb-1" />
+          <p className="font-bold text-gray-800">Verified &amp; Approved</p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MonthlySalesSheetDocument.displayName = 'MonthlySalesSheetDocument';

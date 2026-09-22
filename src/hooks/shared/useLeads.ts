@@ -367,9 +367,12 @@ export interface DailySalesSheetData {
   };
   metrics: {
     newLeadsCount: number;
+    newClientsConnectedCount: number;
     interactionsCount: number;
     positiveCallsCount: number;
     negativeCallsCount: number;
+    positiveLeadsCount: number;
+    negativeLeadsCount: number;
     quotesCount: number;
     quotesTotalAmount: number;
     convertedDealsCount: number;
@@ -498,14 +501,27 @@ export const useDailySalesSheetData = (employeeId?: string, targetDateStr?: stri
       const positiveCallsCount = interactions.filter(i => i.outcome_type === 'positive').length;
       const negativeCallsCount = interactions.filter(i => i.outcome_type === 'negative').length;
 
+      // 7. Snapshot count of all leads in positive / negative stages
+      const { data: allLeadsSnap } = await supabase
+        .from('leads')
+        .select('id, status')
+        .eq('assigned_to', employeeId!);
+      const positiveStatuses = ['interested', 'qualified', 'quoted', 'negotiating', 'converted'];
+      const negativeStatuses = ['lost', 'cancelled'];
+      const positiveLeadsCount = (allLeadsSnap || []).filter(l => positiveStatuses.includes(l.status)).length;
+      const negativeLeadsCount = (allLeadsSnap || []).filter(l => negativeStatuses.includes(l.status)).length;
+
       return {
         date: effectiveDate,
         employee,
         metrics: {
           newLeadsCount: newLeads.length,
+          newClientsConnectedCount: newLeads.length,
           interactionsCount: interactions.length,
           positiveCallsCount,
           negativeCallsCount,
+          positiveLeadsCount,
+          negativeLeadsCount,
           quotesCount: quotations.length,
           quotesTotalAmount,
           convertedDealsCount: convertedDeals.length,
@@ -723,6 +739,163 @@ export const useCheckDailyReport = (employeeId?: string, date?: string) => {
       } catch {
         return null;
       }
+    }
+  });
+};
+
+// ─── Monthly Sales Sheet ──────────────────────────────────────────────────────
+
+export interface MonthlyWeekData {
+  weekLabel: string;   // "Week 1", "Week 2", etc.
+  weekStart: string;
+  weekEnd: string;
+  newLeadsCount: number;
+  newClientsConnectedCount: number;
+  interactionsCount: number;
+  positiveCallsCount: number;
+  negativeCallsCount: number;
+  quotesCount: number;
+  quotesTotalAmount: number;
+  convertedDealsCount: number;
+  convertedDealsAmount: number;
+}
+
+export interface MonthlySalesSheetData {
+  monthYear: string;     // "2026-09"
+  monthLabel: string;    // "September 2026"
+  employee: {
+    id: string;
+    full_name: string;
+    email: string;
+    branch_name?: string;
+  };
+  weeks: MonthlyWeekData[];
+  totals: {
+    newLeadsCount: number;
+    newClientsConnectedCount: number;
+    interactionsCount: number;
+    positiveCallsCount: number;
+    negativeCallsCount: number;
+    positiveLeadsCount: number;
+    negativeLeadsCount: number;
+    quotesCount: number;
+    quotesTotalAmount: number;
+    convertedDealsCount: number;
+    convertedDealsAmount: number;
+  };
+}
+
+export const useMonthlySalesSheetData = (employeeId?: string, monthYear?: string) => {
+  return useQuery({
+    queryKey: ['monthly_sales_sheet', employeeId, monthYear],
+    enabled: !!employeeId && !!monthYear,
+    queryFn: async (): Promise<MonthlySalesSheetData> => {
+      const [yr, mo] = monthYear!.split('-').map(Number);
+      const monthStart = new Date(yr, mo - 1, 1);
+      const monthEnd = new Date(yr, mo, 0, 23, 59, 59, 999); // last day of month
+
+      const startIso = monthStart.toISOString();
+      const endIso = monthEnd.toISOString();
+
+      const monthLabel = format(monthStart, 'MMMM yyyy');
+
+      // Fetch employee profile
+      const { data: empProfile } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, branch_id, branches:branch_id(name, code)')
+        .eq('id', employeeId!)
+        .single();
+
+      const employee = {
+        id: employeeId!,
+        full_name: empProfile?.full_name || 'Sales Representative',
+        email: empProfile?.email || '',
+        branch_name: (empProfile?.branches as any)?.name || 'Head Office'
+      };
+
+      // Fetch all month data in parallel
+      const [leadsRes, interactionsRes, quotationsRes, convertedLeadsRes, convertedJobsRes, allLeadsSnap] = await Promise.all([
+        supabase.from('leads').select('*, lead_sources:source_id(name)').eq('assigned_to', employeeId!).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('lead_interactions').select('*, lead:leads!lead_id(id, contact_name, company_name)').eq('employee_id', employeeId!).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('id, total_amount, created_at').eq('type', 'quotation').or(`employee_id.eq.${employeeId},metadata->>prepared_by_employee_id.eq.${employeeId}`).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+        supabase.from('leads').select('id, contact_name, company_name, converted_at, converted_job:jobs!converted_job_id(job_code, total_fee, service_name)').eq('assigned_to', employeeId!).eq('status', 'converted').gte('converted_at', startIso).lte('converted_at', endIso),
+        supabase.from('jobs').select('id, job_code, total_fee, created_at').eq('sales_employee_id', employeeId!).gte('created_at', startIso).lte('created_at', endIso),
+        supabase.from('leads').select('id, status').eq('assigned_to', employeeId!),
+      ]);
+
+      // Lead stage snapshot
+      const positiveStatuses = ['interested', 'qualified', 'quoted', 'negotiating', 'converted'];
+      const negativeStatuses = ['lost', 'cancelled'];
+      const positiveLeadsCount = (allLeadsSnap.data || []).filter(l => positiveStatuses.includes(l.status)).length;
+      const negativeLeadsCount = (allLeadsSnap.data || []).filter(l => negativeStatuses.includes(l.status)).length;
+
+      // Build week buckets (Mon-Sun within the month)
+      const weeks: MonthlyWeekData[] = [];
+      let cursor = new Date(monthStart);
+      // Align to Monday
+      const dow = cursor.getDay(); // 0=Sun
+      if (dow !== 1) {
+        const diff = dow === 0 ? -6 : 1 - dow;
+        cursor.setDate(cursor.getDate() + diff);
+      }
+      let weekNum = 1;
+      while (cursor <= monthEnd) {
+        const ws = new Date(cursor);
+        const we = new Date(cursor);
+        we.setDate(we.getDate() + 6);
+        const wsIso = ws.toISOString();
+        const weIso = new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59, 999).toISOString();
+
+        const inWeek = (dt: string) => dt >= wsIso && dt <= weIso;
+
+        const wLeads = (leadsRes.data || []).filter((l: any) => inWeek(l.created_at));
+        const wInteractions = (interactionsRes.data || []).filter((i: any) => inWeek(i.created_at));
+        const wQuotes = (quotationsRes.data || []).filter((q: any) => inWeek(q.created_at));
+        const wConvLeads = (convertedLeadsRes.data || []).filter((l: any) => l.converted_at && inWeek(l.converted_at));
+        const wConvJobs = (convertedJobsRes.data || []).filter((j: any) => inWeek(j.created_at));
+
+        const dealAmount =
+          wConvLeads.reduce((s: number, l: any) => s + Number(l.converted_job?.total_fee || 0), 0) +
+          wConvJobs.filter((j: any) => !wConvLeads.some((l: any) => l.converted_job?.id === j.id)).reduce((s: number, j: any) => s + Number(j.total_fee || 0), 0);
+
+        weeks.push({
+          weekLabel: `Week ${weekNum}`,
+          weekStart: format(ws, 'yyyy-MM-dd'),
+          weekEnd: format(we, 'yyyy-MM-dd'),
+          newLeadsCount: wLeads.length,
+          newClientsConnectedCount: wLeads.length,
+          interactionsCount: wInteractions.length,
+          positiveCallsCount: wInteractions.filter((i: any) => i.outcome_type === 'positive').length,
+          negativeCallsCount: wInteractions.filter((i: any) => i.outcome_type === 'negative').length,
+          quotesCount: wQuotes.length,
+          quotesTotalAmount: wQuotes.reduce((s: number, q: any) => s + Number(q.total_amount || 0), 0),
+          convertedDealsCount: wConvLeads.length + wConvJobs.filter((j: any) => !wConvLeads.some((l: any) => l.converted_job_id === j.id)).length,
+          convertedDealsAmount: dealAmount,
+        });
+
+        cursor.setDate(cursor.getDate() + 7);
+        weekNum++;
+      }
+
+      const totals = weeks.reduce((acc, w) => ({
+        newLeadsCount: acc.newLeadsCount + w.newLeadsCount,
+        newClientsConnectedCount: acc.newClientsConnectedCount + w.newClientsConnectedCount,
+        interactionsCount: acc.interactionsCount + w.interactionsCount,
+        positiveCallsCount: acc.positiveCallsCount + w.positiveCallsCount,
+        negativeCallsCount: acc.negativeCallsCount + w.negativeCallsCount,
+        positiveLeadsCount,
+        negativeLeadsCount,
+        quotesCount: acc.quotesCount + w.quotesCount,
+        quotesTotalAmount: acc.quotesTotalAmount + w.quotesTotalAmount,
+        convertedDealsCount: acc.convertedDealsCount + w.convertedDealsCount,
+        convertedDealsAmount: acc.convertedDealsAmount + w.convertedDealsAmount,
+      }), {
+        newLeadsCount: 0, newClientsConnectedCount: 0, interactionsCount: 0,
+        positiveCallsCount: 0, negativeCallsCount: 0, positiveLeadsCount, negativeLeadsCount,
+        quotesCount: 0, quotesTotalAmount: 0, convertedDealsCount: 0, convertedDealsAmount: 0,
+      });
+
+      return { monthYear: monthYear!, monthLabel, employee, weeks, totals };
     }
   });
 };
