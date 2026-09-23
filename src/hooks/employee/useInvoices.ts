@@ -75,7 +75,7 @@ export const useInvoices = (clientId?: string) => {
           *,
           client:profiles!client_id(id, full_name, company_name, email, phone),
           lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
-          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_name),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, service:services!service_id(name_en, name_ar)),
           items:invoice_items(*)
         `)
         .order('created_at', { ascending: false });
@@ -155,7 +155,7 @@ export const useInvoice = (id?: string) => {
           *,
           client:profiles!client_id(id, full_name, company_name, email, phone),
           lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
-          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_name),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, service:services!service_id(name_en, name_ar)),
           items:invoice_items(*)
         `)
         .eq('id', id!)
