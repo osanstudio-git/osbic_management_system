@@ -211,17 +211,35 @@ export const useDeleteLead = () => {
   return useMutation({
     mutationFn: async (leadId: string) => {
       // 1. Clean up associated interactions & services
-      await supabase.from('lead_interactions').delete().eq('lead_id', leadId);
-      await supabase.from('lead_services').delete().eq('lead_id', leadId);
+      try {
+        await supabase.from('lead_interactions').delete().eq('lead_id', leadId);
+      } catch (e) {
+        console.warn('Error deleting lead interactions:', e);
+      }
 
-      // 2. Delete lead record
-      const { data, error } = await supabase
+      try {
+        await supabase.from('lead_services').delete().eq('lead_id', leadId);
+      } catch (e) {
+        console.warn('Error deleting lead services:', e);
+      }
+
+      // 2. Unlink any invoices/quotations so foreign key constraints never block deletion
+      try {
+        await supabase.from('invoices').update({ lead_id: null }).eq('lead_id', leadId);
+      } catch (e) {
+        console.warn('Error unlinking invoices for lead:', e);
+      }
+
+      // 3. Delete the lead itself
+      const { error } = await supabase
         .from('leads')
         .delete()
-        .eq('id', leadId)
-        .select();
+        .eq('id', leadId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Delete lead error from Supabase:', error);
+        throw error;
+      }
       return leadId;
     },
     onSuccess: (deletedLeadId) => {

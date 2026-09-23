@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLeads, useDailySalesSheetData } from '../../hooks/shared/useLeads';
+import { useLeads, useDailySalesSheetData, useDeleteLead } from '../../hooks/shared/useLeads';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Phone, Calendar, Info, Search, 
   ChevronRight, AlertCircle, RefreshCw, Zap,
   Compass, LayoutGrid, List, SlidersHorizontal, Download,
-  FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles
+  FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay } from 'date-fns';
@@ -43,6 +44,7 @@ export default function EmployeeLeads() {
   const { useLeadsList, useLeadSourcesList } = useLeads(profile?.id);
   const { data: leads, isLoading, refetch } = useLeadsList();
   const { data: sources } = useLeadSourcesList();
+  const deleteLeadMutation = useDeleteLead();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: todayStats } = useDailySalesSheetData(profile?.id, todayStr);
@@ -51,6 +53,7 @@ export default function EmployeeLeads() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
   const [quickLogLead, setQuickLogLead] = useState<Lead | null>(null);
 
@@ -129,6 +132,17 @@ export default function EmployeeLeads() {
       (lead.contact_phone || '').includes(query)
     );
   });
+
+  const handleConfirmDelete = async () => {
+    if (!leadToDelete) return;
+    try {
+      await deleteLeadMutation.mutateAsync(leadToDelete.id);
+      toast.success('Lead deleted successfully');
+      setLeadToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete lead');
+    }
+  };
 
   const exportLeadsToCSV = () => {
     if (!filteredLeads.length) {
@@ -551,19 +565,33 @@ export default function EmployeeLeads() {
                         </span>
                       )}
 
-                      {/* Quick Log Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQuickLogLead(lead);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95 ml-auto"
-                        title="Quickly log a call or touchpoint"
-                      >
-                        <MessageSquarePlus size={12} />
-                        <span>Log</span>
-                      </button>
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuickLogLead(lead);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                          title="Quickly log a call or touchpoint"
+                        >
+                          <MessageSquarePlus size={12} />
+                          <span>Log</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLeadToDelete(lead);
+                          }}
+                          className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground/60 hover:text-red-400 border border-transparent hover:border-red-500/20 transition-all shadow-sm active:scale-95"
+                          title="Delete lead permanently"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -598,7 +626,7 @@ export default function EmployeeLeads() {
                     <th className="px-6 py-4">Source</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Next Action</th>
-                    <th className="px-6 py-4 text-right">Quick Log</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
@@ -638,17 +666,31 @@ export default function EmployeeLeads() {
                           ) : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setQuickLogLead(lead);
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all inline-flex items-center gap-1 shadow-sm active:scale-95"
-                          >
-                            <MessageSquarePlus size={12} />
-                            <span>Log</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQuickLogLead(lead);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 text-[10px] font-bold transition-all inline-flex items-center gap-1 shadow-sm active:scale-95"
+                              title="Quickly log a call or touchpoint"
+                            >
+                              <MessageSquarePlus size={12} />
+                              <span>Log</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLeadToDelete(lead);
+                              }}
+                              className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground/60 hover:text-red-400 border border-transparent hover:border-red-500/20 transition-all shadow-sm active:scale-95"
+                              title="Delete lead permanently"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -693,6 +735,56 @@ export default function EmployeeLeads() {
         onClose={() => setQuickLogLead(null)}
         lead={quickLogLead}
       />
+
+      {/* Delete Lead Confirmation Modal */}
+      <AnimatePresence>
+        {leadToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-red-500/10 text-red-400 flex items-center justify-center shrink-0">
+                  <Trash2 size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-syne font-bold text-foreground">Delete Lead</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Are you sure you want to delete <span className="text-foreground font-semibold">"{leadToDelete.contact_name}"</span>?
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-xs text-muted-foreground leading-relaxed">
+                This will permanently delete the lead, contact information, touchpoints log, and interested services records. This action cannot be undone.
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLeadToDelete(null)}
+                  disabled={deleteLeadMutation.isPending}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deleteLeadMutation.isPending}
+                  className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Trash2 size={13} />
+                  <span>{deleteLeadMutation.isPending ? 'Deleting...' : 'Delete Lead'}</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -175,19 +175,6 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
   };
 
   const handleDeleteLead = async () => {
-    const hasQuotations = leadQuotations && leadQuotations.length > 0;
-    const isConverted = lead.status === 'converted';
-
-    if (hasQuotations || isConverted) {
-      toast.error(
-        hasQuotations 
-          ? `Cannot delete this lead because it has ${leadQuotations.length} linked quotation(s). Mark it as 'Lost' instead.`
-          : `Cannot delete a converted lead. Mark as 'Lost' or contact admin.`
-      );
-      setShowDeleteConfirm(false);
-      return;
-    }
-
     try {
       await deleteLeadMutation.mutateAsync(lead.id);
       toast.success('Lead deleted successfully');
@@ -465,11 +452,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     <div>
                       <h4 className="text-sm font-bold text-red-400">Delete Lead permanently?</h4>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {leadQuotations && leadQuotations.length > 0
-                          ? `This lead has ${leadQuotations.length} linked quotation(s). Deleting is blocked to protect billing history.`
-                          : lead.status === 'converted'
-                          ? "This lead has been converted to an active client. Delete is not permitted."
-                          : "This action will permanently delete this lead and its logged interaction history. This cannot be undone."}
+                        This action will permanently remove this lead, interactions, and services. This cannot be undone.
                       </p>
                     </div>
                   </div>
@@ -481,28 +464,15 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     >
                       Cancel
                     </button>
-                    {(!leadQuotations || leadQuotations.length === 0) && lead.status !== 'converted' ? (
-                      <button
-                        type="button"
-                        disabled={deleteLeadMutation.isPending}
-                        onClick={handleDeleteLead}
-                        className="px-3.5 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5"
-                      >
-                        <Trash2 size={13} />
-                        <span>{deleteLeadMutation.isPending ? 'Deleting...' : 'Yes, Delete'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleUpdateStatus('lost');
-                          setShowDeleteConfirm(false);
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold transition-all"
-                      >
-                        Mark as Lost Instead
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      disabled={deleteLeadMutation.isPending}
+                      onClick={handleDeleteLead}
+                      className="px-3.5 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Trash2 size={13} />
+                      <span>{deleteLeadMutation.isPending ? 'Deleting...' : 'Yes, Delete Lead'}</span>
+                    </button>
                   </div>
                 </div>
               )}
