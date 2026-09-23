@@ -425,16 +425,6 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                 <h2 className="text-xl font-syne font-bold text-foreground mt-1.5 truncate">{lead.contact_name}</h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => {
-                    onClose();
-                    navigate(`/employee/quotations/new?lead_id=${lead.id}`);
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary border border-gold/20 text-primary hover:text-[#0A0F1E] transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm"
-                >
-                  <FileText size={12} />
-                  <span>Quotation</span>
-                </button>
                 <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground transition-colors">
                   <X size={20} />
                 </button>
