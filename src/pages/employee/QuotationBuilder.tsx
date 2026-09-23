@@ -245,9 +245,14 @@ const QuotationBuilder = () => {
       }
       hasInitializedRef.current = true;
     } else if (isNew) {
-      // Check for new draft in localStorage
+      // Check for URL query params: if a specific lead, client, or job is requested, do not restore mismatched draft
+      const params = new URLSearchParams(window.location.search);
+      const urlLeadId = params.get('lead_id');
+      const urlClientId = params.get('client_id');
+      const urlJobId = params.get('job_id');
+
       const cachedDraftStr = localStorage.getItem(draftStorageKey);
-      if (cachedDraftStr && !viewMode) {
+      if (cachedDraftStr && !viewMode && !urlLeadId && !urlClientId && !urlJobId) {
         try {
           const cached = JSON.parse(cachedDraftStr);
           if (cached && cached.data && (cached.data.client_id || cached.data.lead_id || (cached.data.items && cached.data.items.length > 0))) {
@@ -299,10 +304,11 @@ const QuotationBuilder = () => {
 
         if (!leadObj) return;
 
+        const isSwitchingLead = formData.lead_id !== targetLeadId || formData.lead?.id !== leadObj.id;
         const hasNoRealItems = !formData.items || formData.items.length === 0 ||
           (formData.items.length === 1 && !formData.items[0].description);
 
-        if (hasNoRealItems && leadObj.interested_services && leadObj.interested_services.length > 0) {
+        if ((hasNoRealItems || isSwitchingLead) && leadObj.interested_services && leadObj.interested_services.length > 0) {
           let finalItems: InvoiceItem[] = [];
           let activityName = leadObj.company_name || 'BUSINESS SETUP';
 
@@ -370,13 +376,13 @@ const QuotationBuilder = () => {
             items: finalItems,
             subtotal: calculatedTotal,
             total_amount: calculatedTotal,
-            notes: prev.notes === 'BUSINESS SETUP' || !prev.notes ? activityName : prev.notes,
+            notes: prev.notes === 'BUSINESS SETUP' || !prev.notes || isSwitchingLead ? activityName : prev.notes,
             metadata: {
               ...prev.metadata,
-              recipient_name: prev.metadata?.recipient_name || leadObj.contact_name || '',
-              company_name: prev.metadata?.company_name || leadObj.company_name || '',
-              recipient_phone: prev.metadata?.recipient_phone || leadObj.contact_phone || '',
-              recipient_display_mode: prev.metadata?.recipient_display_mode || (leadObj.company_name ? 'both' : 'contact'),
+              recipient_name: leadObj.contact_name || '',
+              company_name: leadObj.company_name || '',
+              recipient_phone: leadObj.contact_phone || '',
+              recipient_display_mode: leadObj.company_name ? 'both' : 'contact',
               documents: prev.metadata?.documents || DEFAULT_QUOTATION_DOCUMENTS,
               timeline: prev.metadata?.timeline || DEFAULT_QUOTATION_TIMELINE,
               showQuantity: prev.metadata?.showQuantity ?? false,
@@ -387,7 +393,7 @@ const QuotationBuilder = () => {
           }));
         } else {
           setFormData(prev => {
-            if (prev.lead?.id === leadObj.id && prev.lead_id === targetLeadId) return prev;
+            if (prev.lead?.id === leadObj.id && prev.lead_id === targetLeadId && prev.metadata?.recipient_name === leadObj.contact_name) return prev;
             return {
               ...prev,
               lead_id: targetLeadId,
@@ -396,10 +402,10 @@ const QuotationBuilder = () => {
               client: null,
               metadata: {
                 ...prev.metadata,
-                recipient_name: prev.metadata?.recipient_name || leadObj.contact_name || '',
-                company_name: prev.metadata?.company_name || leadObj.company_name || '',
-                recipient_phone: prev.metadata?.recipient_phone || leadObj.contact_phone || '',
-                recipient_display_mode: prev.metadata?.recipient_display_mode || (leadObj.company_name ? 'both' : 'contact'),
+                recipient_name: leadObj.contact_name || '',
+                company_name: leadObj.company_name || '',
+                recipient_phone: leadObj.contact_phone || '',
+                recipient_display_mode: leadObj.company_name ? 'both' : 'contact',
               }
             };
           });
@@ -422,10 +428,10 @@ const QuotationBuilder = () => {
           lead_id: null,
           metadata: {
             ...prev.metadata,
-            recipient_name: prev.metadata?.recipient_name || selectedClient.full_name || '',
-            company_name: prev.metadata?.company_name || selectedClient.company_name || '',
-            recipient_phone: prev.metadata?.recipient_phone || selectedClient.phone || '',
-            recipient_display_mode: prev.metadata?.recipient_display_mode || (selectedClient.company_name ? 'both' : 'contact')
+            recipient_name: selectedClient.full_name || '',
+            company_name: selectedClient.company_name || '',
+            recipient_phone: selectedClient.phone || '',
+            recipient_display_mode: selectedClient.company_name ? 'both' : 'contact'
           }
         }));
       }
@@ -1091,12 +1097,18 @@ const QuotationBuilder = () => {
                   >
                     <option value="">-- Choose Client or Lead --</option>
                     <optgroup label="Active Clients">
+                      {formData.client && !activeClients.some(c => c.id === formData.client.id) && (
+                        <option value={`client:${formData.client.id}`}>{formData.client.full_name} ({formData.client.company_name || 'Individual'})</option>
+                      )}
                       {activeClients.map(c => (
                         <option key={c.id} value={`client:${c.id}`}>{c.full_name} ({c.company_name || 'Individual'})</option>
                       ))}
                     </optgroup>
                     <optgroup label="Active Leads">
-                      {leads?.filter(l => l.status !== 'converted' && l.status !== 'lost').map(l => (
+                      {formData.lead && !leads?.some(l => l.id === formData.lead.id) && (
+                        <option value={`lead:${formData.lead.id}`}>{formData.lead.contact_name} ({formData.lead.company_name || 'Individual Lead'})</option>
+                      )}
+                      {leads?.map(l => (
                         <option key={l.id} value={`lead:${l.id}`}>{l.contact_name} ({l.company_name || 'Individual Lead'})</option>
                       ))}
                     </optgroup>
