@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminJobs, useEmployeeJobs } from '../../hooks/shared/useJobs';
-import { useEmployeeClients } from '../../hooks/admin/useAdminClients';
+import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
 import { JobDetailsView } from '../../components/employee/JobDetailsView';
 import { ClientDetailsView } from '../../components/employee/ClientDetailsView';
 import { ClientListView } from '../../components/employee/ClientListView';
@@ -32,7 +32,9 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const isLoading = profile?.is_manager ? adminQuery.isLoading : employeeQuery.isLoading;
   const refetch = profile?.is_manager ? adminQuery.refetch : employeeQuery.refetch;
 
-  const { data: realClients } = useEmployeeClients(profile?.id);
+  const adminClientsQuery = useAdminClients(profile?.branch_id);
+  const employeeClientsQuery = useEmployeeClients(profile?.id);
+  const realClients = profile?.is_manager ? adminClientsQuery.data : employeeClientsQuery.data;
 
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -82,8 +84,10 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
         return taskJobs;
       
       case 'clients':
-        // My Clients: Jobs that the employee personally sold/brought in (assigned_by them)
-        return jobs.filter(job => job.assigned_by === profile.id);
+        // My Clients: For managers, show all branch jobs; for employees, show jobs they created or are assigned to
+        return profile.is_manager 
+          ? (jobs || []) 
+          : jobs.filter(job => job.assigned_by === profile.id || job.employee_id === profile.id || job.sales_employee_id === profile.id);
         
       case 'pipeline':
         // Sales/Manager view: All jobs
@@ -111,7 +115,6 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
     return job.client_name;
   };
 
-  // Derive unique clients from the filtered jobs
   // Derive unique clients from the filtered jobs & DB profiles
   const uniqueClients = React.useMemo(() => {
     // 1. Separate real database profiles into Standard vs Walk-in
@@ -128,6 +131,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
         walkInClientsMap.set(p.id, {
           id: p.id,
           full_name: p.full_name,
+          company_name: p.company_name,
           avatar_url: p.avatar_url,
           created_at: p.created_at,
           email: p.email,
@@ -159,6 +163,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                  walkInClientsMap.set(`walkin-${key}`, {
                    id: `walkin-${key}`,
                    full_name: actualName,
+                   company_name: undefined,
                    avatar_url: null,
                    created_at: job.started_date,
                    email: undefined,
@@ -255,32 +260,62 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
     </>
   );
 
-  if (filterType === 'clients' && clientViewMode === 'list') {
+  if (filterType === 'clients') {
+    if (selectedClientId && selectedClient) {
+      return (
+        <>
+          {renderModals()}
+          <div className="h-full flex flex-col overflow-hidden bg-background">
+            <div className="h-16 border-b border-border bg-background/50 backdrop-blur-md px-4 lg:px-8 flex items-center gap-4 shrink-0">
+              <button 
+                onClick={() => setSelectedClientId(null)}
+                className="p-2 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-2 text-sm font-semibold"
+              >
+                <ArrowLeft size={18} />
+                <span>{isRtl ? 'العودة إلى العملاء' : 'Back to Clients'}</span>
+              </button>
+              <div className="border-l border-border pl-4">
+                <h2 className="text-base lg:text-lg font-syne font-bold text-foreground">{selectedClient.full_name}</h2>
+                <p className="text-[10px] font-bold text-primary tracking-widest uppercase">{selectedClient.client_code || 'CLIENT'}</p>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ClientDetailsView 
+                client={selectedClient} 
+                jobs={clientJobs} 
+                onJobClick={(jobId) => {
+                  setSelectedClientId(null);
+                  setSelectedJobId(jobId);
+                }} 
+              />
+            </div>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         {renderModals()}
         <div className="h-full flex overflow-hidden bg-background">
-        <ClientListView 
-              clients={uniqueClients} 
-              jobs={jobs || []} 
-              onClientSelect={(clientId) => {
-                setSelectedClientId(clientId);
-                setClientViewMode('split');
-              }}
-              onViewToggle={setClientViewMode}
-              currentMode={clientViewMode}
-              clientTypeFilter={clientTypeFilter}
-              onClientTypeChange={setClientTypeFilter}
-              onNewClient={() => {
-                setClientToEdit(null);
-                setIsRegisterClientOpen(true);
-              }}
-              onEditClient={(client) => {
-                setClientToEdit(client);
-                setIsRegisterClientOpen(true);
-              }}
-            />
-      </div>
+          <ClientListView 
+            clients={uniqueClients} 
+            jobs={jobs || []} 
+            onClientSelect={(clientId) => setSelectedClientId(clientId)}
+            onViewToggle={setClientViewMode}
+            currentMode={clientViewMode}
+            clientTypeFilter={clientTypeFilter}
+            onClientTypeChange={setClientTypeFilter}
+            onNewClient={() => {
+              setClientToEdit(null);
+              setIsRegisterClientOpen(true);
+            }}
+            onEditClient={(client) => {
+              setClientToEdit(client);
+              setIsRegisterClientOpen(true);
+            }}
+          />
+        </div>
       </>
     );
   }

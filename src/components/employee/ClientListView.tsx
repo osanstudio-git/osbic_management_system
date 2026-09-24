@@ -192,155 +192,278 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, jobs, o
           </div>
         )}
         
-        <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse" dir={isRtl ? 'rtl' : 'ltr'}>
-              <thead>
-                <tr className="bg-muted/50 border-b border-border text-right">
-                  <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-start">{isRtl ? 'العميل' : 'Client'}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:table-cell text-start">{isRtl ? 'معلومات الاتصال' : 'Contact Info'}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:table-cell text-start">{isRtl ? 'تاريخ الانضمام' : 'Joined'}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-start">{isRtl ? 'المشاريع' : 'Projects'}</th>
-                  <th className={`px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest ${isRtl ? 'text-left' : 'text-right'}`}>{isRtl ? 'الإجراءات' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {(() => {
-                  const filtered = clients.filter(c => {
-                    const isWalkIn = c.email?.startsWith('walkin_') || c.email?.endsWith('@osbic.local') || c.id?.startsWith('walkin-');
-                    
-                    if (clientTypeFilter === 'standard' && isWalkIn) return false;
-                    if (clientTypeFilter === 'walk-in' && !isWalkIn) return false;
+        {currentMode === 'split' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(() => {
+              const filtered = clients.filter(c => {
+                const isWalkIn = c.email?.startsWith('walkin_') || c.email?.endsWith('@osbic.local') || c.id?.startsWith('walkin-');
+                
+                if (clientTypeFilter === 'standard' && isWalkIn) return false;
+                if (clientTypeFilter === 'walk-in' && !isWalkIn) return false;
 
-                    if (clientTypeFilter === 'standard') {
-                      if (filterType === 'mine' && c.created_by !== profile?.id) return false;
-                      if (filterType === 'assigned' && c.created_by === profile?.id) return false;
-                    }
-                    return true;
-                  });
-                  
-                  if (filtered.length === 0) {
-                    return (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-sm">
-                          {isRtl ? 'لم يتم العثور على عملاء.' : 'No clients found.'}
-                        </td>
-                      </tr>
-                    );
-                  }
-                  
-                  return filtered.map(client => {
-                    const clientJobs = jobs.filter(j => j.client_id === client.id);
-                    const activeJobs = clientJobs.filter(j => j.status === 'active' || j.status === 'in_progress');
+                if (clientTypeFilter === 'standard') {
+                  if (filterType === 'mine' && c.created_by !== profile?.id) return false;
+                  if (filterType === 'assigned' && c.created_by === profile?.id) return false;
+                }
+                return true;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="col-span-full text-center py-16 p-8 border border-dashed border-border rounded-3xl bg-card/40">
+                    <p className="text-muted-foreground text-sm font-medium">
+                      {isRtl ? 'لم يتم العثور على عملاء.' : 'No clients found.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return filtered.map(client => {
+                const clientJobs = jobs.filter(j => j.client_id === client.id);
+                const activeJobs = clientJobs.filter(j => j.status === 'active' || j.status === 'in_progress');
+
+                return (
+                  <div
+                    key={client.id}
+                    onClick={() => onClientSelect(client.id)}
+                    className="bg-card border border-border hover:border-primary/40 rounded-3xl p-6 shadow-md transition-all cursor-pointer group flex flex-col justify-between hover:shadow-xl relative overflow-hidden"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0">
+                            {client.avatar_url ? (
+                              <img src={client.avatar_url} alt={client.full_name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={20} />
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-syne font-bold text-foreground group-hover:text-primary transition-colors text-base line-clamp-1">
+                              {client.full_name}
+                            </h3>
+                            {client.company_name && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{client.company_name}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {client.client_code && (
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted/40 px-2 py-0.5 rounded border border-border shrink-0">
+                            {client.client_code}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                        {client.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone size={12} className="text-primary/70" />
+                            <span>{client.phone}</span>
+                          </div>
+                        )}
+                        {client.email && (
+                          <div className="flex items-center gap-2 truncate">
+                            <Mail size={12} className="text-primary/70 shrink-0" />
+                            <span className="truncate">{client.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-3 border-t border-border/40 flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs">
+                        <div>
+                          <span className="font-bold text-foreground">{activeJobs.length}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase ml-1">{isRtl ? 'نشط' : 'Active'}</span>
+                        </div>
+                        <span className="text-border">•</span>
+                        <div>
+                          <span className="font-bold text-muted-foreground">{clientJobs.length}</span>
+                          <span className="text-[10px] text-muted-foreground opacity-60 uppercase ml-1">{isRtl ? 'الإجمالي' : 'Total'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (onEditClient) onEditClient(client);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                          title={isRtl ? 'تعديل العميل' : 'Edit Client'}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setClientToDelete(client);
+                            setDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                          title={isRtl ? 'حذف العميل' : 'Delete Client'}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse" dir={isRtl ? 'rtl' : 'ltr'}>
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border text-right">
+                    <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-start">{isRtl ? 'العميل' : 'Client'}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:table-cell text-start">{isRtl ? 'معلومات الاتصال' : 'Contact Info'}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:table-cell text-start">{isRtl ? 'تاريخ الانضمام' : 'Joined'}</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-start">{isRtl ? 'المشاريع' : 'Projects'}</th>
+                    <th className={`px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest ${isRtl ? 'text-left' : 'text-right'}`}>{isRtl ? 'الإجراءات' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(() => {
+                    const filtered = clients.filter(c => {
+                      const isWalkIn = c.email?.startsWith('walkin_') || c.email?.endsWith('@osbic.local') || c.id?.startsWith('walkin-');
+                      
+                      if (clientTypeFilter === 'standard' && isWalkIn) return false;
+                      if (clientTypeFilter === 'walk-in' && !isWalkIn) return false;
+
+                      if (clientTypeFilter === 'standard') {
+                        if (filterType === 'mine' && c.created_by !== profile?.id) return false;
+                        if (filterType === 'assigned' && c.created_by === profile?.id) return false;
+                      }
+                      return true;
+                    });
                     
-                    return (
-                      <tr 
-                        key={client.id}
-                        onClick={() => onClientSelect(client.id)}
-                        className="group hover:bg-muted/30 transition-colors cursor-pointer"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0">
-                              {client.avatar_url ? (
-                                <img src={client.avatar_url} alt={client.full_name} className="w-full h-full object-cover" />
-                              ) : (
-                                <User size={16} />
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-sm">
+                            {isRtl ? 'لم يتم العثور على عملاء.' : 'No clients found.'}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    
+                    return filtered.map(client => {
+                      const clientJobs = jobs.filter(j => j.client_id === client.id);
+                      const activeJobs = clientJobs.filter(j => j.status === 'active' || j.status === 'in_progress');
+                      
+                      return (
+                        <tr 
+                          key={client.id}
+                          onClick={() => onClientSelect(client.id)}
+                          className="group hover:bg-muted/30 transition-colors cursor-pointer"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0">
+                                {client.avatar_url ? (
+                                  <img src={client.avatar_url} alt={client.full_name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <User size={16} />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-syne font-bold text-foreground group-hover:text-primary transition-colors">{client.full_name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {client.client_code && (
+                                    <span className="text-[10px] font-mono text-muted-foreground uppercase">{client.client_code}</span>
+                                  )}
+                                  {clientTypeFilter === 'standard' && client.created_by === profile?.id && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded md bg-primary/10 text-primary text-[8px] font-bold uppercase tracking-widest border border-primary/20">
+                                      {isRtl ? 'عميلي' : 'My Client'}
+                                    </span>
+                                  )}
+                                  {clientTypeFilter === 'standard' && client.created_by !== profile?.id && client.created_by && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded md bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase tracking-widest border border-amber-500/20">
+                                      {isRtl ? 'مسند' : 'Assigned'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          
+                          <td className="px-6 py-4 hidden sm:table-cell">
+                            <div className="flex flex-col gap-1">
+                              {client.email && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Mail size={12} /> {client.email}
+                                </div>
+                              )}
+                              {client.phone && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Phone size={12} /> {client.phone}
+                                </div>
+                              )}
+                              {!client.email && !client.phone && (
+                                <span className="text-xs text-muted-foreground/50">N/A</span>
                               )}
                             </div>
-                            <div>
-                              <p className="font-syne font-bold text-foreground group-hover:text-primary transition-colors">{client.full_name}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                {client.client_code && (
-                                  <span className="text-[10px] font-mono text-muted-foreground uppercase">{client.client_code}</span>
-                                )}
-                                {clientTypeFilter === 'standard' && client.created_by === profile?.id && (
-                                  <span className="inline-block px-1.5 py-0.5 rounded md bg-primary/10 text-primary text-[8px] font-bold uppercase tracking-widest border border-primary/20">
-                                    {isRtl ? 'عميلي' : 'My Client'}
-                                  </span>
-                                )}
-                                {clientTypeFilter === 'standard' && client.created_by !== profile?.id && client.created_by && (
-                                  <span className="inline-block px-1.5 py-0.5 rounded md bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase tracking-widest border border-amber-500/20">
-                                    {isRtl ? 'مسند' : 'Assigned'}
-                                  </span>
-                                )}
+                          </td>
+                          
+                          <td className="px-6 py-4 hidden md:table-cell text-sm text-muted-foreground">
+                            {client.created_at ? new Date(client.created_at).toLocaleDateString(isRtl ? 'ar-OM' : 'en-US') : 'Unknown'}
+                          </td>
+                          
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-foreground">{activeJobs.length}</p>
+                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground">{isRtl ? 'نشط' : 'Active'}</p>
+                              </div>
+                              <div className="w-[1px] h-6 bg-border" />
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-muted-foreground">{clientJobs.length}</p>
+                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground opacity-50">{isRtl ? 'الإجمالي' : 'Total'}</p>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        
-                        <td className="px-6 py-4 hidden sm:table-cell">
-                          <div className="flex flex-col gap-1">
-                            {client.email && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Mail size={12} /> {client.email}
-                              </div>
-                            )}
-                            {client.phone && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Phone size={12} /> {client.phone}
-                              </div>
-                            )}
-                            {!client.email && !client.phone && (
-                              <span className="text-xs text-muted-foreground/50">N/A</span>
-                            )}
-                          </div>
-                        </td>
-                        
-                        <td className="px-6 py-4 hidden md:table-cell text-sm text-muted-foreground">
-                          {client.created_at ? new Date(client.created_at).toLocaleDateString(isRtl ? 'ar-OM' : 'en-US') : 'Unknown'}
-                        </td>
-                        
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="text-center">
-                              <p className="text-sm font-bold text-foreground">{activeJobs.length}</p>
-                              <p className="text-[9px] uppercase tracking-widest text-muted-foreground">{isRtl ? 'نشط' : 'Active'}</p>
-                            </div>
-                            <div className="w-[1px] h-6 bg-border" />
-                            <div className="text-center">
-                              <p className="text-sm font-bold text-muted-foreground">{clientJobs.length}</p>
-                              <p className="text-[9px] uppercase tracking-widest text-muted-foreground opacity-50">{isRtl ? 'الإجمالي' : 'Total'}</p>
-                            </div>
-                          </div>
-                        </td>
-                        
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                if (onEditClient) onEditClient(client);
-                              }}
-                              className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                              title={isRtl ? 'تعديل العميل' : 'Edit Client'}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                setClientToDelete(client);
-                                setDeleteModalOpen(true);
-                              }}
-                              className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                              title={isRtl ? 'حذف العميل' : 'Delete Client'}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                            <button className={`p-2 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 rounded-lg transition-all ml-2 ${isRtl ? 'rotate-180' : ''}`}>
-                              <ChevronRight size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                          </td>
+                          
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={(e) => { 
+                                 e.stopPropagation(); 
+                                 if (onEditClient) onEditClient(client);
+                               }}
+                               className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                               title={isRtl ? 'تعديل العميل' : 'Edit Client'}
+                             >
+                               <Edit2 size={16} />
+                             </button>
+                             <button 
+                               onClick={(e) => { 
+                                 e.stopPropagation(); 
+                                 setClientToDelete(client);
+                                 setDeleteModalOpen(true);
+                               }}
+                               className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                               title={isRtl ? 'حذف العميل' : 'Delete Client'}
+                             >
+                               <Trash2 size={16} />
+                             </button>
+                             <button className={`p-2 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 rounded-lg transition-all ml-2 ${isRtl ? 'rotate-180' : ''}`}>
+                               <ChevronRight size={18} />
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
+                     );
+                   });
+                 })()}
+               </tbody>
+             </table>
+           </div>
+         </div>
+       )}
       </div>
       
       <DeleteClientModal 
