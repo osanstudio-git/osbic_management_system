@@ -33,7 +33,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const isJobsLoading = isManager ? adminQuery.isLoading : employeeQuery.isLoading;
   const refetch = isManager ? adminQuery.refetch : employeeQuery.refetch;
 
-  const adminClientsQuery = useAdminClients(profile?.branch_id, isManager);
+  const adminClientsQuery = useAdminClients(null, isManager);
   const employeeClientsQuery = useEmployeeClients(profile?.id, !isManager);
   const realClients = isManager ? adminClientsQuery.data : employeeClientsQuery.data;
   const isClientsLoading = isManager ? adminClientsQuery.isLoading : employeeClientsQuery.isLoading;

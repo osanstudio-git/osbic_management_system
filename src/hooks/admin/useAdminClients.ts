@@ -41,7 +41,7 @@ export const useAdminClients = (branchIdFilter?: string | null, enabled: boolean
         .order('created_at', { ascending: false });
 
       if (branchIdFilter) {
-        query = query.eq('branch_id', branchIdFilter);
+        query = query.or(`branch_id.eq.${branchIdFilter},branch_id.is.null`);
       }
 
       const { data, error } = await query;
