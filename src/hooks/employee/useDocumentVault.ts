@@ -61,31 +61,42 @@ export const useBranchVaultDocuments = (branchId?: string | null, statusFilter?:
   return useQuery({
     queryKey: ['branch_document_vault', branchId, statusFilter],
     enabled: !!branchId,
+    retry: false,
     queryFn: async (): Promise<VaultItem[]> => {
-      let query = supabase
-        .from('branch_document_vault')
-        .select(`
-          *,
-          current_holder:profiles!branch_document_vault_current_holder_id_fkey(full_name, avatar_url, role),
-          receiver:profiles!branch_document_vault_received_by_fkey(full_name),
-          returner:profiles!branch_document_vault_returned_by_fkey(full_name),
-          job:jobs!job_id(id, job_code, custom_name),
-          logs:branch_document_vault_logs(
-            id, action, notes, created_at,
-            actor:profiles!branch_document_vault_logs_performed_by_fkey(full_name),
-            recipient:profiles!branch_document_vault_logs_recipient_holder_id_fkey(full_name)
-          )
-        `)
-        .eq('branch_id', branchId!)
-        .order('created_at', { ascending: false });
+      try {
+        let query = supabase
+          .from('branch_document_vault')
+          .select(`
+            *,
+            current_holder:profiles!branch_document_vault_current_holder_id_fkey(full_name, avatar_url, role),
+            receiver:profiles!branch_document_vault_received_by_fkey(full_name),
+            returner:profiles!branch_document_vault_returned_by_fkey(full_name),
+            job:jobs!job_id(id, job_code, custom_name),
+            logs:branch_document_vault_logs(
+              id, action, notes, created_at,
+              actor:profiles!branch_document_vault_logs_performed_by_fkey(full_name),
+              recipient:profiles!branch_document_vault_logs_recipient_holder_id_fkey(full_name)
+            )
+          `)
+          .eq('branch_id', branchId!)
+          .order('created_at', { ascending: false });
 
-      if (statusFilter && statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter && statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+            return [];
+          }
+          console.warn('Branch vault query notice:', error.message);
+          return [];
+        }
+        return (data || []) as unknown as VaultItem[];
+      } catch {
+        return [];
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as unknown as VaultItem[];
     },
   });
 };

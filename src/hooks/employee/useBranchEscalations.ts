@@ -85,27 +85,35 @@ export interface ResolveEscalationInput {
 export const useBranchEscalations = (branchId: string | null | undefined) => {
   return useQuery({
     queryKey: ['branch_client_escalations', branchId],
+    retry: false,
     queryFn: async (): Promise<BranchEscalationItem[]> => {
       if (!branchId) return [];
 
-      let query = supabase
-        .from('branch_client_escalations')
-        .select(`
-          *,
-          staff:assigned_staff_id (id, full_name, email, avatar_url),
-          resolver:resolved_by (id, full_name),
-          creator:logged_by (id, full_name)
-        `)
-        .eq('branch_id', branchId)
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('branch_client_escalations')
+          .select(`
+            *,
+            staff:assigned_staff_id (id, full_name, email, avatar_url),
+            resolver:resolved_by (id, full_name),
+            creator:logged_by (id, full_name)
+          `)
+          .eq('branch_id', branchId)
+          .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
-      if (error) {
-        console.error('Error fetching branch escalations:', error);
-        throw error;
+        if (error) {
+          // Gracefully return empty array if table has not been created yet in Supabase
+          if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+            return [];
+          }
+          console.warn('Branch escalations query notice:', error.message);
+          return [];
+        }
+
+        return (data as any) || [];
+      } catch {
+        return [];
       }
-
-      return (data as any) || [];
     },
     enabled: !!branchId,
   });
