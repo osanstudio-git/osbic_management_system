@@ -25,16 +25,19 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
   
-  const adminQuery = useAdminJobs(profile?.branch_id);
-  const employeeQuery = useEmployeeJobs(profile?.id || '');
+  const isManager = Boolean(profile?.is_manager);
+  const adminQuery = useAdminJobs(profile?.branch_id, isManager);
+  const employeeQuery = useEmployeeJobs(profile?.id || '', !isManager);
 
-  const jobs = profile?.is_manager ? adminQuery.data : employeeQuery.data;
-  const isLoading = profile?.is_manager ? adminQuery.isLoading : employeeQuery.isLoading;
-  const refetch = profile?.is_manager ? adminQuery.refetch : employeeQuery.refetch;
+  const jobs = isManager ? adminQuery.data : employeeQuery.data;
+  const isJobsLoading = isManager ? adminQuery.isLoading : employeeQuery.isLoading;
+  const refetch = isManager ? adminQuery.refetch : employeeQuery.refetch;
 
-  const adminClientsQuery = useAdminClients(profile?.branch_id);
-  const employeeClientsQuery = useEmployeeClients(profile?.id);
-  const realClients = profile?.is_manager ? adminClientsQuery.data : employeeClientsQuery.data;
+  const adminClientsQuery = useAdminClients(profile?.branch_id, isManager);
+  const employeeClientsQuery = useEmployeeClients(profile?.id, !isManager);
+  const realClients = isManager ? adminClientsQuery.data : employeeClientsQuery.data;
+  const isClientsLoading = isManager ? adminClientsQuery.isLoading : employeeClientsQuery.isLoading;
+  const isLoading = isJobsLoading || isClientsLoading;
 
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -301,6 +304,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
           <ClientListView 
             clients={uniqueClients} 
             jobs={jobs || []} 
+            isLoading={isLoading}
             onClientSelect={(clientId) => setSelectedClientId(clientId)}
             onViewToggle={setClientViewMode}
             currentMode={clientViewMode}

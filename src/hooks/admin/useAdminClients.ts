@@ -27,9 +27,12 @@ export interface Client {
 }
 
 // ─── List All Clients (with optional branch filter) ───────────────────────────
-export const useAdminClients = (branchIdFilter?: string | null) => {
+export const useAdminClients = (branchIdFilter?: string | null, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['admin', 'clients', branchIdFilter],
+    enabled,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     queryFn: async (): Promise<Client[]> => {
       let query = db
         .from('profiles')
@@ -64,10 +67,10 @@ export const useAdminClients = (branchIdFilter?: string | null) => {
 };
 
 // ─── List Employee-Specific Clients ──────────────────────────────────────────
-export const useEmployeeClients = (employeeId?: string) => {
+export const useEmployeeClients = (employeeId?: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['employee', 'clients', employeeId],
-    enabled: !!employeeId,
+    enabled: enabled && !!employeeId,
     staleTime: 3 * 60 * 1000,   // 3 min — page shows instantly on revisit
     gcTime:   10 * 60 * 1000,   // keep in memory 10 min
     queryFn: async (): Promise<Client[]> => {

@@ -113,9 +113,12 @@ export interface JobAuditLog {
 }
 
 // ─── Admin / Branch Manager: All Jobs ──────────────────────────────────────────
-export const useAdminJobs = (branchIdFilter?: string | null) => {
+export const useAdminJobs = (branchIdFilter?: string | null, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['admin', 'jobs', branchIdFilter],
+    enabled,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     queryFn: async (): Promise<Job[]> => {
       let query = supabase
         .from('jobs')
@@ -179,11 +182,15 @@ export const useAdminJobs = (branchIdFilter?: string | null) => {
       });
     },
   });
-};// ─── Employee: My Jobs ────────────────────────────────────────────────────────
-export const useEmployeeJobs = (employeeId: string) => {
+};
+
+// ─── Employee: My Jobs ────────────────────────────────────────────────────────
+export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['employee', 'jobs', employeeId],
-    enabled: !!employeeId,
+    enabled: enabled && !!employeeId,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     queryFn: async (): Promise<Job[]> => {
       // 1. Fetch jobs the employee owns
       const { data: ownedData, error: ownedError } = await supabase

@@ -27,6 +27,7 @@ interface ClientListViewProps {
   onClientTypeChange?: (type: 'standard' | 'walk-in') => void;
   onNewClient?: () => void;
   onEditClient?: (client: ClientProfile) => void;
+  isLoading?: boolean;
 }
 
 const DeleteClientModal = ({ 
@@ -102,7 +103,18 @@ const DeleteClientModal = ({
   );
 };
 
-export const ClientListView: React.FC<ClientListViewProps> = ({ clients, jobs, onClientSelect, onViewToggle, currentMode, clientTypeFilter = 'standard', onClientTypeChange, onNewClient, onEditClient }) => {
+export const ClientListView: React.FC<ClientListViewProps> = ({ 
+  clients, 
+  jobs, 
+  onClientSelect, 
+  onViewToggle, 
+  currentMode, 
+  clientTypeFilter = 'standard', 
+  onClientTypeChange, 
+  onNewClient, 
+  onEditClient,
+  isLoading = false 
+}) => {
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [clientToDelete, setClientToDelete] = React.useState<ClientProfile | null>(null);
   const [filterType, setFilterType] = React.useState<'all' | 'mine' | 'assigned'>('all');
@@ -192,7 +204,34 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, jobs, o
           </div>
         )}
         
-        {currentMode === 'split' ? (
+        {isLoading ? (
+          currentMode === 'split' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-card border border-border rounded-3xl p-6 shadow-sm animate-pulse space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-muted" />
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted/60 rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="h-px bg-border/40" />
+                  <div className="space-y-2">
+                    <div className="h-3 bg-muted/60 rounded w-2/3" />
+                    <div className="h-3 bg-muted/60 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-3xl overflow-hidden p-6 space-y-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-12 bg-muted/40 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )
+        ) : currentMode === 'split' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(() => {
               const filtered = clients.filter(c => {
