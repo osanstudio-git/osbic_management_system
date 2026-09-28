@@ -38,6 +38,10 @@ export interface Invoice {
   lead?: any;
   job?: any;
   employee?: any;
+  /** ISO currency code for this quotation/invoice. Defaults to 'OMR'. */
+  currency?: string;
+  /** How many units of `currency` equals 1 OMR at the time this was saved (frozen snapshot). */
+  exchange_rate_to_omr?: number;
 }
 
 export const useInvoices = (clientId?: string) => {

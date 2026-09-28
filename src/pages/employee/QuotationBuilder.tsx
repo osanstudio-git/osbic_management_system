@@ -19,6 +19,7 @@ import { useReactToPrint } from 'react-to-print';
 import toast from 'react-hot-toast';
 import QuotationAcceptWizard from '../../components/employee/QuotationAcceptWizard';
 import { AnimatePresence } from 'framer-motion';
+import { GCC_CURRENCIES, getCurrencyConfig, formatCurrency, useCurrencyRates, convertToOMR } from '../../hooks/shared/useCurrencyRates';
 
 export interface TimelineStep {
   task: string;
@@ -161,6 +162,8 @@ const QuotationBuilder = () => {
     tax_amount: 0,
     discount_amount: 0,
     total_amount: 0,
+    currency: 'OMR',
+    exchange_rate_to_omr: 1,
     notes: 'BUSINESS SETUP',
     terms: 'Payment is due within 10 days.',
     items: [],
@@ -180,6 +183,17 @@ const QuotationBuilder = () => {
       showKycProof: false
     }
   });
+
+  // ── Live exchange rates ──────────────────────────────────────────────────
+  const { data: ratesData } = useCurrencyRates();
+  const activeCurrency = formData.currency || 'OMR';
+  const currencyCfg = getCurrencyConfig(activeCurrency);
+  // currencySymbol e.g. 'SAR', 'OMR'
+  const currencySymbol = currencyCfg.symbol;
+  // currentRate: how many units of activeCurrency per 1 OMR
+  const currentRate = ratesData?.rates?.[activeCurrency] ?? formData.exchange_rate_to_omr ?? 1;
+  // Helper: format a raw amount (assumed already in the selected currency) for display
+  const fmtAmt = (v: number) => `${currencySymbol} ${Math.abs(v).toFixed(currencyCfg.decimals)}`;
 
   // Track network connectivity
   useEffect(() => {
@@ -1543,7 +1557,7 @@ const QuotationBuilder = () => {
 
                         <div className="grid grid-cols-3 gap-3 border-t border-border/30 pt-3">
                           <div>
-                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Gov Fee (OMR)</label>
+                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Gov Fee ({currencySymbol})</label>
                             <input
                               type="number"
                               min="0"
@@ -1554,7 +1568,7 @@ const QuotationBuilder = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Service Fee (OMR)</label>
+                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Service Fee ({currencySymbol})</label>
                             <input
                               type="number"
                               min="0"
@@ -1566,10 +1580,10 @@ const QuotationBuilder = () => {
                           </div>
                           <div className="flex flex-col justify-end">
                             <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                              Total ({curQty > 1 ? `${curQty}×` : ''}OMR {curUnitPrice.toFixed(3)})
+                              Total ({curQty > 1 ? `${curQty}×` : ''}{currencySymbol} {curUnitPrice.toFixed(currencyCfg.decimals)})
                             </span>
                             <div className="h-[34px] flex items-center px-3 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold text-primary font-mono">
-                              OMR {curTotal.toFixed(3)}
+                              {fmtAmt(curTotal)}
                             </div>
                           </div>
                         </div>
@@ -1583,7 +1597,7 @@ const QuotationBuilder = () => {
               <div className="space-y-4 border-t border-border pt-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Discount (OMR)</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Discount ({currencySymbol})</label>
                     <input
                       type="number"
                       min="0"
@@ -2029,27 +2043,71 @@ const QuotationBuilder = () => {
 
         {/* RIGHT: DOCUMENT PREVIEW (Visible in Print) */}
         <div className={viewMode ? "w-full max-w-[210mm] mx-auto print:w-full print:block print:static" : "w-full lg:w-[52%] print:w-full print:block print:static"}>
-          {/* Mode Selector (Hidden in Print) */}
-          <div className="flex flex-col sm:flex-row gap-3 p-4 bg-card border border-border rounded-[2rem] mb-6 print:hidden items-center justify-between shadow-xl">
-            <div>
-              <span className="text-xs font-bold text-foreground">Quotation Presentation Mode</span>
-              <p className="text-[9px] text-muted-foreground mt-0.5">Toggle between detailed itemized prices and flat package summary</p>
-            </div>
-            <div className="flex bg-muted/40 p-1 border border-border rounded-xl">
-              <button
-                onClick={() => setQuotationMode('detailed')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${quotationMode === 'detailed' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                Detailed
-              </button>
-              <button
-                onClick={() => setQuotationMode('simple')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${quotationMode === 'simple' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                Simple Summary
-              </button>
+          {/* Mode Selector + Currency Picker (Hidden in Print) */}
+          <div className="flex flex-col gap-3 mb-6 print:hidden">
+            {/* Currency Picker */}
+            {!viewMode && (
+              <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-2xl shadow-xl">
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-foreground">Quotation Currency</span>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    {activeCurrency === 'OMR' ? 'Prices entered in OMR' : (
+                      ratesData
+                        ? `1 OMR ≈ ${currentRate.toFixed(2)} ${activeCurrency} (live rate)`
+                        : 'Fetching live rate...'
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-1.5 flex-wrap justify-end">
+                  {GCC_CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        const rate = ratesData?.rates?.[c.code] ?? 1;
+                        setFormData(prev => ({
+                          ...prev,
+                          currency: c.code,
+                          exchange_rate_to_omr: rate
+                        }));
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
+                        activeCurrency === c.code
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
+                          : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                      title={c.name}
+                    >
+                      <span>{c.flag}</span>
+                      <span>{c.code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quotation Mode Selector */}
+            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-card border border-border rounded-2xl items-center justify-between shadow-xl">
+              <div>
+                <span className="text-xs font-bold text-foreground">Quotation Presentation Mode</span>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Toggle between detailed itemized prices and flat package summary</p>
+              </div>
+              <div className="flex bg-muted/40 p-1 border border-border rounded-xl">
+                <button
+                  onClick={() => setQuotationMode('detailed')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${quotationMode === 'detailed' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Detailed
+                </button>
+                <button
+                  onClick={() => setQuotationMode('simple')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${quotationMode === 'simple' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Simple Summary
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2074,6 +2132,8 @@ const QuotationBuilder = () => {
               <QuotationDocument
                 invoice={{
                   ...formData,
+                  currency: activeCurrency,
+                  exchange_rate_to_omr: currentRate,
                   client: clients?.find(c => c.id === formData.client_id),
                   lead: leads?.find(l => l.id === formData.lead_id),
                   job: jobs?.find(j => j.id === formData.job_id),

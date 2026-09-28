@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
+import { getCurrencyConfig } from '../../hooks/shared/useCurrencyRates';
 
 interface QuotationDocumentProps {
   invoice: Invoice;
@@ -17,6 +18,11 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
   const showTimeline = invoice.metadata?.showTimeline !== false;
   const showKycProof = invoice.metadata?.showKycProof ?? false;
   const showDocuments = invoice.metadata?.showDocuments !== false;
+
+  // Currency config — reads from invoice, defaults to OMR
+  const currencyCfg = getCurrencyConfig(invoice.currency || 'OMR');
+  const currSym = currencyCfg.symbol;
+  const currDec = currencyCfg.decimals;
 
   // Resolve recipient display details
   const resolvedContactName = invoice.metadata?.recipient_name || invoice.client?.full_name || invoice.lead?.contact_name || '';
@@ -141,14 +147,14 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
                       <span className="font-semibold text-gray-900 text-xs block">{item.description}</span>
                       {showQuantity && (
                         <span className="text-[9px] text-gray-500 font-medium block">
-                          Qty: {qty} {qty > 1 && !resolvedIsSimple && `× OMR ${unitPrice.toFixed(3)}`}
+                          Qty: {qty} {qty > 1 && !resolvedIsSimple && `× ${currSym} ${unitPrice.toFixed(currDec)}`}
                         </span>
                       )}
                     </div>
                   </div>
                   {!resolvedIsSimple && (
                     <span className="font-bold text-gray-900 font-mono text-xs text-right shrink-0 mt-0.5 ml-4">
-                      OMR {lineTotal.toFixed(3)}
+                      {currSym} {lineTotal.toFixed(currDec)}
                     </span>
                   )}
                 </div>
@@ -162,7 +168,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
         {/* Total Package Value directly under service items */}
         <div className="mt-3 p-3 flex justify-between items-center rounded-lg" style={{ backgroundColor: lightBg }}>
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>Total Package Value</p>
-          <p className="text-base font-bold text-gray-900 uppercase font-mono">OMR {invoice.total_amount.toFixed(3)}</p>
+          <p className="text-base font-bold text-gray-900 uppercase font-mono">{currSym} {invoice.total_amount.toFixed(currDec)}</p>
         </div>
       </div>
 
