@@ -8,3 +8,4 @@ ALTER TABLE invoices
 -- Add comment for documentation
 COMMENT ON COLUMN invoices.currency IS 'ISO currency code: OMR, SAR, AED, QAR, KWD, BHD';
 COMMENT ON COLUMN invoices.exchange_rate_to_omr IS 'How many units of selected currency equals 1 OMR at time of save (frozen snapshot)';
+  

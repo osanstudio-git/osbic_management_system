@@ -42,6 +42,12 @@ export interface Invoice {
   currency?: string;
   /** How many units of `currency` equals 1 OMR at the time this was saved (frozen snapshot). */
   exchange_rate_to_omr?: number;
+  /** B2B Subcontracting/Referral Partner ID */
+  b2b_partner_id?: string | null;
+  /** B2B Flow direction */
+  b2b_flow_type?: 'outbound_saudi_exec' | 'inbound_oman_exec' | null;
+  /** Cost/Fee charged by the B2B Partner Firm */
+  partner_cost?: number;
 }
 
 export const useInvoices = (clientId?: string) => {

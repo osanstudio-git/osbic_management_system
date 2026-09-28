@@ -55,6 +55,7 @@ import EmployeeReports from './pages/employee/Reports';
 import EmployeeLeads from './pages/employee/Leads';
 import MarketingHub from './pages/employee/MarketingHub';
 import PackageGroupDetail from './pages/employee/PackageGroupDetail';
+import SaudiB2BWorkspace from './pages/employee/SaudiB2BWorkspace';
 import ClientProfile from './pages/client/Profile';
 import ClientMessages from './pages/client/Messages';
 import PackagesList from './pages/admin/Packages';
@@ -506,6 +507,8 @@ function App() {
               <Route path="accounts" element={<AccountsDashboard />} />
               <Route path="team" element={<BranchTeam />} />
               <Route path="approvals" element={<BranchApprovals />} />
+              <Route path="b2b-saudi" element={<SaudiB2BWorkspace />} />
+              <Route path="b2b" element={<SaudiB2BWorkspace />} />
             </Route>
 
             {/* Client Portal */}

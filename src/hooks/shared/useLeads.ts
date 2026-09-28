@@ -35,8 +35,15 @@ export interface Lead {
   leadgen_id?: string | null;
   landing_page_url?: string | null;
   form_id?: string | null;
-  ip_country?: string | null;
   referral_name?: string | null;
+  b2b_partner_id?: string | null;
+  b2b_flow_type?: 'outbound_saudi_exec' | 'inbound_oman_exec' | null;
+  partner_cost?: number;
+  partner_notes?: string | null;
+  b2b_partner?: {
+    name: string;
+    country: string;
+  } | null;
   created_at: string;
   updated_at: string;
   lead_sources?: {
