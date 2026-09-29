@@ -256,11 +256,11 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
                   <option value="new">New Inquiry</option>
                   <option value="contacted">Contacted</option>
                   <option value="interested">Interested</option>
-                  <option value="qualified">Qualified</option>
                   <option value="quoted">Quoted / Proposal Sent</option>
                   <option value="negotiating">Negotiating</option>
                   <option value="converted">Won / Converted</option>
-                  <option value="lost">Lost</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="on_hold">On Hold</option>
                 </select>
               </div>
             </div>

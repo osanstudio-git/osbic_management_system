@@ -222,11 +222,10 @@ export default function AdminLeads() {
               <option value="new">New</option>
               <option value="contacted">Contacted</option>
               <option value="interested">Interested</option>
-              <option value="qualified">Qualified</option>
               <option value="quoted">Quoted</option>
               <option value="negotiating">Negotiating</option>
               <option value="converted">Converted</option>
-              <option value="lost">Lost</option>
+              <option value="cancelled">Cancelled</option>
               <option value="on_hold">On Hold</option>
             </select>
 

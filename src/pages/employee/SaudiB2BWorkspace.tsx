@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Building2, Globe, ArrowUpRight, ArrowDownLeft, Plus, Search,
   DollarSign, FileText, ShieldCheck, Handshake, X
 } from 'lucide-react';
 import { useB2BPartners, useCreateB2BPartner } from '../../hooks/shared/useB2BPartners';
-import { useLeads } from '../../hooks/shared/useLeads';
 import type { Lead } from '../../hooks/shared/useLeads';
 import { useCurrencyRates } from '../../hooks/shared/useCurrencyRates';
 import { supabase } from '../../lib/supabase';
@@ -14,8 +14,20 @@ import { supabase } from '../../lib/supabase';
 export default function SaudiB2BWorkspace() {
   const navigate = useNavigate();
   const { data: partners = [] } = useB2BPartners();
-  const { data: leads = [], refetch: refetchLeads } = useLeads();
-  const { rates } = useCurrencyRates();
+  const { data: leads = [], refetch: refetchLeads } = useQuery<Lead[]>({
+    queryKey: ['b2b_workspace_leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*, lead_sources:source_id(name)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as unknown as Lead[];
+    }
+  });
+  const { data: currencyData } = useCurrencyRates();
+  const rates = currencyData?.rates || {};
   const createPartnerMutation = useCreateB2BPartner();
 
   // State
@@ -114,7 +126,7 @@ export default function SaudiB2BWorkspace() {
           b2b_flow_type: assignState.flow_type,
           partner_cost: assignState.partner_cost,
           partner_notes: assignState.partner_notes,
-        })
+        } as any)
         .eq('id', selectedLeadForAssign.id);
 
       if (error) throw error;

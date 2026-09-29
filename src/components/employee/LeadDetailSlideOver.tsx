@@ -853,15 +853,12 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                   className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="new" className="bg-card text-foreground">New</option>
-                  <option value="on_progress" className="bg-card text-foreground">On Progress</option>
                   <option value="contacted" className="bg-card text-foreground">Contacted</option>
                   <option value="interested" className="bg-card text-foreground">Interested</option>
-                  <option value="qualified" className="bg-card text-foreground">Qualified</option>
                   <option value="quoted" className="bg-card text-foreground">Quoted</option>
                   <option value="negotiating" className="bg-card text-foreground">Negotiating</option>
                   <option value="converted" className="bg-card text-foreground">Converted</option>
                   <option value="cancelled" className="bg-card text-foreground">Cancelled</option>
-                  <option value="lost" className="bg-card text-foreground">Lost</option>
                   <option value="on_hold" className="bg-card text-foreground">On Hold</option>
                 </select>
 
@@ -871,21 +868,66 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                   </p>
                 )}
 
-                {status === 'lost' && (
-                  <div className="pt-2 flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Why was the lead lost?"
-                      value={lostReason}
-                      onChange={e => setLostReason(e.target.value)}
-                      className="flex-1 bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:border-gold transition-colors"
-                    />
-                    <button 
-                      onClick={handleSaveLostReason}
-                      className="bg-primary text-[#0A0F1E] font-bold p-3 rounded-xl hover:bg-primary/95 transition-all"
-                    >
-                      <Check size={16} />
-                    </button>
+                {status === 'on_hold' && (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3 mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock size={14} /> On Hold Auto-Notification Date
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Auto-alert on scheduled date</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 7);
+                          setNextFollowUpDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs rounded-lg font-medium transition-colors"
+                      >
+                        +1 Week
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setMonth(d.getMonth() + 1);
+                          setNextFollowUpDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs rounded-lg font-medium transition-colors"
+                      >
+                        +1 Month
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setMonth(d.getMonth() + 3);
+                          setNextFollowUpDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs rounded-lg font-medium transition-colors"
+                      >
+                        +3 Months
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={nextFollowUpDate}
+                        onChange={e => setNextFollowUpDate(e.target.value)}
+                        className="flex-1 bg-card border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveFollowUp}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all"
+                      >
+                        Set Reminder
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
