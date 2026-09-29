@@ -83,6 +83,7 @@ const EmployeeLayout: React.FC = () => {
 
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
+    { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' },
     ...(profile?.is_manager ? [
       { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
       { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
@@ -95,7 +96,6 @@ const EmployeeLayout: React.FC = () => {
     // PRO queue — shown for PRO agents
     ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
-    { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' },
     { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
     { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },

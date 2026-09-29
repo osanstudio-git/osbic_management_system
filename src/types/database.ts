@@ -90,6 +90,7 @@ export interface Database {
         can_do_accounts: boolean | null
         can_do_marketing: boolean | null
         is_pro: boolean | null
+        is_saudi_rep: boolean | null
         monthly_target: number | null
       }, never, 'role'>
 

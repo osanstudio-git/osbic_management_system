@@ -38,6 +38,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     can_do_ops: true,
     can_do_accounts: false,
     is_pro: false,
+    is_saudi_rep: false,
   });
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -79,6 +80,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         can_do_ops: formData.can_do_ops,
         can_do_accounts: formData.can_do_accounts,
         is_pro: formData.is_pro,
+        is_saudi_rep: formData.is_saudi_rep,
       }, {
       onSuccess: (data: any) => {
         setCredentials({
@@ -273,6 +275,25 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                             className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_manager ? 'bg-primary' : 'bg-white/10'}`}
                           >
                             <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_manager ? 'translate-x-5' : ''}`} />
+                          </button>
+                        </div>
+
+                        {/* Saudi / GCC B2B Representative Designation Toggle */}
+                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                          <div>
+                            <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                              🇸🇦 Saudi & GCC B2B Representative
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block">
+                              Dedicated Saudi/GCC sales representative. Default workspace set to Saudi & B2B Hub.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, is_saudi_rep: !formData.is_saudi_rep, can_do_sales: true })}
+                            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_saudi_rep ? 'bg-emerald-500' : 'bg-white/10'}`}
+                          >
+                            <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_saudi_rep ? 'translate-x-5' : ''}`} />
                           </button>
                         </div>
 

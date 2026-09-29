@@ -46,6 +46,7 @@ export interface Employee {
   can_do_marketing?: boolean;
   is_pro?: boolean;
   is_manager?: boolean;
+  is_saudi_rep?: boolean;
   branch_id?: string | null;
   company_name?: string | null;
 }
@@ -297,6 +298,10 @@ export const useCreateEmployee = () => {
       }
       profileResult = rpcData;
 
+      if ((newEmployee as any).is_saudi_rep && profileResult?.id) {
+        await db.from('profiles').update({ is_saudi_rep: true }).eq('id', profileResult.id);
+      }
+
       // Step D: Send credentials via Edge Function
       const { error: invokeError } = await supabase.functions.invoke('send-credentials', {
         body: {
@@ -358,6 +363,10 @@ export const useUpdateEmployee = () => {
           p_avatar_url: updates.avatar_url ?? null,
           p_is_active: updates.is_active ?? null
         });
+
+        if (updates.is_saudi_rep !== undefined) {
+          await db.from('profiles').update({ is_saudi_rep: updates.is_saudi_rep }).eq('id', id);
+        }
 
         if (!rpcError && rpcData) {
           updatedData = rpcData;

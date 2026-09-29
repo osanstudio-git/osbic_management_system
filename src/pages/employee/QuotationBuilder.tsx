@@ -262,6 +262,8 @@ const QuotationBuilder = () => {
       // Check for URL query params: if a specific lead, client, or job is requested, do not restore mismatched draft
       const params = new URLSearchParams(window.location.search);
       const urlLeadId = params.get('lead_id');
+      const urlClientId = params.get('client_id');
+      const urlJobId = params.get('job_id');
       const urlType = params.get('type');
       const urlCurrency = params.get('currency');
 
