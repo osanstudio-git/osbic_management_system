@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCurrencyConfig } from '../../hooks/shared/useCurrencyRates';
+import { B2BPartnershipProposalDocument } from './B2BPartnershipProposalDocument';
 
 interface QuotationDocumentProps {
   invoice: Invoice;
@@ -9,6 +10,10 @@ interface QuotationDocumentProps {
 }
 
 export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentProps>(({ invoice, isSimple }, ref) => {
+  if (invoice.metadata?.proposal_type === 'b2b_proposal') {
+    return <B2BPartnershipProposalDocument ref={ref} invoice={invoice} />;
+  }
+
   const { profile } = useAuth();
   const themeColor = '#0088cc';
   const lightBg = '#f0f9ff'; // sky-50

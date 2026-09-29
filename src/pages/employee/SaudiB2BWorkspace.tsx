@@ -143,6 +143,12 @@ export default function SaudiB2BWorkspace() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
+              onClick={() => navigate('/employee/quotations/new?type=b2b_proposal&currency=SAR')}
+              className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-cyan-500/25 transition flex items-center gap-2 text-sm"
+            >
+              <FileText className="w-4 h-4" /> Create B2B Partnership Proposal
+            </button>
+            <button
               onClick={() => navigate('/employee/quotations/new?currency=SAR')}
               className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition flex items-center gap-2 text-sm"
             >

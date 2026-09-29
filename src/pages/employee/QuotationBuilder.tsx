@@ -262,11 +262,28 @@ const QuotationBuilder = () => {
       // Check for URL query params: if a specific lead, client, or job is requested, do not restore mismatched draft
       const params = new URLSearchParams(window.location.search);
       const urlLeadId = params.get('lead_id');
-      const urlClientId = params.get('client_id');
-      const urlJobId = params.get('job_id');
+      const urlType = params.get('type');
+      const urlCurrency = params.get('currency');
+
+      if (urlType === 'b2b_proposal') {
+        setFormData(prev => ({
+          ...prev,
+          currency: urlCurrency || prev.currency || 'SAR',
+          metadata: {
+            ...prev.metadata,
+            proposal_type: 'b2b_proposal',
+            b2b_prepared_by: profile?.full_name || 'ANSAR NV',
+            b2b_proposal_title: 'Oman Company Formation Services',
+            pkg_new_cr_no_attest: 2000,
+            pkg_new_cr_with_attest: 4000,
+            pkg_existing_cr: 12250,
+            b2b_surcharge_note: 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
+          }
+        }));
+      }
 
       const cachedDraftStr = localStorage.getItem(draftStorageKey);
-      if (cachedDraftStr && !viewMode && !urlLeadId && !urlClientId && !urlJobId) {
+      if (cachedDraftStr && !viewMode && !urlLeadId && !urlClientId && !urlJobId && urlType !== 'b2b_proposal') {
         try {
           const cached = JSON.parse(cachedDraftStr);
           if (cached && cached.data && (cached.data.client_id || cached.data.lead_id || (cached.data.items && cached.data.items.length > 0))) {
@@ -1053,6 +1070,132 @@ const QuotationBuilder = () => {
           <div className="w-full lg:w-[48%] space-y-6 print:hidden">
 
             <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-6">
+              
+              {/* Document Format & Template Switcher */}
+              <div className="bg-gradient-to-r from-[#0073b7]/10 via-[#0288d1]/10 to-[#e0f7fa]/30 border border-[#0288d1]/30 rounded-2xl p-5 space-y-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-[#0288d1]" />
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      Quotation Format & Template
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-semibold text-[#0288d1] uppercase px-2.5 py-0.5 rounded-full bg-[#0288d1]/15">
+                    {formData.metadata?.proposal_type === 'b2b_proposal' ? 'B2B Strategic Proposal' : 'Standard Quotation'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      metadata: { ...formData.metadata, proposal_type: 'standard' }
+                    })}
+                    className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                      formData.metadata?.proposal_type !== 'b2b_proposal'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                        : 'bg-card border-border hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold text-xs">📄 Standard Line-Item Quote</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Itemized service fees & totals</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      currency: formData.currency === 'OMR' ? 'SAR' : formData.currency,
+                      metadata: { 
+                        ...formData.metadata, 
+                        proposal_type: 'b2b_proposal',
+                        b2b_submitted_to: formData.metadata?.b2b_submitted_to || formData.metadata?.company_name || formData.client?.company_name || formData.lead?.company_name || '',
+                        b2b_prepared_by: formData.metadata?.b2b_prepared_by || profile?.full_name || 'ANSAR NV',
+                        b2b_proposal_title: formData.metadata?.b2b_proposal_title || 'Oman Company Formation Services',
+                        pkg_new_cr_no_attest: formData.metadata?.pkg_new_cr_no_attest ?? 2000,
+                        pkg_new_cr_with_attest: formData.metadata?.pkg_new_cr_with_attest ?? 4000,
+                        pkg_existing_cr: formData.metadata?.pkg_existing_cr ?? 12250,
+                        b2b_surcharge_note: formData.metadata?.b2b_surcharge_note || 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
+                      }
+                    })}
+                    className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                      formData.metadata?.proposal_type === 'b2b_proposal'
+                        ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-md'
+                        : 'bg-card border-border hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold text-xs flex items-center gap-1">
+                        <span>🤝 Strategic B2B Proposal</span>
+                      </div>
+                      <div className="text-[10px] opacity-80 mt-0.5">2-Page Partnership Proposal</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* B2B Proposal Specific Customization Controls */}
+                {formData.metadata?.proposal_type === 'b2b_proposal' && (
+                  <div className="pt-3 border-t border-[#0288d1]/20 space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Submitted To (Partner / Client)</label>
+                        <input
+                          type="text"
+                          value={formData.metadata?.b2b_submitted_to || ''}
+                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, b2b_submitted_to: e.target.value } })}
+                          placeholder="MUHAMMED MUNAZIM"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:border-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Prepared By (Staff Name)</label>
+                        <input
+                          type="text"
+                          value={formData.metadata?.b2b_prepared_by || ''}
+                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, b2b_prepared_by: e.target.value } })}
+                          placeholder="ANSAR NV"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:border-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">New CR (No Attest)</label>
+                        <input
+                          type="number"
+                          value={formData.metadata?.pkg_new_cr_no_attest ?? 2000}
+                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_new_cr_no_attest: Number(e.target.value) } })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">New CR (With Attest)</label>
+                        <input
+                          type="number"
+                          value={formData.metadata?.pkg_new_cr_with_attest ?? 4000}
+                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_new_cr_with_attest: Number(e.target.value) } })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">Existing CR Package</label>
+                        <input
+                          type="number"
+                          value={formData.metadata?.pkg_existing_cr ?? 12250}
+                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_existing_cr: Number(e.target.value) } })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
                 <div className="space-y-2 col-span-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
