@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Building2, Globe, Users, ArrowUpRight, ArrowDownLeft, Plus, Search,
-  Filter, DollarSign, FileText, CheckCircle2, Clock, AlertCircle, ChevronRight,
-  TrendingUp, ExternalLink, ShieldCheck, Handshake, RefreshCw, X
+  Building2, Globe, ArrowUpRight, ArrowDownLeft, Plus, Search,
+  DollarSign, FileText, ShieldCheck, Handshake, X
 } from 'lucide-react';
-import { useB2BPartners, useCreateB2BPartner, useUpdateB2BPartner } from '../../hooks/shared/useB2BPartners';
-import type { B2BPartner } from '../../hooks/shared/useB2BPartners';
+import { useB2BPartners, useCreateB2BPartner } from '../../hooks/shared/useB2BPartners';
 import { useLeads } from '../../hooks/shared/useLeads';
 import type { Lead } from '../../hooks/shared/useLeads';
 import { useCurrencyRates } from '../../hooks/shared/useCurrencyRates';
@@ -15,11 +13,10 @@ import { supabase } from '../../lib/supabase';
 
 export default function SaudiB2BWorkspace() {
   const navigate = useNavigate();
-  const { data: partners = [], isLoading: loadingPartners } = useB2BPartners();
-  const { data: leads = [], isLoading: loadingLeads, refetch: refetchLeads } = useLeads();
+  const { data: partners = [] } = useB2BPartners();
+  const { data: leads = [], refetch: refetchLeads } = useLeads();
   const { rates } = useCurrencyRates();
   const createPartnerMutation = useCreateB2BPartner();
-  const updatePartnerMutation = useUpdateB2BPartner();
 
   // State
   const [activeTab, setActiveTab] = useState<'outbound' | 'inbound' | 'partners'>('outbound');
@@ -52,13 +49,32 @@ export default function SaudiB2BWorkspace() {
   // Filtered leads
   const crossBorderLeads = leads.filter(l => l.b2b_flow_type || l.b2b_partner_id || l.nationality === 'Saudi Arabia' || l.nationality === 'Saudi');
 
-  const outboundLeads = crossBorderLeads.filter(l => l.b2b_flow_type === 'outbound_saudi_exec' || (!l.b2b_flow_type && l.nationality !== 'Saudi Arabia'));
-  const inboundLeads = crossBorderLeads.filter(l => l.b2b_flow_type === 'inbound_oman_exec' || (!l.b2b_flow_type && (l.nationality === 'Saudi Arabia' || l.nationality === 'Saudi')));
+  const lowerSearch = searchTerm.toLowerCase().trim();
+
+  const rawOutboundLeads = crossBorderLeads.filter(l => l.b2b_flow_type === 'outbound_saudi_exec' || (!l.b2b_flow_type && l.nationality !== 'Saudi Arabia'));
+  const rawInboundLeads = crossBorderLeads.filter(l => l.b2b_flow_type === 'inbound_oman_exec' || (!l.b2b_flow_type && (l.nationality === 'Saudi Arabia' || l.nationality === 'Saudi')));
+
+  const outboundLeads = rawOutboundLeads.filter(l => 
+    !lowerSearch || 
+    l.contact_name?.toLowerCase().includes(lowerSearch) || 
+    l.company_name?.toLowerCase().includes(lowerSearch)
+  );
+
+  const inboundLeads = rawInboundLeads.filter(l => 
+    !lowerSearch || 
+    l.contact_name?.toLowerCase().includes(lowerSearch) || 
+    l.company_name?.toLowerCase().includes(lowerSearch)
+  );
+
+  const filteredPartners = partners.filter(p =>
+    !lowerSearch ||
+    p.name.toLowerCase().includes(lowerSearch) ||
+    p.contact_person?.toLowerCase().includes(lowerSearch)
+  );
 
   // Metrics
-  const totalSaudiDeals = crossBorderLeads.length;
-  const outboundCount = outboundLeads.length;
-  const inboundCount = inboundLeads.length;
+  const outboundCount = rawOutboundLeads.length;
+  const inboundCount = rawInboundLeads.length;
 
   const totalPartnerCosts = crossBorderLeads.reduce((acc, lead) => acc + (Number(lead.partner_cost) || 0), 0);
 
@@ -382,7 +398,7 @@ export default function SaudiB2BWorkspace() {
       {/* TAB CONTENT 3: PARTNER DIRECTORY */}
       {activeTab === 'partners' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {partners.map((partner) => {
+          {filteredPartners.map((partner) => {
             const assignedCount = crossBorderLeads.filter(l => l.b2b_partner_id === partner.id).length;
 
             return (
