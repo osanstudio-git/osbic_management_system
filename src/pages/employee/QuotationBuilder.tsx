@@ -261,9 +261,9 @@ const QuotationBuilder = () => {
     } else if (isNew) {
       // Check for URL query params: if a specific lead, client, or job is requested, do not restore mismatched draft
       const params = new URLSearchParams(window.location.search);
-      const urlLeadId = params.get('lead_id');
-      const urlClientId = params.get('client_id');
-      const urlJobId = params.get('job_id');
+      const urlLeadId = params.get('lead_id') || params.get('leadId');
+      const urlClientId = params.get('client_id') || params.get('clientId');
+      const urlJobId = params.get('job_id') || params.get('jobId');
       const urlType = params.get('type');
       const urlCurrency = params.get('currency');
 
@@ -281,6 +281,11 @@ const QuotationBuilder = () => {
             pkg_existing_cr: 12250,
             b2b_surcharge_note: 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
           }
+        }));
+      } else if (urlCurrency) {
+        setFormData(prev => ({
+          ...prev,
+          currency: urlCurrency
         }));
       }
 
@@ -321,7 +326,7 @@ const QuotationBuilder = () => {
   // Handle Lead ID autofill from URL params & selection
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const targetLeadId = (isNew ? params.get('lead_id') : null) || formData.lead_id;
+    const targetLeadId = (isNew ? (params.get('lead_id') || params.get('leadId')) : null) || formData.lead_id;
 
     if (targetLeadId) {
       const loadLeadAndServices = async () => {
