@@ -148,9 +148,9 @@ export default function SaudiB2BWorkspace() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 text-foreground">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/80 via-teal-950/60 to-background border border-emerald-500/20 text-foreground p-6 md:p-8 shadow-2xl">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 text-slate-900 dark:text-white">
+      {/* Header Banner - Rich Saudi B2B Green Accent Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-6 md:p-8 shadow-2xl border border-emerald-700/30">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -158,13 +158,13 @@ export default function SaudiB2BWorkspace() {
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider mb-2">
               <Globe className="w-4 h-4" /> Saudi Arabia & GCC B2B Operations
             </div>
-            <h1 className="text-2xl md:text-3xl font-syne font-black tracking-tight text-foreground flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
               Cross-Border B2B Hub
               <span className="bg-emerald-500/20 text-emerald-300 text-xs px-3 py-1 rounded-full border border-emerald-500/30 font-bold">
                 Live SAR API Sync
               </span>
             </h1>
-            <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
+            <p className="text-slate-300 text-sm mt-1 max-w-2xl">
               Manage Saudi B2B partners, subcontracted ground operations in KSA, and inbound Saudi business setups in Oman.
             </p>
           </div>
@@ -172,19 +172,19 @@ export default function SaudiB2BWorkspace() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => navigate('/employee/quotations/new?type=b2b_proposal&currency=SAR')}
-              className="px-4 py-2.5 bg-cyan-500 text-cyan-950 font-bold rounded-xl shadow-lg shadow-cyan-500/20 hover:scale-105 transition-all flex items-center gap-2 text-xs"
+              className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-cyan-500/25 transition flex items-center gap-2 text-xs"
             >
               <FileText className="w-4 h-4" /> Create B2B Partnership Proposal
             </button>
             <button
               onClick={() => navigate('/employee/quotations/new?currency=SAR')}
-              className="px-4 py-2.5 bg-emerald-500 text-emerald-950 font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all flex items-center gap-2 text-xs"
+              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition flex items-center gap-2 text-xs"
             >
               <Plus className="w-4 h-4" /> Create SAR Quotation
             </button>
             <button
               onClick={() => setShowAddPartnerModal(true)}
-              className="px-4 py-2.5 bg-primary/10 border border-primary/20 text-primary font-bold rounded-xl hover:bg-primary/20 transition-all flex items-center gap-2 text-xs"
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl border border-white/20 transition flex items-center gap-2 text-xs"
             >
               <Handshake className="w-4 h-4 text-emerald-400" /> Add B2B Partner
             </button>
@@ -192,57 +192,57 @@ export default function SaudiB2BWorkspace() {
         </div>
 
         {/* Metrics Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-emerald-500/20">
-          <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-border shadow-sm">
-            <div className="text-muted-foreground text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-emerald-800/40">
+          <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
+            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
               <Building2 className="w-3.5 h-3.5 text-emerald-400" /> Active B2B Partners
             </div>
-            <div className="text-2xl font-mono font-bold text-foreground mt-1">{partners.length} Firms</div>
-            <div className="text-[10px] text-emerald-400 font-bold mt-0.5">Saudi & Oman Partners</div>
+            <div className="text-2xl font-bold text-white mt-1">{partners.length} Firms</div>
+            <div className="text-[11px] text-emerald-300 font-medium mt-0.5">Saudi & Oman Partners</div>
           </div>
 
-          <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-border shadow-sm">
-            <div className="text-muted-foreground text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+          <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
+            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
               <ArrowUpRight className="w-3.5 h-3.5 text-blue-400" /> Outbound KSA Deals
             </div>
-            <div className="text-2xl font-mono font-bold text-foreground mt-1">{outboundCount}</div>
-            <div className="text-[10px] text-blue-300 font-bold mt-0.5">Oman Client → KSA Exec</div>
+            <div className="text-2xl font-bold text-white mt-1">{outboundCount}</div>
+            <div className="text-[11px] text-blue-300 font-medium mt-0.5">Oman Client → KSA Exec</div>
           </div>
 
-          <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-border shadow-sm">
-            <div className="text-muted-foreground text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+          <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
+            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
               <ArrowDownLeft className="w-3.5 h-3.5 text-amber-400" /> Inbound Oman Deals
             </div>
-            <div className="text-2xl font-mono font-bold text-foreground mt-1">{inboundCount}</div>
-            <div className="text-[10px] text-amber-300 font-bold mt-0.5">Saudi Client → Oman Exec</div>
+            <div className="text-2xl font-bold text-white mt-1">{inboundCount}</div>
+            <div className="text-[11px] text-amber-300 font-medium mt-0.5">Saudi Client → Oman Exec</div>
           </div>
 
-          <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-border shadow-sm">
-            <div className="text-muted-foreground text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+          <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
+            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Est. Partner Costs
             </div>
-            <div className="text-2xl font-mono font-bold text-emerald-400 mt-1">
+            <div className="text-2xl font-bold text-emerald-300 mt-1">
               {(totalPartnerCosts * sarRate).toLocaleString(undefined, { maximumFractionDigits: 0 })} SAR
             </div>
-            <div className="text-[10px] text-muted-foreground font-bold mt-0.5">Subcontractor payouts</div>
+            <div className="text-[11px] text-slate-300 font-medium mt-0.5">Subcontractor payouts</div>
           </div>
         </div>
       </div>
 
-      {/* Tabs Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-2 rounded-2xl shadow-sm">
+      {/* Tabs Header - Dual Light/Dark Mode Supported */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab('outbound')}
             className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
               activeTab === 'outbound'
-                ? 'bg-emerald-500 text-emerald-950 font-bold shadow-lg shadow-emerald-500/20'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <ArrowUpRight className="w-4 h-4" /> 
             Flow 1: Oman → KSA Subcontracting
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-background/50 font-mono">
+            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono">
               {outboundCount}
             </span>
           </button>
@@ -251,13 +251,13 @@ export default function SaudiB2BWorkspace() {
             onClick={() => setActiveTab('inbound')}
             className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
               activeTab === 'inbound'
-                ? 'bg-emerald-500 text-emerald-950 font-bold shadow-lg shadow-emerald-500/20'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <ArrowDownLeft className="w-4 h-4" /> 
             Flow 2: KSA → Oman Referrals
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-background/50 font-mono">
+            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono">
               {inboundCount}
             </span>
           </button>
@@ -266,26 +266,26 @@ export default function SaudiB2BWorkspace() {
             onClick={() => setActiveTab('partners')}
             className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
               activeTab === 'partners'
-                ? 'bg-emerald-500 text-emerald-950 font-bold shadow-lg shadow-emerald-500/20'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Building2 className="w-4 h-4" /> 
             B2B Partner Firms
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-background/50 font-mono">
+            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono">
               {partners.length}
             </span>
           </button>
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400 dark:text-slate-500" />
           <input
             type="text"
             placeholder="Search leads or partners..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
           />
         </div>
       </div>
@@ -293,20 +293,20 @@ export default function SaudiB2BWorkspace() {
       {/* TAB CONTENT 1 & 2: LEADS (OUTBOUND / INBOUND) */}
       {(activeTab === 'outbound' || activeTab === 'inbound') && (
         <div className="space-y-4">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">{activeTab === 'outbound' ? 'Flow 1 (Outbound Saudi Execution):' : 'Flow 2 (Inbound Oman Execution):'}</strong>{' '}
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+              <strong>{activeTab === 'outbound' ? 'Flow 1 (Outbound Saudi Execution):' : 'Flow 2 (Inbound Oman Execution):'}</strong>{' '}
               {activeTab === 'outbound'
                 ? 'Oman clients wanting Saudi company registration or government services. OSBIC Oman handles billing and assigns execution to verified Saudi B2B subcontractor partner firms.'
                 : 'Saudi clients / partners wanting Oman company setup & PRO services. Originated by Saudi Sales/Partner, executed in Oman by OSBIC Oman fulfillment team.'}
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-muted/30 text-[10px] uppercase text-muted-foreground font-bold tracking-widest border-b border-border">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="px-6 py-4">Client / Lead</th>
                     <th className="px-6 py-4">Flow Type</th>
@@ -316,10 +316,10 @@ export default function SaudiB2BWorkspace() {
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {(activeTab === 'outbound' ? outboundLeads : inboundLeads).length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                         No cross-border leads found for this flow. Click <strong>"Assign B2B Partner"</strong> on any lead to populate this dashboard.
                       </td>
                     </tr>
@@ -328,22 +328,22 @@ export default function SaudiB2BWorkspace() {
                       const partner = partners.find(p => p.id === lead.b2b_partner_id);
 
                       return (
-                        <tr key={lead.id} className="hover:bg-muted/10 transition-colors">
+                        <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="px-6 py-4">
-                            <div className="font-bold text-foreground text-sm">{lead.contact_name}</div>
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">{lead.contact_name}</div>
                             {lead.company_name && (
-                              <div className="text-xs text-muted-foreground">{lead.company_name}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{lead.company_name}</div>
                             )}
-                            <div className="text-[10px] font-bold text-emerald-500 mt-0.5">
+                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
                               {lead.nationality || 'GCC Client'}
                             </div>
                           </td>
 
                           <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${
                               lead.b2b_flow_type === 'outbound_saudi_exec'
-                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900'
                             }`}>
                               {lead.b2b_flow_type === 'outbound_saudi_exec' ? (
                                 <><ArrowUpRight className="w-3 h-3" /> Oman → Saudi Exec</>
@@ -356,26 +356,26 @@ export default function SaudiB2BWorkspace() {
                           <td className="px-6 py-4">
                             {partner ? (
                               <div className="flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-emerald-400" />
+                                <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 <div>
-                                  <div className="font-bold text-foreground text-xs">{partner.name}</div>
-                                  <div className="text-[10px] text-muted-foreground">{partner.country} ({partner.partner_type})</div>
+                                  <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">{partner.name}</div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400">{partner.country} ({partner.partner_type})</div>
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs text-amber-500 font-bold italic">
+                              <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">
                                 Unassigned Partner
                               </span>
                             )}
                           </td>
 
                           <td className="px-6 py-4">
-                            <span className="capitalize px-2.5 py-1 bg-muted/50 text-foreground rounded-lg text-xs font-bold">
+                            <span className="capitalize px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold">
                               {lead.status}
                             </span>
                           </td>
 
-                          <td className="px-6 py-4 font-mono font-bold text-foreground text-xs">
+                          <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100 text-xs font-mono">
                             {lead.partner_cost ? `${lead.partner_cost} OMR` : '0 OMR'}
                           </td>
 
@@ -383,13 +383,13 @@ export default function SaudiB2BWorkspace() {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => openAssignModal(lead)}
-                                className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs rounded-xl hover:bg-emerald-500/20 font-bold transition-all"
+                                className="px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-xs rounded-xl hover:bg-emerald-200 font-bold transition-all"
                               >
                                 {partner ? 'Manage B2B' : 'Assign Partner'}
                               </button>
                               <button
                                 onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}&currency=SAR`)}
-                                className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 text-xs rounded-xl hover:bg-primary/20 font-bold transition-all"
+                                className="px-3 py-1.5 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs rounded-xl hover:bg-slate-200 font-bold transition-all"
                                 title="Create SAR Quote"
                               >
                                 Quote (SAR)
@@ -414,42 +414,42 @@ export default function SaudiB2BWorkspace() {
             const assignedCount = crossBorderLeads.filter(l => l.b2b_partner_id === partner.id).length;
 
             return (
-              <div key={partner.id} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:border-emerald-500/50 transition-all space-y-4">
+              <div key={partner.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-emerald-500/50 transition">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-base">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-base">
                       {partner.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-syne font-bold text-foreground text-base">{partner.name}</h3>
-                      <span className="text-xs text-muted-foreground">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base">{partner.name}</h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {partner.country === 'KSA' ? '🇸🇦 Saudi Arabia Firm' : '🇴🇲 Oman Firm'}
                       </span>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider border ${
-                    partner.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-muted text-muted-foreground border-border'
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                    partner.status === 'active' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                   }`}>
                     {partner.status}
                   </span>
                 </div>
 
-                <div className="pt-3 border-t border-border/60 space-y-2 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Contact Person:</span>
-                    <span className="font-bold text-foreground">{partner.contact_person || 'N/A'}</span>
+                    <span className="font-medium text-slate-900 dark:text-white">{partner.contact_person || 'N/A'}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Email / Phone:</span>
-                    <span className="font-bold text-foreground">{partner.contact_email || partner.contact_phone || 'N/A'}</span>
+                    <span className="font-medium text-slate-900 dark:text-white">{partner.contact_email || partner.contact_phone || 'N/A'}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Partner Role:</span>
-                    <span className="capitalize font-bold text-emerald-400">{partner.partner_type}</span>
+                    <span className="capitalize font-medium text-emerald-600 dark:text-emerald-400">{partner.partner_type}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Assigned Deals:</span>
-                    <span className="font-mono font-bold text-foreground">{assignedCount} Leads/Jobs</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{assignedCount} Leads/Jobs</span>
                   </div>
                 </div>
               </div>
@@ -460,37 +460,37 @@ export default function SaudiB2BWorkspace() {
 
       {/* MODAL 1: ADD B2B PARTNER */}
       {showAddPartnerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card rounded-3xl max-w-md w-full p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-border pb-3">
-              <h3 className="font-syne font-bold text-lg text-foreground flex items-center gap-2">
-                <Handshake className="w-5 h-5 text-emerald-500" /> Add B2B Partner Firm
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <Handshake className="w-5 h-5 text-emerald-600" /> Add B2B Partner Firm
               </h3>
-              <button onClick={() => setShowAddPartnerModal(false)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+              <button onClick={() => setShowAddPartnerModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreatePartner} className="space-y-3 text-sm">
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Company / Partner Name</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Company / Partner Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Al-Riyadh Corporate Services LLC"
                   value={newPartner.name}
                   onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Country</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Country</label>
                   <select
                     value={newPartner.country}
                     onChange={(e) => setNewPartner({ ...newPartner, country: e.target.value as any })}
-                    className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="KSA">🇸🇦 Saudi Arabia (KSA)</option>
                     <option value="OMN">🇴🇲 Oman (OMN)</option>
@@ -499,11 +499,11 @@ export default function SaudiB2BWorkspace() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Partner Role</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Partner Role</label>
                   <select
                     value={newPartner.partner_type}
                     onChange={(e) => setNewPartner({ ...newPartner, partner_type: e.target.value as any })}
-                    className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="execution">Subcontractor / Execution</option>
                     <option value="sales_referral">Lead Referral / Agent</option>
@@ -514,31 +514,31 @@ export default function SaudiB2BWorkspace() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Contact Person</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Contact Person</label>
                   <input
                     type="text"
                     placeholder="Manager Name"
                     value={newPartner.contact_person}
                     onChange={(e) => setNewPartner({ ...newPartner, contact_person: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Contact Phone</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Contact Phone</label>
                   <input
                     type="text"
                     placeholder="+966 5..."
                     value={newPartner.contact_phone}
                     onChange={(e) => setNewPartner({ ...newPartner, contact_phone: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-border">
-                <button type="button" onClick={() => setShowAddPartnerModal(false)} className="px-4 py-2 border border-border rounded-xl text-sm font-bold text-foreground hover:bg-muted transition-colors">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-emerald-500 text-emerald-950 font-bold rounded-xl text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all">Save B2B Partner</button>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onClick={() => setShowAddPartnerModal(false)} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-500 transition-colors">Save B2B Partner</button>
               </div>
             </form>
           </motion.div>
@@ -547,25 +547,25 @@ export default function SaudiB2BWorkspace() {
 
       {/* MODAL 2: ASSIGN PARTNER TO LEAD */}
       {selectedLeadForAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card rounded-3xl max-w-lg w-full p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="font-syne font-bold text-lg text-foreground">B2B Cross-Border Setup</h3>
-                <p className="text-xs text-muted-foreground">Lead: {selectedLeadForAssign.contact_name}</p>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">B2B Cross-Border Setup</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Lead: {selectedLeadForAssign.contact_name}</p>
               </div>
-              <button onClick={() => setSelectedLeadForAssign(null)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+              <button onClick={() => setSelectedLeadForAssign(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-sm">
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Operation Flow Type</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Operation Flow Type</label>
                 <select
                   value={assignState.flow_type}
                   onChange={(e) => setAssignState({ ...assignState, flow_type: e.target.value as any })}
-                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="outbound_saudi_exec">Flow 1: Outbound (Oman Client → Saudi Execution)</option>
                   <option value="inbound_oman_exec">Flow 2: Inbound (Saudi Client → Oman Execution)</option>
@@ -573,11 +573,11 @@ export default function SaudiB2BWorkspace() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Assigned B2B Subcontractor / Partner</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Assigned B2B Subcontractor / Partner</label>
                 <select
                   value={assignState.partner_id}
                   onChange={(e) => setAssignState({ ...assignState, partner_id: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">-- Select B2B Partner Firm --</option>
                   {partners.map(p => (
@@ -587,30 +587,30 @@ export default function SaudiB2BWorkspace() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Partner Cost / Fee (OMR)</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Partner Cost / Fee (OMR)</label>
                 <input
                   type="number"
                   placeholder="Wholesale fee billed by partner..."
                   value={assignState.partner_cost}
                   onChange={(e) => setAssignState({ ...assignState, partner_cost: Number(e.target.value) })}
-                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Execution Notes</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Execution Notes</label>
                 <textarea
                   rows={3}
                   placeholder="Special instructions or partner scope..."
                   value={assignState.partner_notes}
                   onChange={(e) => setAssignState({ ...assignState, partner_notes: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-border">
-                <button onClick={() => setSelectedLeadForAssign(null)} className="px-4 py-2 border border-border rounded-xl text-sm font-bold text-foreground hover:bg-muted transition-colors">Cancel</button>
-                <button onClick={handleSaveLeadAssignment} className="px-5 py-2 bg-emerald-500 text-emerald-950 font-bold rounded-xl text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all">Update Lead Assignment</button>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button onClick={() => setSelectedLeadForAssign(null)} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300">Cancel</button>
+                <button onClick={handleSaveLeadAssignment} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-500 transition-colors">Update Lead Assignment</button>
               </div>
             </div>
           </motion.div>
