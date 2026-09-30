@@ -197,7 +197,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
           {/* Page 1 Footer */}
           <div className="pt-4 border-t border-slate-200 text-[9.5px] text-slate-500 flex justify-between items-center">
-            <span>OSBIC International LLC • Ghala, Muscat, Oman</span>
+            <span>OSBIC International LLC</span>
             <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
             <span>Page 1</span>
           </div>
@@ -337,7 +337,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   <div className="space-y-1 text-[11px] text-cyan-50">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                      <span>Ghala, Muscat, Sultanate of Oman</span>
+                      <span>Sultanate of Oman</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
@@ -379,7 +379,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
             </div>
             
             <div className="pt-3 border-t border-slate-200 text-[9.5px] text-slate-500 flex justify-between items-center">
-              <span>OSBIC International LLC • Ghala, Muscat, Oman</span>
+              <span>OSBIC International LLC</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
               <span>Page 2</span>
             </div>

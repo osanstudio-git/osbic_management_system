@@ -293,7 +293,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
 
       {/* Footer */}
       <div className="absolute bottom-10 left-10 right-10 flex justify-between text-[8px] text-[#0088cc]/60 font-bold tracking-wider">
-        <p>OSBIC International LLC | Ghala, Muscat, Oman | info@osangroupoman.com</p>
+        <p>OSBIC International LLC | info@osangroupoman.com</p>
         <p>CONFIDENTIAL</p>
       </div>
 
@@ -410,7 +410,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
 
         {/* Page 2 Footer */}
         <div className="absolute bottom-10 left-10 right-10 flex justify-between text-[8px] text-[#0088cc]/60 font-bold tracking-wider">
-          <p>OSBIC International LLC | Ghala, Muscat, Oman | info@osangroupoman.com</p>
+          <p>OSBIC International LLC | info@osangroupoman.com</p>
           <p>CONFIDENTIAL</p>
         </div>
 
