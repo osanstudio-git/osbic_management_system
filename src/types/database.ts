@@ -178,6 +178,7 @@ export interface Database {
         status: 'pending' | 'verified' | 'rejected'
         verified_by: string | null
         verified_at: string | null
+        proof_url: string | null
         created_at: string
       }, 'id' | 'created_at' | 'status'>
 

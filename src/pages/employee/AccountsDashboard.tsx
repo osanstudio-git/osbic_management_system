@@ -26,8 +26,13 @@ export default function AccountsDashboard() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'expenses' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'sales_report' | 'receivables' | 'govt_fees' | 'financials' | 'expenses' | 'history'>('overview');
   
+  // Payment Proof Modal State
+  const [proofModalOpen, setProofModalOpen] = useState(false);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
+
   // Rejection Modal State
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
@@ -52,7 +57,7 @@ export default function AccountsDashboard() {
         .from('job_payments')
         .select(`
           *,
-          job:jobs(job_code, work_fee, ministry_fee, client_pays_ministry_fee, client:profiles!client_id(full_name, phone)),
+          job:jobs(job_code, work_fee, ministry_fee, client_pays_ministry_fee, advance_receipt_url, remaining_receipt_url, sales_employee:profiles!sales_employee_id(full_name), ops_employee:profiles!ops_employee_id(full_name), client:profiles!client_id(full_name, company_name, phone)),
           recorder:profiles!job_payments_recorded_by_fkey(full_name)
         `)
         .eq('status', 'pending')
@@ -83,6 +88,67 @@ export default function AccountsDashboard() {
       return data || [];
     }
   });
+
+  // Fetch All Jobs for Financial Reports & Statements
+  const { data: allJobsReport = [] } = useQuery({
+    queryKey: ['all_jobs_report'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          client:profiles!client_id(full_name, company_name, phone),
+          sales_employee:profiles!sales_employee_id(full_name),
+          ops_employee:profiles!ops_employee_id(full_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) return [];
+      return data || [];
+    }
+  });
+
+  const handleViewPaymentProof = async (payment: any) => {
+    let targetPath = payment?.proof_url;
+
+    if (!targetPath && payment?.notes) {
+      const match = payment.notes.match(/\[RECEIPT:(.*?)\|/);
+      if (match && match[1]) {
+        targetPath = match[1];
+      }
+    }
+
+    if (!targetPath && payment?.job) {
+      targetPath = payment.job.advance_receipt_url || payment.job.remaining_receipt_url;
+    }
+
+    if (!targetPath) {
+      toast.error('No payment proof image found for this payment record.');
+      return;
+    }
+
+    if (targetPath.startsWith('http://') || targetPath.startsWith('https://')) {
+      setProofUrl(targetPath);
+      setProofModalOpen(true);
+      return;
+    }
+
+    try {
+      setProofLoading(true);
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(targetPath, 3600);
+      if (error || !data?.signedUrl) {
+        toast.error('Could not load signed proof URL');
+        return;
+      }
+      setProofUrl(data.signedUrl);
+      setProofModalOpen(true);
+    } catch (err) {
+      console.error('Error fetching proof image:', err);
+      toast.error('Failed to load proof screenshot');
+    } finally {
+      setProofLoading(false);
+    }
+  };
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ['accounts_overview'] });
@@ -382,8 +448,48 @@ export default function AccountsDashboard() {
             )}
           </button>
           <button
+            onClick={() => setActiveTab('sales_report')}
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'sales_report' 
+                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            }`}
+          >
+            <Users size={16} /> Sales Performance
+          </button>
+          <button
+            onClick={() => setActiveTab('receivables')}
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'receivables' 
+                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            }`}
+          >
+            <Wallet size={16} /> Receivables Aging
+          </button>
+          <button
+            onClick={() => setActiveTab('govt_fees')}
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'govt_fees' 
+                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            }`}
+          >
+            <Building2 size={16} /> Govt Fees Paid
+          </button>
+          <button
+            onClick={() => setActiveTab('financials')}
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'financials' 
+                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            }`}
+          >
+            <BarChart4 size={16} /> Financial Statements
+          </button>
+          <button
             onClick={() => setActiveTab('expenses')}
-            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === 'expenses' 
                 ? 'bg-primary/10 text-primary border-b-2 border-primary' 
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -396,7 +502,7 @@ export default function AccountsDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === 'history' 
                 ? 'bg-primary/10 text-primary border-b-2 border-primary' 
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -543,6 +649,12 @@ export default function AccountsDashboard() {
                           {payment.reference_number && (
                             <p className="text-xs font-mono mt-1 text-primary">Ref: {payment.reference_number}</p>
                           )}
+                          <button
+                            onClick={() => handleViewPaymentProof(payment)}
+                            className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary hover:underline bg-primary/10 px-3 py-1.5 rounded-lg w-fit transition-colors"
+                          >
+                            <Eye size={14} /> View Payment Proof Screenshot
+                          </button>
                         </div>
                       </div>
 
@@ -713,6 +825,331 @@ export default function AccountsDashboard() {
               )}
             </div>
           )}
+
+          {/* SALES PERFORMANCE REPORT TAB */}
+          {activeTab === 'sales_report' && (() => {
+            const salesSummary = allJobsReport.reduce((acc: any, job: any) => {
+              const sId = job.sales_employee_id || 'unassigned';
+              const sName = job.sales_employee?.full_name || 'Unassigned / Direct Client';
+              if (!acc[sId]) {
+                acc[sId] = {
+                  name: sName,
+                  totalDeals: 0,
+                  totalBilled: 0,
+                  totalCollected: 0,
+                  totalOutstanding: 0,
+                };
+              }
+              acc[sId].totalDeals += 1;
+              acc[sId].totalBilled += (job.total_fee || 0);
+              acc[sId].totalCollected += (job.advance_amount || 0);
+              acc[sId].totalOutstanding += (job.remaining_amount || 0);
+              return acc;
+            }, {});
+
+            const salesList = Object.values(salesSummary);
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border p-6 rounded-3xl">
+                  <div>
+                    <h3 className="font-syne font-bold text-xl text-foreground">Sales Representatives Performance</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Individual breakdown of deals closed, total revenue invoiced, cash collected, and outstanding balances.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {salesList.map((sales: any, idx: number) => (
+                    <div key={idx} className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-border pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
+                            <Users size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-foreground">{sales.name}</h4>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{sales.totalDeals} Total Deals</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="bg-background border border-border p-2.5 rounded-xl">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold block">Invoiced Revenue</span>
+                          <span className="font-mono font-bold text-foreground text-sm">{sales.totalBilled.toFixed(3)} OMR</span>
+                        </div>
+                        <div className="bg-emerald-500/5 border border-emerald-500/20 p-2.5 rounded-xl">
+                          <span className="text-[10px] text-emerald-600 uppercase font-bold block">Cash Collected</span>
+                          <span className="font-mono font-bold text-emerald-500 text-sm">{sales.totalCollected.toFixed(3)} OMR</span>
+                        </div>
+                        <div className="bg-amber-500/5 border border-amber-500/20 p-2.5 rounded-xl">
+                          <span className="text-[10px] text-amber-600 uppercase font-bold block">Outstanding</span>
+                          <span className="font-mono font-bold text-amber-500 text-sm">{sales.totalOutstanding.toFixed(3)} OMR</span>
+                        </div>
+                        <div className="bg-primary/5 border border-primary/20 p-2.5 rounded-xl">
+                          <span className="text-[10px] text-primary uppercase font-bold block">Est. Comm (5%)</span>
+                          <span className="font-mono font-bold text-primary text-sm">{(sales.totalCollected * 0.05).toFixed(3)} OMR</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* RECEIVABLES AGING TAB */}
+          {activeTab === 'receivables' && (() => {
+            const receivablesJobs = allJobsReport.filter((j: any) => (j.remaining_amount || 0) > 0);
+            const totalReceivable = receivablesJobs.reduce((sum: number, j: any) => sum + (j.remaining_amount || 0), 0);
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border p-6 rounded-3xl">
+                  <div>
+                    <h3 className="font-syne font-bold text-xl text-foreground">Outstanding Customer Receivables</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Clients with remaining unpaid balances, aging status, and instant WhatsApp payment reminder action.</p>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/20 px-6 py-3 rounded-2xl shrink-0">
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest block">Total Outstanding Balance</span>
+                    <span className="font-mono font-black text-2xl text-amber-500">{totalReceivable.toFixed(3)} OMR</span>
+                  </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/20">
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Contact</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Code</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sales Rep</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Total Fee</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Paid</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Balance Due</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {receivablesJobs.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                              No outstanding customer payments! All receivables are fully collected.
+                            </td>
+                          </tr>
+                        ) : (
+                          receivablesJobs.map((job: any) => {
+                            const phoneClean = job.client?.phone?.replace(/[^0-9]/g, '') || '';
+                            const waMsg = encodeURIComponent(`Dear ${job.client?.full_name || 'Client'},\nThis is a payment reminder from OSBIC Accounts regarding Job ${job.job_code}. Outstanding balance: ${job.remaining_amount.toFixed(3)} OMR.\nPlease contact us to finalize payment.\nThank you!`);
+                            const waUrl = phoneClean ? `https://wa.me/${phoneClean}?text=${waMsg}` : null;
+
+                            return (
+                              <tr key={job.id} className="hover:bg-muted/10 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-foreground text-sm">{job.client?.full_name || 'Unknown'}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{job.client?.company_name || 'Individual'}</div>
+                                  {job.client?.phone && <div className="text-xs font-mono text-primary mt-1 flex items-center gap-1"><Phone size={12} /> {job.client?.phone}</div>}
+                                </td>
+                                <td className="px-6 py-4 font-mono font-bold text-sm text-foreground">{job.job_code}</td>
+                                <td className="px-6 py-4 text-xs font-bold text-muted-foreground">{job.sales_employee?.full_name || 'Unassigned'}</td>
+                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</td>
+                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-emerald-500">{(job.advance_amount || 0).toFixed(3)}</td>
+                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-amber-500">{(job.remaining_amount || 0).toFixed(3)}</td>
+                                <td className="px-6 py-4 text-center">
+                                  {waUrl ? (
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors"
+                                    >
+                                      <Phone size={13} /> Send Reminder
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">No phone</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* GOVT FEES PAID TAB */}
+          {activeTab === 'govt_fees' && (() => {
+            const govtJobs = allJobsReport.filter((j: any) => (j.ministry_fee || 0) > 0);
+            const totalGovtPaid = govtJobs.reduce((sum: number, j: any) => sum + (j.ministry_fee || 0), 0);
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border p-6 rounded-3xl">
+                  <div>
+                    <h3 className="font-syne font-bold text-xl text-foreground">Government & Ministry Fees Paid</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Audit log of official government fees paid per service, matching customer, PRO operational staff, and sales representative.</p>
+                  </div>
+                  <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl shrink-0">
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-widest block">Total Govt Fees Paid</span>
+                    <span className="font-mono font-black text-2xl text-primary">{totalGovtPaid.toFixed(3)} OMR</span>
+                  </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/20">
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job & Date</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client Name</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Operations / PRO Staff</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sales Staff</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Govt Fee (OMR)</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Payment Source</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {govtJobs.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                              No government fee records logged yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          govtJobs.map((job: any) => (
+                            <tr key={job.id} className="hover:bg-muted/10 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-mono font-bold text-foreground text-sm">{job.job_code}</div>
+                                <div className="text-[10px] text-muted-foreground">{format(new Date(job.created_at), 'MMM d, yyyy')}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="font-bold text-foreground text-sm">{job.client?.full_name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{job.client?.company_name || 'Individual'}</div>
+                              </td>
+                              <td className="px-6 py-4 text-xs font-bold text-foreground">
+                                {job.ops_employee?.full_name || 'Operations Team'}
+                              </td>
+                              <td className="px-6 py-4 text-xs text-muted-foreground font-bold">
+                                {job.sales_employee?.full_name || 'Unassigned'}
+                              </td>
+                              <td className="px-6 py-4 text-right font-mono text-sm font-bold text-rose-500">
+                                {(job.ministry_fee || 0).toFixed(3)}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
+                                  job.client_pays_ministry_fee ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                }`}>
+                                  {job.client_pays_ministry_fee ? 'Client Card Direct' : 'OSBIC Govt Treasury'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* FINANCIAL STATEMENTS SUITE TAB */}
+          {activeTab === 'financials' && (() => {
+            const totalInvoiced = allJobsReport.reduce((sum: number, j: any) => sum + (j.total_fee || 0), 0);
+            const totalCollected = allJobsReport.reduce((sum: number, j: any) => sum + (j.advance_amount || 0), 0);
+            const totalGovtPaid = allJobsReport.reduce((sum: number, j: any) => sum + (j.ministry_fee || 0), 0);
+            const totalOpsSpent = allJobsReport.reduce((sum: number, j: any) => sum + (j.total_spent || 0), 0);
+            const totalReceivables = allJobsReport.reduce((sum: number, j: any) => sum + (j.remaining_amount || 0), 0);
+
+            const netOperatingProfit = totalCollected - totalGovtPaid - totalOpsSpent;
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border p-6 rounded-3xl">
+                  <div>
+                    <h3 className="font-syne font-bold text-xl text-foreground">Executive Financial Statements Suite</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Real-time Profit & Loss Statement, Balance Sheet Summary, and Cash Flow Audits.</p>
+                  </div>
+                </div>
+
+                {/* P&L Statement Card */}
+                <div className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-4">
+                  <h4 className="font-syne font-bold text-lg text-foreground border-b border-border pb-3 flex items-center gap-2">
+                    <BarChart4 className="text-primary" size={20} /> Profit & Loss Statement (P&L)
+                  </h4>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-border/50 text-sm">
+                      <span className="font-bold text-foreground">Gross Cash Revenue (Verified Collections)</span>
+                      <span className="font-mono font-bold text-emerald-500">{totalCollected.toFixed(3)} OMR</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border/50 text-sm">
+                      <span className="text-muted-foreground pl-4">Less: Government & Ministry Fees Paid</span>
+                      <span className="font-mono font-bold text-rose-500">-{totalGovtPaid.toFixed(3)} OMR</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border/50 text-sm">
+                      <span className="text-muted-foreground pl-4">Less: Approved Operational Expenses</span>
+                      <span className="font-mono font-bold text-rose-500">-{totalOpsSpent.toFixed(3)} OMR</span>
+                    </div>
+                    <div className="flex justify-between items-center py-4 bg-primary/10 px-4 rounded-2xl font-bold text-lg mt-4">
+                      <span className="text-primary font-syne">Net Operating Profit</span>
+                      <span className={`font-mono font-black ${netOperatingProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {netOperatingProfit.toFixed(3)} OMR
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Balance Sheet & Cash Flow Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-4">
+                    <h4 className="font-syne font-bold text-lg text-foreground border-b border-border pb-3 flex items-center gap-2">
+                      <Wallet className="text-emerald-500" size={20} /> Balance Sheet Summary
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-muted-foreground">Current Cash Assets (Vault & Bank)</span>
+                        <span className="font-mono font-bold text-emerald-500">{totalCollected.toFixed(3)} OMR</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-muted-foreground">Accounts Receivable (Outstanding Payments)</span>
+                        <span className="font-mono font-bold text-amber-500">{totalReceivables.toFixed(3)} OMR</span>
+                      </div>
+                      <div className="flex justify-between py-3 font-bold bg-muted/30 px-3 rounded-xl">
+                        <span className="text-foreground">Total Assets</span>
+                        <span className="font-mono text-primary">{(totalCollected + totalReceivables).toFixed(3)} OMR</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-4">
+                    <h4 className="font-syne font-bold text-lg text-foreground border-b border-border pb-3 flex items-center gap-2">
+                      <Activity className="text-blue-500" size={20} /> Cash Flow Audit
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-muted-foreground">Operating Cash Inflow</span>
+                        <span className="font-mono font-bold text-emerald-500">+{totalCollected.toFixed(3)} OMR</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/50">
+                        <span className="text-muted-foreground">Operating Cash Outflow (Govt + Ops)</span>
+                        <span className="font-mono font-bold text-rose-500">-{(totalGovtPaid + totalOpsSpent).toFixed(3)} OMR</span>
+                      </div>
+                      <div className="flex justify-between py-3 font-bold bg-muted/30 px-3 rounded-xl">
+                        <span className="text-foreground">Net Cash Flow</span>
+                        <span className={`font-mono ${(totalCollected - totalGovtPaid - totalOpsSpent) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {(totalCollected - totalGovtPaid - totalOpsSpent).toFixed(3)} OMR
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </motion.div>
       </AnimatePresence>
 
@@ -1020,6 +1457,59 @@ export default function AccountsDashboard() {
                   )}
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Payment Proof Screenshot Modal */}
+      <AnimatePresence>
+        {proofModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProofModalOpen(false)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-card border border-border rounded-3xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-border mb-4">
+                <h3 className="font-syne font-bold text-lg text-foreground flex items-center gap-2">
+                  <Eye className="text-primary" size={20} /> Payment Proof Screenshot / Receipt
+                </h3>
+                <button onClick={() => setProofModalOpen(false)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 flex items-center justify-center overflow-auto min-h-[300px] p-4 bg-background/50 rounded-2xl border border-border/50">
+                {proofLoading ? (
+                  <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+                ) : proofUrl ? (
+                  <img src={proofUrl} alt="Payment Proof" className="max-w-full max-h-[60vh] object-contain rounded-xl border border-border shadow-md" />
+                ) : (
+                  <p className="text-muted-foreground text-sm">No payment proof uploaded or found for this transaction.</p>
+                )}
+              </div>
+
+              {proofUrl && (
+                <div className="pt-4 border-t border-border flex justify-end gap-3 mt-4">
+                  <a
+                    href={proofUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl text-sm flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                  >
+                    <ExternalLink size={14} /> Open Full Size / Download
+                  </a>
+                </div>
+              )}
             </motion.div>
           </div>
         )}

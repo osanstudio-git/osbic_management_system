@@ -223,7 +223,8 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         payment_method: newPayment.method,
         reference_number: newPayment.reference || null,
         notes: finalNotes,
-        recorded_by: profile?.id
+        recorded_by: profile?.id,
+        proof_url: filePath || null,
       } as any).select('*, profiles:recorded_by(full_name)').single();
 
       if (error) throw error;
