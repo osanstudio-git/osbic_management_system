@@ -1146,6 +1146,31 @@ const QuotationBuilder = () => {
                 {/* B2B Proposal Specific Customization Controls */}
                 {formData.metadata?.proposal_type === 'b2b_proposal' && (
                   <div className="pt-3 border-t border-[#0288d1]/20 space-y-3">
+                    <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Partnership Model Display Options</div>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formData.metadata?.show_option_a !== false}
+                            onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, show_option_a: e.target.checked } })}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                          />
+                          Option A (B2B Partnership)
+                        </label>
+
+                        <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formData.metadata?.show_option_b !== false}
+                            onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, show_option_b: e.target.checked } })}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                          />
+                          Option B (Reference Partnership)
+                        </label>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
                         <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Submitted To (Partner / Client)</label>

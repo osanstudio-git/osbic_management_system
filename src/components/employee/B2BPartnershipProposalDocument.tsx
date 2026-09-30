@@ -30,6 +30,10 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
     const pkgExistingCr = invoice.metadata?.pkg_existing_cr ?? 12250;
     const surchargeNote = invoice.metadata?.b2b_surcharge_note || 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.';
 
+    // Option A and Option B toggle flags
+    const showOptionA = invoice.metadata?.show_option_a !== false;
+    const showOptionB = invoice.metadata?.show_option_b !== false;
+
     return (
       <div ref={ref} className="bg-white text-slate-900 w-[794px] max-w-full mx-auto shadow-2xl font-sans print:w-[210mm] print:m-0 print:shadow-none">
         
@@ -224,35 +228,43 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
             <div className="w-full h-[2px] bg-[#0288d1] mb-6" />
 
             {/* Partnership Model Section */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3 pb-1 border-b border-[#0288d1]">
-                <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
-                  PARTNERSHIP MODEL
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
-                  <div className="text-[10px] font-bold text-[#0288d1] uppercase">Option A</div>
-                  <h4 className="font-bold text-slate-900 text-sm mb-1">B2B Partnership</h4>
-                  <p className="text-[10.5px] text-slate-700 leading-relaxed">
-                    Direct business cooperation with structured agreements, defined service levels, and formalized billing arrangements between both organizations.
-                  </p>
+            {(showOptionA || showOptionB) && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3 pb-1 border-b border-[#0288d1]">
+                  <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                    PARTNERSHIP MODEL
+                  </h3>
                 </div>
 
-                <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
-                  <div className="text-[10px] font-bold text-[#0288d1] uppercase">Option B</div>
-                  <h4 className="font-bold text-slate-900 text-sm mb-1">Reference-Based Partnership</h4>
-                  <p className="text-[10.5px] text-slate-700 leading-relaxed">
-                    Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.
-                  </p>
-                </div>
-              </div>
+                <div className={`grid ${showOptionA && showOptionB ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mb-3`}>
+                  {showOptionA && (
+                    <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
+                      <div className="text-[10px] font-bold text-[#0288d1] uppercase">Option A</div>
+                      <h4 className="font-bold text-slate-900 text-sm mb-1">B2B Partnership</h4>
+                      <p className="text-[10.5px] text-slate-700 leading-relaxed">
+                        Direct business cooperation with structured agreements, defined service levels, and formalized billing arrangements between both organizations.
+                      </p>
+                    </div>
+                  )}
 
-              <p className="text-[10.5px] text-slate-700 leading-relaxed italic">
-                Both partnership models are available and terms can be tailored to meet the needs of your organisation. We welcome an open discussion to identify the most suitable arrangement.
-              </p>
-            </div>
+                  {showOptionB && (
+                    <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
+                      <div className="text-[10px] font-bold text-[#0288d1] uppercase">Option B</div>
+                      <h4 className="font-bold text-slate-900 text-sm mb-1">Reference-Based Partnership</h4>
+                      <p className="text-[10.5px] text-slate-700 leading-relaxed">
+                        Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[10.5px] text-slate-700 leading-relaxed italic">
+                  {showOptionA && showOptionB
+                    ? 'Both partnership models are available and terms can be tailored to meet the needs of your organisation. We welcome an open discussion to identify the most suitable arrangement.'
+                    : 'This partnership model terms can be tailored to meet the needs of your organisation. We welcome an open discussion to identify the most suitable arrangement.'}
+                </p>
+              </div>
+            )}
 
             {/* Why Partner With OSBIC Section */}
             <div className="mb-6">
@@ -345,7 +357,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                     </div>
                     <div className="flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                      <span>info@osangroupoman.com</span>
+                      <span>info@osbic.net</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Globe className="w-3.5 h-3.5 text-cyan-300 shrink-0" />

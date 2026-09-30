@@ -100,7 +100,7 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
           <p className="text-gray-600 text-[10.5px]">Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
           <p className="text-gray-600 text-[10.5px]">Muscat, Oman. Landmark: ASAS SERVICE CENTER</p>
           <p className="text-gray-700 text-[10.5px] font-medium pt-1">Phone: +968 72596531, +968 72229827</p>
-          <p className="text-gray-700 text-[10.5px] font-medium">Email: Ayoob@osangroupoman.com</p>
+          <p className="text-gray-700 text-[10.5px] font-medium">Email: info@osbic.net</p>
         </div>
         
         {/* Blue OSBIC Box */}

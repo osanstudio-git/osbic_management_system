@@ -276,7 +276,7 @@ export const downloadInvoice = (
             <p class="text-gray-600 text-[10.5px]">Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
             <p class="text-gray-600 text-[10.5px]">Muscat, Oman. Landmark: ASAS SERVICE CENTER</p>
             <p class="text-gray-700 text-[10.5px] font-medium pt-1">Phone: +968 72596531, +968 72229827</p>
-            <p class="text-gray-700 text-[10.5px] font-medium">Email: Ayoob@osangroupoman.com</p>
+            <p class="text-gray-700 text-[10.5px] font-medium">Email: info@osbic.net</p>
           </div>
           
           <!-- Blue OSBIC Box -->
@@ -496,7 +496,7 @@ export const downloadCustomInvoice = (invoice: any, action: 'download' | 'view' 
             <p class="text-gray-600 text-[10.5px]">Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
             <p class="text-gray-600 text-[10.5px]">Muscat, Oman. Landmark: ASAS SERVICE CENTER</p>
             <p class="text-gray-700 text-[10.5px] font-medium pt-1">Phone: +968 72596531, +968 72229827</p>
-            <p class="text-gray-700 text-[10.5px] font-medium">Email: Ayoob@osangroupoman.com</p>
+            <p class="text-gray-700 text-[10.5px] font-medium">Email: info@osbic.net</p>
           </div>
           
           <!-- Blue OSBIC Box -->
@@ -772,7 +772,7 @@ export const downloadReceipt = (job: any, payment: any, action: 'download' | 'vi
             <p>Building No: 271, Office No: 8, 99 Street, Al Jami Al Akbar Street,</p>
             <p>Muscat, Oman. Landmark ASAS SERVICE CENTER</p>
             <p class="mt-1">Phone no. : +968 72596531, 72229827</p>
-            <p>Email : Ayoob@osangroupoman.com</p>
+            <p>Email : info@osbic.net</p>
           </div>
           
           <!-- Blue OSBIC Box -->
