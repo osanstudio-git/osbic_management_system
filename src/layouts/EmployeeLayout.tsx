@@ -83,7 +83,9 @@ const EmployeeLayout: React.FC = () => {
 
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
-    { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' },
+    ...(profile?.is_saudi_rep || profile?.is_manager ? [
+      { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' }
+    ] : []),
     ...(profile?.is_manager ? [
       { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
       { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
