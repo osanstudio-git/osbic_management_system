@@ -287,3 +287,63 @@ export const useSalesLeaderboard = (branchId: string | null = null) => {
   });
 };
 
+// Saudi & GCC B2B Operations Hook
+export const useAdminB2BStats = () => {
+  return useQuery({
+    queryKey: ['admin', 'b2b-stats'],
+    queryFn: async () => {
+      // 1. Fetch B2B Partners
+      const { data: partners, error: partnersErr } = await supabase
+        .from('b2b_partners')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (partnersErr) console.warn('B2B partners query error:', partnersErr);
+
+      // 2. Fetch Cross-Border Leads
+      const { data: leads, error: leadsErr } = await supabase
+        .from('leads')
+        .select('id, nationality, b2b_flow_type, b2b_partner_id');
+
+      if (leadsErr) console.warn('B2B leads query error:', leadsErr);
+
+      const crossBorderLeads = (leads || []).filter(
+        (l) => l.b2b_flow_type || l.b2b_partner_id || l.nationality === 'Saudi Arabia' || l.nationality === 'Saudi'
+      );
+      const outboundLeads = crossBorderLeads.filter(
+        (l) => l.b2b_flow_type === 'outbound_saudi_exec' || (!l.b2b_flow_type && l.nationality !== 'Saudi Arabia' && l.nationality !== 'Saudi')
+      );
+      const inboundLeads = crossBorderLeads.filter(
+        (l) => l.b2b_flow_type === 'inbound_oman_exec' || (!l.b2b_flow_type && (l.nationality === 'Saudi Arabia' || l.nationality === 'Saudi'))
+      );
+
+      // 3. Fetch Strategic B2B Proposals
+      const { data: quotations, error: quotesErr } = await supabase
+        .from('quotations')
+        .select('id, metadata, grand_total, status');
+
+      if (quotesErr) console.warn('B2B quotations query error:', quotesErr);
+
+      const b2bProposals = (quotations || []).filter(
+        (q: any) => q.metadata?.proposal_type === 'b2b_proposal' || q.metadata?.currency === 'SAR'
+      );
+
+      const totalProposalValueSAR = b2bProposals.reduce(
+        (sum: number, q: any) => sum + (Number(q.grand_total) || 0),
+        0
+      );
+
+      return {
+        partners: partners || [],
+        totalPartnersCount: (partners || []).length,
+        totalCrossBorderLeads: crossBorderLeads.length,
+        outboundCount: outboundLeads.length,
+        inboundCount: inboundLeads.length,
+        b2bProposalsCount: b2bProposals.length,
+        totalProposalValueSAR,
+      };
+    },
+  });
+};
+
+

@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown,
   Briefcase, UserCheck, AlertCircle,
   ChevronRight, Trophy,
-  Wallet, Zap
+  Wallet, Zap, Globe, Building2, Handshake, FileText
 } from 'lucide-react';
 import {
   useAdminDashboardStats,
@@ -17,7 +17,8 @@ import {
   useRecentJobs,
   useTopEmployees,
   useJobDistribution,
-  useSalesLeaderboard
+  useSalesLeaderboard,
+  useAdminB2BStats
 } from '../../hooks/admin/useAdminDashboard';
 import { useAdminLeads } from '../../hooks/shared/useLeads';
 import Skeleton from '../../components/ui/Skeleton';
@@ -63,6 +64,7 @@ const Dashboard = () => {
   const [thisMonthOnly, setThisMonthOnly] = useState(true);
   const { data: employees, isLoading: employeesLoading } = useTopEmployees(selectedBranchId, thisMonthOnly);
   const { data: salesLeaderboard } = useSalesLeaderboard(selectedBranchId);
+  const { data: b2bStats } = useAdminB2BStats();
   
   const { useAllLeadsList } = useAdminLeads();
   const { data: leads } = useAllLeadsList();
@@ -457,6 +459,88 @@ const Dashboard = () => {
             })()}
           </div>
         </motion.div>
+      </section>
+
+      {/* ── Row 3.8: Saudi Arabia & GCC B2B Operations Hub ─────── */}
+      <section className="bg-card border border-emerald-500/20 rounded-[2rem] p-6 lg:p-8 shadow-sm space-y-6 bg-gradient-to-r from-emerald-500/5 via-card to-card">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+              <Globe size={20} />
+            </div>
+            <div>
+              <h4 className="text-lg font-syne font-bold text-foreground flex items-center gap-2">
+                Saudi Arabia & GCC B2B Operations Hub
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Cross-border B2B partner management, Saudi ground execution subcontracting, and inbound setup metrics.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/employee/saudi-b2b"
+            className="px-4 py-2 rounded-xl bg-emerald-500 text-emerald-950 font-bold text-[10px] uppercase tracking-wider hover:bg-emerald-400 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+          >
+            <Building2 size={13} />
+            <span>Open B2B Workspace</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-background border border-border space-y-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block flex items-center gap-1">
+              <Handshake size={12} className="text-emerald-500" /> B2B Partner Firms
+            </span>
+            <p className="text-2xl font-bold font-mono text-foreground">{b2bStats?.totalPartnersCount ?? 0}</p>
+            <span className="text-[10px] text-emerald-500 font-bold">Verified Subcontractors</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-background border border-border space-y-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block flex items-center gap-1">
+              <Globe size={12} className="text-blue-500" /> Cross-Border Deals
+            </span>
+            <p className="text-2xl font-bold font-mono text-foreground">{b2bStats?.totalCrossBorderLeads ?? 0}</p>
+            <span className="text-[10px] text-muted-foreground">
+              Outbound: {b2bStats?.outboundCount ?? 0} | Inbound: {b2bStats?.inboundCount ?? 0}
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-background border border-border space-y-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block flex items-center gap-1">
+              <FileText size={12} className="text-primary" /> Strategic Proposals
+            </span>
+            <p className="text-2xl font-bold font-mono text-foreground">{b2bStats?.b2bProposalsCount ?? 0}</p>
+            <span className="text-[10px] text-primary font-bold">B2B Proposal Models</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-background border border-border space-y-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block flex items-center gap-1">
+              <Wallet size={12} className="text-emerald-500" /> Proposal Vol. (SAR)
+            </span>
+            <p className="text-2xl font-bold font-mono text-emerald-500">{(b2bStats?.totalProposalValueSAR ?? 0).toLocaleString()} SAR</p>
+            <span className="text-[10px] text-muted-foreground">Saudi Riyals Quoted</span>
+          </div>
+        </div>
+
+        {/* Active B2B Partner Firms List Preview */}
+        {b2bStats?.partners && b2bStats.partners.length > 0 && (
+          <div className="bg-background/50 border border-border rounded-2xl p-4 overflow-x-auto">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Verified B2B Subcontractor Partners</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {b2bStats.partners.slice(0, 3).map((partner: any) => (
+                <div key={partner.id} className="p-3 bg-card border border-border rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">{partner.firm_name}</p>
+                    <p className="text-[10px] text-muted-foreground">{partner.contact_person} • {partner.country}</p>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 uppercase">
+                    {partner.service_scope}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Sales Revenue Leaderboard Panel ── */}
