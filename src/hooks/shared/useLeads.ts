@@ -102,7 +102,26 @@ export const useLeads = (employeeId?: string) => {
           .order('name', { ascending: true });
 
         if (error) throw error;
-        return data;
+
+        // Deduplicate lead sources by normalized name to avoid duplicate entries in UI
+        const seenNames = new Set<string>();
+        const uniqueSources: typeof data = [];
+
+        for (const item of (data || [])) {
+          let cleanName = item.name.trim();
+          // Normalize website variants (e.g. Website (setup.osbic.net) -> Website)
+          if (cleanName.toLowerCase().startsWith('website')) {
+            cleanName = 'Website';
+          }
+
+          const key = cleanName.toLowerCase();
+          if (!seenNames.has(key)) {
+            seenNames.add(key);
+            uniqueSources.push({ ...item, name: cleanName });
+          }
+        }
+
+        return uniqueSources;
       }
     });
   };
