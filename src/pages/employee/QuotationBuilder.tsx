@@ -792,7 +792,28 @@ const QuotationBuilder = () => {
       debounceTimerRef.current = setTimeout(async () => {
         if (isSavingRef.current) return;
         if (!formData.client_id && !formData.lead_id) return;
-        if (!formData.items || formData.items.length === 0 || formData.items.some(i => !i.description)) return;
+        
+        const isB2BProposal = formData.metadata?.proposal_type === 'b2b_proposal';
+        let itemsToSave = [...(formData.items || [])];
+        
+        if (isB2BProposal) {
+          if (itemsToSave.length === 0) {
+            itemsToSave = [{
+              id: crypto.randomUUID(),
+              description: 'Strategic B2B Partnership Proposal - Oman Company Formation Services',
+              unit_price: Number(formData.metadata?.pkg_existing_cr || 12250),
+              quantity: 1,
+              amount: Number(formData.metadata?.pkg_existing_cr || 12250)
+            }];
+          } else {
+            itemsToSave = itemsToSave.map(item => ({
+              ...item,
+              description: item.description?.trim() || 'Strategic B2B Partnership Proposal - Oman Company Formation Services'
+            }));
+          }
+        } else {
+          if (!itemsToSave || itemsToSave.length === 0 || itemsToSave.some(i => !i.description?.trim())) return;
+        }
 
         isSavingRef.current = true;
         setAutoSaveStatus('saving');
@@ -800,6 +821,7 @@ const QuotationBuilder = () => {
         try {
           const quotationPayload: Invoice = {
             ...formData,
+            items: itemsToSave,
             type: 'quotation',
             employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
             metadata: {
@@ -852,8 +874,29 @@ const QuotationBuilder = () => {
     if (!formData.client_id && !formData.lead_id) {
       return toast.error('Please select a client or lead');
     }
-    if (!formData.items || formData.items.length === 0 || formData.items.some(i => !i.description)) {
-      return toast.error('Please complete all item descriptions');
+
+    const isB2BProposal = formData.metadata?.proposal_type === 'b2b_proposal';
+    let itemsToSave = [...(formData.items || [])];
+
+    if (isB2BProposal) {
+      if (itemsToSave.length === 0) {
+        itemsToSave = [{
+          id: crypto.randomUUID(),
+          description: 'Strategic B2B Partnership Proposal - Oman Company Formation Services',
+          unit_price: Number(formData.metadata?.pkg_existing_cr || 12250),
+          quantity: 1,
+          amount: Number(formData.metadata?.pkg_existing_cr || 12250)
+        }];
+      } else {
+        itemsToSave = itemsToSave.map(item => ({
+          ...item,
+          description: item.description?.trim() || 'Strategic B2B Partnership Proposal - Oman Company Formation Services'
+        }));
+      }
+    } else {
+      if (!itemsToSave || itemsToSave.length === 0 || itemsToSave.some(i => !i.description?.trim())) {
+        return toast.error('Please complete all item descriptions');
+      }
     }
 
     isSavingRef.current = true;
@@ -875,6 +918,7 @@ const QuotationBuilder = () => {
 
       const quotationPayload: Invoice = {
         ...formData,
+        items: itemsToSave,
         type: 'quotation', // Force type to quotation
         employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
         metadata: {

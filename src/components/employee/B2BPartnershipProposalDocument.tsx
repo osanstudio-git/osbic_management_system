@@ -125,69 +125,26 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 </div>
 
                 {/* Price Row */}
-                <div className="grid grid-cols-2 bg-[#ebf8ff] border-b border-[#0073b7]/30 text-slate-900 p-3">
+                <div className="grid grid-cols-2 bg-[#ebf8ff] text-slate-900 p-4">
                   {/* New CR Column */}
-                  <div className="border-r border-[#0073b7]/30 pr-3 space-y-2">
+                  <div className="border-r border-[#0073b7]/30 pr-4 space-y-2">
                     <div>
                       <span className="text-[10px] font-bold text-[#0073b7] uppercase block">Without Attestation</span>
-                      <span className="text-lg font-black text-[#0073b7]">{currSym} {pkgNewCrNoAttest.toLocaleString()}</span>
+                      <span className="text-xl font-black text-[#0073b7]">{currSym} {pkgNewCrNoAttest.toLocaleString()}</span>
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-[#0073b7] uppercase block">With Attestation</span>
-                      <span className="text-lg font-black text-[#0073b7]">{currSym} {pkgNewCrWithAttest.toLocaleString()}</span>
+                      <span className="text-xl font-black text-[#0073b7]">{currSym} {pkgNewCrWithAttest.toLocaleString()}</span>
                     </div>
                   </div>
 
                   {/* Existing CR Column */}
-                  <div className="pl-3 space-y-1">
-                    <span className="text-[10px] font-bold text-[#0073b7] uppercase block">All-Inclusive Package</span>
-                    <span className="text-xl font-black text-[#0073b7]">{currSym} {pkgExistingCr.toLocaleString()}</span>
-                    <p className="text-[10px] text-slate-600 font-medium">Includes Audit, MOA & Attestation</p>
-                  </div>
-                </div>
-
-                {/* Required Documents Row */}
-                <div className="grid grid-cols-2 bg-white border-b border-[#0073b7]/30 p-3 text-[10.5px]">
-                  <div className="border-r border-[#0073b7]/30 pr-3">
-                    <div className="font-bold text-[#0073b7] mb-1">Required Documents</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                      <li>Passport copy</li>
-                      <li>Passport with selfie</li>
-                      <li>Email address</li>
-                      <li>Phone number</li>
-                      <li>Business activity list</li>
-                      <li>Proposed company name(s)</li>
-                    </ul>
-                  </div>
-
-                  <div className="pl-3">
-                    <div className="font-bold text-[#0073b7] mb-1">Required Documents</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                      <li>Passport copy & Iqama copy</li>
-                      <li>Passport with selfie</li>
-                      <li>Email address</li>
-                      <li>Phone number</li>
-                      <li>Power of Attorney (POA)</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Timeline Row */}
-                <div className="grid grid-cols-2 bg-[#ebf8ff] p-3 text-[10.5px]">
-                  <div className="border-r border-[#0073b7]/30 pr-3">
-                    <div className="font-bold text-[#0073b7] mb-1">Processing Timeline</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                      <li>Name approval: Same day</li>
-                      <li>CR issuance: Same day (post-approval)</li>
-                      <li>Attestation: Within 2 business days</li>
-                    </ul>
-                  </div>
-
-                  <div className="pl-3">
-                    <div className="font-bold text-[#0073b7] mb-1">Processing Timeline</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                      <li>Complete documentation: Within 10 working days</li>
-                    </ul>
+                  <div className="pl-4 space-y-2 flex flex-col justify-center">
+                    <div>
+                      <span className="text-[10px] font-bold text-[#0073b7] uppercase block">All-Inclusive Package</span>
+                      <span className="text-2xl font-black text-[#0073b7]">{currSym} {pkgExistingCr.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-600 font-medium">Includes Audit, MOA & Attestation Services</p>
                   </div>
                 </div>
               </div>
