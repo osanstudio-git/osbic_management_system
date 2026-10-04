@@ -24,6 +24,9 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
     const preparedBy = invoice.metadata?.b2b_prepared_by || invoice.employee?.full_name || profile?.full_name || 'ANSAR NV';
     const proposalTitle = invoice.metadata?.b2b_proposal_title || 'Oman Company Formation Services';
 
+    const clientPhone = invoice.metadata?.b2b_submitted_phone || invoice.metadata?.recipient_phone || invoice.client?.phone || invoice.lead?.contact_phone || invoice.lead?.contact_whatsapp || '';
+    const ourPhone = invoice.metadata?.b2b_our_phone || '+968 72596531, +968 72229827';
+
     // Pricing package values (defaulting to image values if not customized)
     const pkgNewCrNoAttest = invoice.metadata?.pkg_new_cr_no_attest ?? 2000;
     const pkgNewCrWithAttest = invoice.metadata?.pkg_new_cr_with_attest ?? 4000;
@@ -74,6 +77,12 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 <div className="font-bold text-slate-900 text-sm uppercase">
                   {submittedTo}
                 </div>
+                {clientPhone && (
+                  <div className="text-[11px] font-semibold text-slate-700 mt-1 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#0073b7]" />
+                    <span>{clientPhone}</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -83,8 +92,12 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 <div className="font-bold text-slate-900 text-sm uppercase">
                   OSBIC International LLC
                 </div>
+                <div className="text-[11px] font-semibold text-slate-700 mt-1 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-[#0073b7]" />
+                  <span>{ourPhone}</span>
+                </div>
                 
-                <div className="mt-2">
+                <div className="mt-2 pt-2 border-t border-[#bee3f8]/60">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-[#0073b7] mr-1">
                     PREPARED BY:
                   </span>
@@ -310,7 +323,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                      <span>+968 9216 4213</span>
+                      <span>+968 72596531, +968 72229827</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5 text-cyan-300 shrink-0" />

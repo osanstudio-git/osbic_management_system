@@ -144,6 +144,7 @@ const QuotationBuilder = () => {
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [restoredDraftInfo, setRestoredDraftInfo] = useState<{ savedAt: string } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [filterB2BOnly, setFilterB2BOnly] = useState<boolean>(false);
 
   // Concurrency Mutex & Timers
   const isSavingRef = useRef<boolean>(false);
@@ -268,6 +269,7 @@ const QuotationBuilder = () => {
       const urlCurrency = params.get('currency');
 
       if (urlType === 'b2b_proposal') {
+        setFilterB2BOnly(true);
         setFormData(prev => ({
           ...prev,
           currency: urlCurrency || prev.currency || 'SAR',
@@ -1274,7 +1276,18 @@ const QuotationBuilder = () => {
 
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={filterB2BOnly}
+                        onChange={e => setFilterB2BOnly(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 accent-emerald-600 cursor-pointer"
+                      />
+                      <span>Filter B2B Partners & Corporate Clients Only 🌐</span>
+                    </label>
+                  </div>
                   <select
                     value={formData.client_id ? `client:${formData.client_id}` : (formData.lead_id ? `lead:${formData.lead_id}` : '')}
                     onChange={e => {
@@ -1294,6 +1307,8 @@ const QuotationBuilder = () => {
                             recipient_name: selectedClient?.full_name || '',
                             company_name: selectedClient?.company_name || '',
                             recipient_phone: selectedClient?.phone || '',
+                            b2b_submitted_to: selectedClient?.company_name || selectedClient?.full_name || '',
+                            b2b_submitted_phone: selectedClient?.phone || '',
                             recipient_display_mode: selectedClient?.company_name ? 'both' : 'contact'
                           }
                         });
@@ -1312,6 +1327,8 @@ const QuotationBuilder = () => {
                             recipient_name: selectedLead?.contact_name || '',
                             company_name: selectedLead?.company_name || '',
                             recipient_phone: selectedLead?.contact_phone || '',
+                            b2b_submitted_to: selectedLead?.company_name || selectedLead?.contact_name || '',
+                            b2b_submitted_phone: selectedLead?.contact_phone || selectedLead?.contact_whatsapp || '',
                             recipient_display_mode: selectedLead?.company_name ? 'both' : 'contact'
                           }
                         });
@@ -1329,21 +1346,25 @@ const QuotationBuilder = () => {
                     className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
                   >
                     <option value="">-- Choose Client or Lead --</option>
-                    <optgroup label="Active Clients">
+                    <optgroup label={filterB2BOnly ? "🌐 B2B Partners & Corporate Clients" : "Active Clients"}>
                       {formData.client && !activeClients.some(c => c.id === formData.client.id) && (
                         <option value={`client:${formData.client.id}`}>{formData.client.full_name} ({formData.client.company_name || 'Individual'})</option>
                       )}
-                      {activeClients.map(c => (
-                        <option key={c.id} value={`client:${c.id}`}>{c.full_name} ({c.company_name || 'Individual'})</option>
-                      ))}
+                      {activeClients
+                        .filter(c => !filterB2BOnly || c.company_name || (c as any).is_b2b)
+                        .map(c => (
+                          <option key={c.id} value={`client:${c.id}`}>{c.full_name} ({c.company_name || 'Individual'})</option>
+                        ))}
                     </optgroup>
-                    <optgroup label="Active Leads">
+                    <optgroup label={filterB2BOnly ? "🌐 B2B Cross-Border Leads" : "Active Leads"}>
                       {formData.lead && !leads?.some(l => l.id === formData.lead.id) && (
                         <option value={`lead:${formData.lead.id}`}>{formData.lead.contact_name} ({formData.lead.company_name || 'Individual Lead'})</option>
                       )}
-                      {leads?.map(l => (
-                        <option key={l.id} value={`lead:${l.id}`}>{l.contact_name} ({l.company_name || 'Individual Lead'})</option>
-                      ))}
+                      {leads
+                        ?.filter(l => !filterB2BOnly || (l as any).is_b2b || (l as any).b2b_flow_type || (l as any).b2b_partner_id || l.company_name || l.nationality?.toLowerCase().includes('saudi') || l.nationality?.toLowerCase().includes('ksa'))
+                        .map(l => (
+                          <option key={l.id} value={`lead:${l.id}`}>{l.contact_name} ({l.company_name || 'Individual Lead'})</option>
+                        ))}
                     </optgroup>
                   </select>
                 </div>
