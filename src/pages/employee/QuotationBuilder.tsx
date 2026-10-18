@@ -4,7 +4,7 @@ import {
   ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, 
   CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
   Camera, Layers, Settings2, Sliders, UserCheck, User, 
-  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle 
+  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle, ArrowUpRight 
 } from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
@@ -217,6 +217,12 @@ const QuotationBuilder = () => {
   // Handle Initial Data Loading & Draft Recovery
   useEffect(() => {
     if (initialData && !isNew) {
+      // If this quotation is a B2B Strategic Proposal, redirect to dedicated B2B builder
+      if (initialData.metadata?.proposal_type === 'b2b_proposal') {
+        navigate(`/employee/b2b/proposals/${id}`, { replace: true });
+        return;
+      }
+
       const initCompanyName = initialData.metadata?.company_name || initialData.client?.company_name || initialData.lead?.company_name || '';
       const initContactName = initialData.metadata?.recipient_name || initialData.client?.full_name || initialData.lead?.contact_name || '';
       const initPhone = initialData.metadata?.recipient_phone || initialData.client?.phone || initialData.lead?.contact_phone || '';
@@ -269,22 +275,11 @@ const QuotationBuilder = () => {
       const urlCurrency = params.get('currency');
 
       if (urlType === 'b2b_proposal') {
-        setFilterB2BOnly(true);
-        setFormData(prev => ({
-          ...prev,
-          currency: urlCurrency || prev.currency || 'SAR',
-          metadata: {
-            ...prev.metadata,
-            proposal_type: 'b2b_proposal',
-            b2b_prepared_by: profile?.full_name || 'ANSAR NV',
-            b2b_proposal_title: 'Oman Company Formation Services',
-            pkg_new_cr_no_attest: 2000,
-            pkg_new_cr_with_attest: 4000,
-            pkg_existing_cr: 12250,
-            b2b_surcharge_note: 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
-          }
-        }));
-      } else if (urlCurrency) {
+        navigate(`/employee/b2b/proposals/new${window.location.search}`, { replace: true });
+        return;
+      }
+
+      if (urlCurrency) {
         setFormData(prev => ({
           ...prev,
           currency: urlCurrency
@@ -1159,32 +1154,15 @@ const QuotationBuilder = () => {
 
                   <button
                     type="button"
-                    onClick={() => setFormData({
-                      ...formData,
-                      currency: formData.currency === 'OMR' ? 'SAR' : formData.currency,
-                      metadata: { 
-                        ...formData.metadata, 
-                        proposal_type: 'b2b_proposal',
-                        b2b_submitted_to: formData.metadata?.b2b_submitted_to || formData.metadata?.company_name || formData.client?.company_name || formData.lead?.company_name || '',
-                        b2b_prepared_by: formData.metadata?.b2b_prepared_by || profile?.full_name || 'ANSAR NV',
-                        b2b_proposal_title: formData.metadata?.b2b_proposal_title || 'Oman Company Formation Services',
-                        pkg_new_cr_no_attest: formData.metadata?.pkg_new_cr_no_attest ?? 2000,
-                        pkg_new_cr_with_attest: formData.metadata?.pkg_new_cr_with_attest ?? 4000,
-                        pkg_existing_cr: formData.metadata?.pkg_existing_cr ?? 12250,
-                        b2b_surcharge_note: formData.metadata?.b2b_surcharge_note || 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
-                      }
-                    })}
-                    className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                      formData.metadata?.proposal_type === 'b2b_proposal'
-                        ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-md'
-                        : 'bg-card border-border hover:bg-muted text-muted-foreground'
-                    }`}
+                    onClick={() => navigate('/employee/b2b/proposals/new')}
+                    className="p-3 rounded-xl text-left border transition-all flex flex-col justify-between bg-card border-border hover:border-cyan-500 hover:bg-muted text-foreground group"
                   >
                     <div>
-                      <div className="font-bold text-xs flex items-center gap-1">
-                        <span>🤝 Strategic B2B Proposal</span>
+                      <div className="font-bold text-xs flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 group-hover:translate-x-0.5 transition-transform">
+                        <span>🤝 Dedicated B2B Proposal Form</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
                       </div>
-                      <div className="text-[10px] opacity-80 mt-0.5">2-Page Partnership Proposal</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Open dedicated 2-page partnership builder</div>
                     </div>
                   </button>
                 </div>

@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2, Globe, ArrowUpRight, ArrowDownLeft, Plus, Search,
-  DollarSign, FileText, ShieldCheck, Handshake, X
+  DollarSign, FileText, ShieldCheck, Handshake, X, ExternalLink, Printer
 } from 'lucide-react';
 import { useB2BPartners, useCreateB2BPartner } from '../../hooks/shared/useB2BPartners';
 import type { Lead } from '../../hooks/shared/useLeads';
+import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useCurrencyRates } from '../../hooks/shared/useCurrencyRates';
 import { supabase } from '../../lib/supabase';
 
@@ -26,12 +27,32 @@ export default function SaudiB2BWorkspace() {
       return (data || []) as unknown as Lead[];
     }
   });
+
+  const { data: b2bProposals = [], refetch: refetchProposals } = useQuery<Invoice[]>({
+    queryKey: ['b2b_strategic_proposals_list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          client:profiles!client_id(id, full_name, company_name, email, phone),
+          lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
+          employee:profiles!employee_id(id, full_name)
+        `)
+        .eq('type', 'quotation')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return ((data || []) as Invoice[]).filter(inv => inv.metadata?.proposal_type === 'b2b_proposal');
+    }
+  });
+
   const { data: currencyData } = useCurrencyRates();
   const rates = currencyData?.rates || {};
   const createPartnerMutation = useCreateB2BPartner();
 
   // State
-  const [activeTab, setActiveTab] = useState<'outbound' | 'inbound' | 'partners'>('outbound');
+  const [activeTab, setActiveTab] = useState<'outbound' | 'inbound' | 'partners' | 'proposals'>('outbound');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddPartnerModal, setShowAddPartnerModal] = useState(false);
   const [selectedLeadForAssign, setSelectedLeadForAssign] = useState<Lead | null>(null);
@@ -83,6 +104,13 @@ export default function SaudiB2BWorkspace() {
     p.name.toLowerCase().includes(lowerSearch) ||
     p.contact_person?.toLowerCase().includes(lowerSearch)
   );
+
+  const filteredProposals = b2bProposals.filter(p => {
+    if (!lowerSearch) return true;
+    const recipient = p.metadata?.b2b_submitted_to || p.client?.company_name || p.lead?.company_name || p.client?.full_name || p.lead?.contact_name || '';
+    const title = p.metadata?.b2b_proposal_title || '';
+    return recipient.toLowerCase().includes(lowerSearch) || title.toLowerCase().includes(lowerSearch);
+  });
 
   // Metrics
   const outboundCount = rawOutboundLeads.length;
@@ -171,7 +199,7 @@ export default function SaudiB2BWorkspace() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => navigate('/employee/quotations/new?type=b2b_proposal&currency=SAR')}
+              onClick={() => navigate('/employee/b2b/proposals/new')}
               className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-cyan-500/25 transition flex items-center gap-2 text-xs"
             >
               <FileText className="w-4 h-4" /> Create B2B Partnership Proposal
@@ -201,20 +229,23 @@ export default function SaudiB2BWorkspace() {
             <div className="text-[11px] text-emerald-300 font-medium mt-0.5">Saudi & Oman Partners</div>
           </div>
 
+          <div 
+            onClick={() => setActiveTab('proposals')}
+            className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15 cursor-pointer hover:bg-white/15 transition"
+          >
+            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
+              <FileText className="w-3.5 h-3.5 text-cyan-400" /> Strategic Proposals
+            </div>
+            <div className="text-2xl font-bold text-white mt-1">{b2bProposals.length}</div>
+            <div className="text-[11px] text-cyan-300 font-medium mt-0.5">Click to view proposals</div>
+          </div>
+
           <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
             <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
               <ArrowUpRight className="w-3.5 h-3.5 text-blue-400" /> Outbound KSA Deals
             </div>
             <div className="text-2xl font-bold text-white mt-1">{outboundCount}</div>
             <div className="text-[11px] text-blue-300 font-medium mt-0.5">Oman Client → KSA Exec</div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
-            <div className="text-slate-300 text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider">
-              <ArrowDownLeft className="w-3.5 h-3.5 text-amber-400" /> Inbound Oman Deals
-            </div>
-            <div className="text-2xl font-bold text-white mt-1">{inboundCount}</div>
-            <div className="text-[11px] text-amber-300 font-medium mt-0.5">Saudi Client → Oman Exec</div>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/15">
@@ -274,6 +305,21 @@ export default function SaudiB2BWorkspace() {
             B2B Partner Firms
             <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-mono font-bold">
               {partners.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('proposals')}
+            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+              activeTab === 'proposals'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <FileText className="w-4 h-4" /> 
+            Strategic Proposals
+            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 font-mono font-bold">
+              {b2bProposals.length}
             </span>
           </button>
         </div>
@@ -388,6 +434,13 @@ export default function SaudiB2BWorkspace() {
                                 {partner ? 'Manage B2B' : 'Assign Partner'}
                               </button>
                               <button
+                                onClick={() => navigate(`/employee/b2b/proposals/new?lead_id=${lead.id}`)}
+                                className="px-3 py-1.5 bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/25 text-xs rounded-xl font-bold transition-all border border-cyan-500/30"
+                                title="Create B2B Proposal"
+                              >
+                                B2B Proposal
+                              </button>
+                              <button
                                 onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}&currency=SAR`)}
                                 className="px-3 py-1.5 bg-muted text-foreground hover:bg-muted/80 text-xs rounded-xl font-bold transition-all border border-border"
                                 title="Create SAR Quote"
@@ -414,47 +467,158 @@ export default function SaudiB2BWorkspace() {
             const assignedCount = crossBorderLeads.filter(l => l.b2b_partner_id === partner.id).length;
 
             return (
-              <div key={partner.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-emerald-500/50 transition">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-base border border-emerald-500/30">
-                      {partner.name.substring(0, 2).toUpperCase()}
+              <div key={partner.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:border-emerald-500/50 transition flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-base border border-emerald-500/30">
+                        {partner.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground text-base">{partner.name}</h3>
+                        <span className="text-xs text-muted-foreground">
+                          {partner.country === 'KSA' ? '🇸🇦 Saudi Arabia Firm' : '🇴🇲 Oman Firm'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-foreground text-base">{partner.name}</h3>
-                      <span className="text-xs text-muted-foreground">
-                        {partner.country === 'KSA' ? '🇸🇦 Saudi Arabia Firm' : '🇴🇲 Oman Firm'}
-                      </span>
+                    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                      partner.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'
+                    }`}>
+                      {partner.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Contact Person:</span>
+                      <span className="font-medium text-foreground">{partner.contact_person || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Email / Phone:</span>
+                      <span className="font-medium text-foreground">{partner.contact_email || partner.contact_phone || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Partner Role:</span>
+                      <span className="capitalize font-medium text-emerald-500">{partner.partner_type}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Assigned Deals:</span>
+                      <span className="font-bold text-foreground">{assignedCount} Leads/Jobs</span>
                     </div>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
-                    partner.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'
-                  }`}>
-                    {partner.status}
-                  </span>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Contact Person:</span>
-                    <span className="font-medium text-foreground">{partner.contact_person || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Email / Phone:</span>
-                    <span className="font-medium text-foreground">{partner.contact_email || partner.contact_phone || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Partner Role:</span>
-                    <span className="capitalize font-medium text-emerald-500">{partner.partner_type}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Assigned Deals:</span>
-                    <span className="font-bold text-foreground">{assignedCount} Leads/Jobs</span>
-                  </div>
+                <div className="mt-4 pt-3 border-t border-border">
+                  <button
+                    onClick={() => navigate(`/employee/b2b/proposals/new?partner_id=${partner.id}`)}
+                    className="w-full py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-700 dark:text-cyan-300 font-bold text-xs rounded-xl border border-cyan-500/30 transition flex items-center justify-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Create B2B Proposal
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* TAB CONTENT 4: STRATEGIC PROPOSALS */}
+      {activeTab === 'proposals' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-card border border-border p-4 rounded-2xl">
+            <div>
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-500" />
+                Strategic B2B Partnership Proposals
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                All 2-page partnership proposals generated for Saudi and GCC corporate partners in SAR.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/employee/b2b/proposals/new')}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> New Proposal
+            </button>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-muted/70 text-xs uppercase text-muted-foreground font-semibold border-b border-border">
+                  <tr>
+                    <th className="px-6 py-4">Submitted To (Partner / Client)</th>
+                    <th className="px-6 py-4">Proposal Scope</th>
+                    <th className="px-6 py-4">Package Value (SAR)</th>
+                    <th className="px-6 py-4">Prepared By</th>
+                    <th className="px-6 py-4">Created Date</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredProposals.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                        <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                        No B2B proposals found. Click <strong>"New Proposal"</strong> or generate one from any B2B partner.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProposals.map((proposal) => {
+                      const recipientName = proposal.metadata?.b2b_submitted_to || proposal.client?.company_name || proposal.lead?.company_name || proposal.client?.full_name || proposal.lead?.contact_name || 'N/A';
+                      const phone = proposal.metadata?.b2b_submitted_phone || proposal.client?.phone || proposal.lead?.contact_phone || '';
+                      const title = proposal.metadata?.b2b_proposal_title || 'Oman Company Formation Services';
+                      const preparedBy = proposal.metadata?.b2b_prepared_by || (proposal as any).employee?.full_name || 'OSBIC TEAM';
+                      const createdDate = (proposal as any).created_at ? new Date((proposal as any).created_at).toLocaleDateString() : 'Recent';
+                      const amount = proposal.total_amount || proposal.metadata?.pkg_existing_cr || 12250;
+
+                      return (
+                        <tr key={proposal.id} className="hover:bg-muted/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-foreground text-sm uppercase">{recipientName}</div>
+                            {phone && (
+                              <div className="text-xs text-muted-foreground font-mono mt-0.5">{phone}</div>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-foreground text-xs">{title}</div>
+                            <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                              2-Page Partnership Model
+                            </span>
+                          </td>
+
+                          <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400 text-sm font-mono">
+                            {Number(amount).toLocaleString()} {proposal.currency || 'SAR'}
+                          </td>
+
+                          <td className="px-6 py-4 text-xs font-medium text-foreground">
+                            {preparedBy}
+                          </td>
+
+                          <td className="px-6 py-4 text-xs text-muted-foreground">
+                            {createdDate}
+                          </td>
+
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => navigate(`/employee/b2b/proposals/${proposal.id}`)}
+                                className="px-3 py-1.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 text-xs rounded-xl font-bold transition-all border border-emerald-500/30"
+                              >
+                                View / Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
