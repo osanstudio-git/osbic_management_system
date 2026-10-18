@@ -3,7 +3,7 @@ import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCurrencyConfig } from '../../hooks/shared/useCurrencyRates';
 import { 
-  Zap, FileText, Briefcase, DollarSign, Users, ShieldCheck, Phone, Mail, Globe, MapPin, Landmark, Smartphone 
+  Zap, FileText, Briefcase, DollarSign, Users, ShieldCheck, Phone, Mail, Globe, MapPin, Building
 } from 'lucide-react';
 
 interface B2BProposalDocumentProps {
@@ -34,10 +34,6 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
     // Page 1: Introduction text
     const introP1 = meta.b2b_intro_p1 || 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.';
     const introP2 = meta.b2b_intro_p2 || 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.';
-
-    // Page 1: Column Headers
-    const pkgNewCrTitle = meta.pkg_new_cr_title || 'NEW COMPANY REGISTRATION (CR)';
-    const pkgExistingCrTitle = meta.pkg_existing_cr_title || 'EXISTING COMPANY (CR) PACKAGE';
 
     // Page 1: New CR Package Details
     const pkgNewCrServicesT1: string[] = meta.pkg_new_cr_services_t1 
@@ -112,31 +108,36 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
     // Page 3: Bank Account Details
     const showBankDetails = meta.show_bank_details !== false;
-    const bankMuscatCustomer = meta.bank_muscat_customer || 'OSBIC INTERNATIONAL LLC';
+    const bankMuscatName = meta.bank_muscat_name || 'OSBIC INTERNATIONAL LLC';
     const bankMuscatSwift = meta.bank_muscat_swift || 'BMUSOMRXXX';
     const bankMuscatIban = meta.bank_muscat_iban || 'OM550270423081077790019';
-    const bankMuscatAcc = meta.bank_muscat_acc || '0423081077790019';
+    const bankMuscatAccount = meta.bank_muscat_account || '0423081077790019';
 
-    const bankDhofarCustomer = meta.bank_dhofar_customer || 'OSBIC INTERNATIONAL LLC';
+    const bankDhofarName = meta.bank_dhofar_name || 'OSBIC INTERNATIONAL LLC';
     const bankDhofarSwift = meta.bank_dhofar_swift || 'BDOFOMRUXXX';
     const bankDhofarIban = meta.bank_dhofar_iban || 'OM390250001045788333002';
-    const bankDhofarAcc = meta.bank_dhofar_acc || '01045788333002';
+    const bankDhofarAccount = meta.bank_dhofar_account || '01045788333002';
 
-    const mobileBankingNum = meta.mobile_banking_num || '72229827';
+    const mobileBankingNumber = meta.mobile_banking_number || '72229827';
 
-    // Page 4: Selfie Guide & Contact
+    // Page 4: Selfie Guide
     const showSelfieGuide = meta.show_selfie_guide !== false;
 
     // Helper to determine if a page should be shown in preview
     const showP1 = activePagePreview === 'all' || activePagePreview === '1';
     const showP2 = activePagePreview === 'all' || activePagePreview === '2';
-    const showP3 = (activePagePreview === 'all' && showBankDetails) || activePagePreview === '3';
-    const showP4 = activePagePreview === 'all' || activePagePreview === '4';
+    const showP3 = (activePagePreview === 'all' || activePagePreview === '3') && showBankDetails;
+    const showP4 = activePagePreview === 'all' || activePagePreview === '4' || (!showBankDetails && activePagePreview === '3');
+
+    // Page numbering helper
+    const pageNumBank = 3;
+    const pageNumContact = showBankDetails ? 4 : 3;
 
     return (
       <div 
         ref={ref} 
-        className="bg-white text-slate-900 w-[794px] max-w-full mx-auto shadow-2xl font-sans print:w-[210mm] print:m-0 print:shadow-none print:p-0 print:border-none"
+        className="bg-white text-slate-900 w-[794px] max-w-full mx-auto shadow-2xl font-sans print:w-[210mm] print:m-0 print:shadow-none print:p-0 print:border-none print:bg-white"
+        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
       >
         
         {/* ========================================================================= */}
@@ -148,30 +149,30 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               {/* Header */}
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0288d1]">OSBIC</h1>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0073b7]">OSBIC</h1>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-[#0288d1] uppercase tracking-widest">
+                  <span className="text-xs font-extrabold text-[#0073b7] uppercase tracking-widest">
                     CONFIDENTIAL
                   </span>
                 </div>
               </div>
 
               {/* Blue divider bar */}
-              <div className="w-full h-[2px] bg-[#0288d1] mb-5" />
+              <div className="w-full h-[2px] bg-[#0073b7] mb-5" />
 
               {/* Main Banner */}
-              <div className="bg-[#0073b7] text-white py-3.5 px-6 text-center rounded-sm shadow-sm mb-5">
+              <div className="bg-[#0073b7] text-white py-3 px-6 text-center rounded-none shadow-sm mb-5">
                 <h2 className="text-xl md:text-2xl font-extrabold uppercase tracking-wider">
                   STRATEGIC PARTNERSHIP PROPOSAL
                 </h2>
-                <p className="text-sm font-medium text-cyan-100 mt-0.5">
+                <p className="text-sm font-semibold text-cyan-100 mt-0.5">
                   {proposalTitle}
                 </p>
               </div>
 
               {/* Submitted To / Submitted By Box */}
-              <div className="bg-[#ebf8ff] border border-[#bee3f8] rounded-sm p-4 mb-5 grid grid-cols-2 gap-4 text-xs">
+              <div className="bg-[#ebf8ff] border border-[#bee3f8] rounded-none p-4 mb-5 grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-widest text-[#0073b7] mb-1">
                     SUBMITTED TO
@@ -208,61 +209,60 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
               {/* INTRODUCTION Section */}
               <div className="mb-5">
-                <div className="border-b border-[#0288d1] pb-1 mb-2.5">
-                  <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                <div className="border-b-2 border-[#0073b7] pb-1 mb-2.5">
+                  <h3 className="text-sm font-extrabold text-[#0073b7] uppercase tracking-wider">
                     INTRODUCTION
                   </h3>
                 </div>
-                <p className="text-[11px] text-slate-700 leading-relaxed mb-2 text-justify">
+                <p className="text-[11px] text-slate-800 leading-relaxed mb-2 text-justify">
                   {introP1}
                 </p>
-                <p className="text-[11px] text-slate-700 leading-relaxed text-justify">
+                <p className="text-[11px] text-slate-800 leading-relaxed text-justify">
                   {introP2}
                 </p>
               </div>
 
-              {/* SCOPE OF SERVICES Section - Attention-Rich Corporate Table */}
+              {/* SCOPE OF SERVICES Section (Image 2 Exact Model) */}
               <div className="mb-4">
-                <div className="border-b border-[#0288d1] pb-1 mb-3">
-                  <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                <div className="border-b-2 border-[#0073b7] pb-1 mb-3">
+                  <h3 className="text-sm font-extrabold text-[#0073b7] uppercase tracking-wider">
                     SCOPE OF SERVICES
                   </h3>
                 </div>
 
-                {/* 2-Column Exact Model Table Matching Image 2 */}
-                <div className="border border-[#0073b7] rounded-sm overflow-hidden text-xs shadow-xs">
+                {/* 2-Column Exact Model Table */}
+                <div className="border border-[#0073b7] rounded-none overflow-hidden text-xs bg-white shadow-sm">
                   {/* Table Headers */}
-                  <div className="grid grid-cols-2 bg-[#0088cc] text-white font-extrabold text-center py-2.5 px-3 tracking-wide">
-                    <div className="border-r border-cyan-200/40 uppercase text-[11px]">
-                      {pkgNewCrTitle}
+                  <div className="grid grid-cols-2 bg-[#0073b7] text-white font-extrabold text-center py-2.5 px-3 tracking-wide divide-x divide-white/20">
+                    <div className="uppercase text-[11px] tracking-wider">
+                      NEW COMPANY REGISTRATION (CR)
                     </div>
-                    <div className="uppercase text-[11px]">
-                      {pkgExistingCrTitle}
+                    <div className="uppercase text-[11px] tracking-wider">
+                      EXISTING COMPANY (CR) PACKAGE
                     </div>
                   </div>
 
-                  {/* Table Body - Soft Cyan Tone */}
-                  <div className="grid grid-cols-2 divide-x divide-[#0073b7]/30 bg-[#ebf8ff]/70 text-slate-900">
+                  {/* Table Body */}
+                  <div className="grid grid-cols-2 divide-x divide-[#0073b7]/30 bg-white">
                     
                     {/* LEFT COLUMN: NEW CR */}
-                    <div className="p-3.5 space-y-3">
+                    <div className="p-3.5 space-y-3.5">
                       {/* Tier 1 */}
                       <div>
-                        <ul className="space-y-1 text-[11px] text-slate-800">
+                        <ul className="space-y-1 text-[11px] text-slate-900 font-medium">
                           {pkgNewCrServicesT1.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
                         </ul>
 
-                        {/* Total Amount Box with Crisp Border */}
-                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
-                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-2 divide-x divide-slate-700 rounded-none">
+                          <div className="py-1 px-3 uppercase text-slate-900 font-extrabold text-[11px] tracking-wider flex items-center">
                             TOTAL AMOUNT
                           </div>
-                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                          <div className="py-1 px-3 text-slate-900 font-extrabold text-[11.5px] flex items-center">
                             {Number(pkgNewCrNoAttest).toLocaleString()} {currSym}
                           </div>
                         </div>
@@ -270,35 +270,34 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
                       {/* Tier 2 */}
                       <div>
-                        <ul className="space-y-1 text-[11px] text-slate-800">
+                        <ul className="space-y-1 text-[11px] text-slate-900 font-medium">
                           {pkgNewCrServicesT2.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
                         </ul>
 
-                        {/* Total Amount Box with Crisp Border */}
-                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
-                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-2 divide-x divide-slate-700 rounded-none">
+                          <div className="py-1 px-3 uppercase text-slate-900 font-extrabold text-[11px] tracking-wider flex items-center">
                             TOTAL AMOUNT
                           </div>
-                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                          <div className="py-1 px-3 text-slate-900 font-extrabold text-[11.5px] flex items-center">
                             {Number(pkgNewCrWithAttest).toLocaleString()} {currSym}
                           </div>
                         </div>
                       </div>
 
                       {/* Required Documents */}
-                      <div className="pt-2 border-t border-[#bee3f8]">
-                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-slate-200">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1.5 tracking-wide">
                           Required Documents
                         </div>
-                        <ul className="space-y-0.5 text-[10.5px] text-slate-700">
+                        <ul className="space-y-1 text-[10.5px] text-slate-800">
                           {pkgNewCrDocs.map((doc, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{doc}</span>
                             </li>
                           ))}
@@ -306,14 +305,14 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                       </div>
 
                       {/* Processing Timeline */}
-                      <div className="pt-2 border-t border-[#bee3f8]">
-                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-slate-200">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1.5 tracking-wide">
                           Processing Timeline
                         </div>
-                        <ul className="space-y-0.5 text-[10.5px] text-slate-700">
+                        <ul className="space-y-1 text-[10.5px] text-slate-800">
                           {pkgNewCrTimeline.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
@@ -322,37 +321,36 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                     </div>
 
                     {/* RIGHT COLUMN: EXISTING CR PACKAGE */}
-                    <div className="p-3.5 space-y-3">
+                    <div className="p-3.5 space-y-3.5">
                       <div>
-                        <ul className="space-y-1 text-[11px] text-slate-800">
+                        <ul className="space-y-1 text-[11px] text-slate-900 font-medium">
                           {pkgExistingCrServices.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
                         </ul>
 
-                        {/* Total Amount Box with Crisp Border */}
-                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
-                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-2 divide-x divide-slate-700 rounded-none">
+                          <div className="py-1 px-3 uppercase text-slate-900 font-extrabold text-[11px] tracking-wider flex items-center">
                             TOTAL AMOUNT
                           </div>
-                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                          <div className="py-1 px-3 text-slate-900 font-extrabold text-[11.5px] flex items-center">
                             {Number(pkgExistingCr).toLocaleString()} {currSym}
                           </div>
                         </div>
                       </div>
 
                       {/* Required Documents */}
-                      <div className="pt-2 border-t border-[#bee3f8]">
-                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-slate-200">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1.5 tracking-wide">
                           Required Documents
                         </div>
-                        <ul className="space-y-0.5 text-[10.5px] text-slate-700">
+                        <ul className="space-y-1 text-[10.5px] text-slate-800">
                           {pkgExistingCrDocs.map((doc, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{doc}</span>
                             </li>
                           ))}
@@ -360,14 +358,14 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                       </div>
 
                       {/* Processing Timeline */}
-                      <div className="pt-2 border-t border-[#bee3f8]">
-                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-slate-200">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1.5 tracking-wide">
                           Processing Timeline
                         </div>
-                        <ul className="space-y-0.5 text-[10.5px] text-slate-700">
+                        <ul className="space-y-1 text-[10.5px] text-slate-800">
                           {pkgExistingCrTimeline.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="text-slate-900 font-bold">•</span>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-slate-900 font-black">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
@@ -381,8 +379,8 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
             </div>
 
             {/* Page 1 Footer */}
-            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
-              <span>OSBIC International LLC</span>
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center font-medium">
+              <span>OSBIC International LLC • Muscat, Oman</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
               <span>Page 1</span>
             </div>
@@ -398,56 +396,56 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               {/* Header */}
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0288d1]">OSBIC</h1>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0073b7]">OSBIC</h1>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-[#0288d1] uppercase tracking-widest">
+                  <span className="text-xs font-extrabold text-[#0073b7] uppercase tracking-widest">
                     CONFIDENTIAL
                   </span>
                 </div>
               </div>
 
-              <div className="w-full h-[2px] bg-[#0288d1] mb-6" />
+              <div className="w-full h-[2px] bg-[#0073b7] mb-6" />
 
               {/* Surcharge Notice with Accent Line */}
-              <div className="mb-6 pl-3.5 border-l-4 border-[#0288d1] py-1 text-xs text-slate-800">
-                <span className="font-bold text-[#0073b7]">Please Note: </span>
-                <span>{surchargeNote}</span>
+              <div className="mb-6 pl-3.5 border-l-4 border-[#0073b7] py-1 text-xs text-slate-800 bg-[#f8fbfe]">
+                <span className="font-extrabold text-[#0073b7]">Please Note: </span>
+                <span className="font-medium">{surchargeNote}</span>
               </div>
 
               {/* PARTNERSHIP MODEL Section */}
               {(showOptionA || showOptionB) && (
                 <div className="mb-6">
-                  <div className="border-b border-[#0288d1] pb-1 mb-3">
-                    <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                  <div className="border-b-2 border-[#0073b7] pb-1 mb-3">
+                    <h3 className="text-sm font-extrabold text-[#0073b7] uppercase tracking-wider">
                       PARTNERSHIP MODEL
                     </h3>
                   </div>
 
                   <div className="space-y-3">
                     {showOptionA && (
-                      <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
-                        <div className="text-[10px] font-bold text-[#0288d1] uppercase tracking-wide">
+                      <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-none">
+                        <div className="text-[10px] font-extrabold text-[#0073b7] uppercase tracking-wider">
                           Option A
                         </div>
                         <h4 className="font-extrabold text-slate-900 text-sm mb-1">
                           {optionATitle}
                         </h4>
-                        <p className="text-[11px] text-slate-700 leading-relaxed">
+                        <p className="text-[11px] text-slate-700 leading-relaxed font-normal">
                           {optionADesc}
                         </p>
                       </div>
                     )}
 
                     {showOptionB && (
-                      <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm">
-                        <div className="text-[10px] font-bold text-[#0288d1] uppercase tracking-wide">
+                      <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-none">
+                        <div className="text-[10px] font-extrabold text-[#0073b7] uppercase tracking-wider">
                           Option B
                         </div>
                         <h4 className="font-extrabold text-slate-900 text-sm mb-1">
                           {optionBTitle}
                         </h4>
-                        <p className="text-[11px] text-slate-700 leading-relaxed">
+                        <p className="text-[11px] text-slate-700 leading-relaxed font-normal">
                           {optionBDesc}
                         </p>
                       </div>
@@ -458,8 +456,8 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
               {/* WHY PARTNER WITH OSBIC? Section */}
               <div className="mb-6">
-                <div className="border-b border-[#0288d1] pb-1 mb-4">
-                  <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                <div className="border-b-2 border-[#0073b7] pb-1 mb-4">
+                  <h3 className="text-sm font-extrabold text-[#0073b7] uppercase tracking-wider">
                     WHY PARTNER WITH OSBIC?
                   </h3>
                 </div>
@@ -467,7 +465,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 {/* 6 Grid Cards Matching Model (2 Rows of 3) */}
                 <div className="grid grid-cols-3 gap-3 text-xs">
                   {/* Card 1: Solid Blue */}
-                  <div className="bg-[#0073b7] text-white p-4 rounded-sm flex flex-col justify-center text-center shadow-sm">
+                  <div className="bg-[#0073b7] text-white p-4 rounded-none flex flex-col justify-center text-center shadow-sm">
                     <Zap className="w-5 h-5 text-cyan-200 mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">Fast & Reliable</h5>
                     <p className="text-[10px] text-cyan-50 leading-relaxed">
@@ -476,7 +474,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Card 2: Light Blue */}
-                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-sm flex flex-col justify-center text-center">
+                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-none flex flex-col justify-center text-center">
                     <FileText className="w-5 h-5 text-[#0073b7] mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">End-to-End Support</h5>
                     <p className="text-[10px] text-slate-600 leading-relaxed">
@@ -485,7 +483,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Card 3: Light Blue */}
-                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-sm flex flex-col justify-center text-center">
+                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-none flex flex-col justify-center text-center">
                     <Briefcase className="w-5 h-5 text-[#0073b7] mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">Market Expertise</h5>
                     <p className="text-[10px] text-slate-600 leading-relaxed">
@@ -494,7 +492,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Card 4: Light Blue */}
-                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-sm flex flex-col justify-center text-center">
+                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-none flex flex-col justify-center text-center">
                     <DollarSign className="w-5 h-5 text-[#0073b7] mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">Competitive Pricing</h5>
                     <p className="text-[10px] text-slate-600 leading-relaxed">
@@ -503,7 +501,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Card 5: Solid Blue */}
-                  <div className="bg-[#0073b7] text-white p-4 rounded-sm flex flex-col justify-center text-center shadow-sm">
+                  <div className="bg-[#0073b7] text-white p-4 rounded-none flex flex-col justify-center text-center shadow-sm">
                     <Users className="w-5 h-5 text-cyan-200 mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">Dedicated Team</h5>
                     <p className="text-[10px] text-cyan-50 leading-relaxed">
@@ -512,7 +510,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Card 6: Light Blue */}
-                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-sm flex flex-col justify-center text-center">
+                  <div className="bg-[#ebf8ff] border border-[#bee3f8] text-slate-900 p-4 rounded-none flex flex-col justify-center text-center">
                     <ShieldCheck className="w-5 h-5 text-[#0073b7] mx-auto mb-1.5" />
                     <h5 className="font-extrabold text-xs mb-1">Fully Compliant</h5>
                     <p className="text-[10px] text-slate-600 leading-relaxed">
@@ -524,8 +522,8 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
             </div>
 
             {/* Page 2 Footer */}
-            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
-              <span>OSBIC International LLC</span>
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center font-medium">
+              <span>OSBIC International LLC • Muscat, Oman</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
               <span>Page 2</span>
             </div>
@@ -541,138 +539,147 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               {/* Header */}
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0288d1]">OSBIC</h1>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0073b7]">OSBIC</h1>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-[#0288d1] uppercase tracking-widest">
+                  <span className="text-xs font-extrabold text-[#0073b7] uppercase tracking-widest">
                     CONFIDENTIAL
                   </span>
                 </div>
               </div>
 
-              <div className="w-full h-[2px] bg-[#0288d1] mb-6" />
+              {/* Blue divider bar */}
+              <div className="w-full h-[2px] bg-[#0073b7] mb-6" />
 
-              {/* Bank Account Details Banner (Matching Image 1) */}
-              <div className="bg-[#0088cc] text-white py-2.5 px-6 text-center rounded-sm shadow-sm mb-6 font-extrabold text-base md:text-lg tracking-wider">
-                Bank Account Details
+              {/* Main Banner: Bank Account Details (Exact matching Image 1) */}
+              <div className="bg-[#0073b7] text-white py-3 px-6 text-center rounded-none shadow-sm mb-8">
+                <h2 className="text-lg md:text-xl font-extrabold tracking-wide">
+                  Bank Account Details
+                </h2>
               </div>
 
-              {/* Bank Cards Container */}
               <div className="space-y-6">
-
-                {/* 1. BANK MUSCAT */}
-                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
-                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                {/* CARD 1: BANK MUSCAT */}
+                <div className="bg-[#e6f3fa] border border-[#bce3f7] rounded-none p-5 shadow-xs">
+                  <h3 className="text-center font-extrabold text-slate-900 text-xs tracking-wider uppercase mb-3.5">
                     BANK MUSCAT
-                  </div>
-                  <div className="divide-y divide-[#ebf8ff] text-xs">
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                  </h3>
+                  
+                  <div className="bg-white/80 border border-slate-200 text-xs">
+                    <div className="grid grid-cols-12 divide-y divide-slate-200 text-[11px]">
+                      
+                      {/* Customer Name */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         Customer Name
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-extrabold text-slate-900 uppercase">
-                        {bankMuscatCustomer}
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 uppercase tracking-wide">
+                        {bankMuscatName}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* SWIFT Code */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         SWIFT Code
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900">
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider">
                         {bankMuscatSwift}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* IBAN */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         IBAN
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider font-mono text-[11.5px]">
                         {bankMuscatIban}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* Account Number */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         Account Number
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
-                        {bankMuscatAcc}
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider font-mono text-[11.5px]">
+                        {bankMuscatAccount}
                       </div>
+
                     </div>
                   </div>
                 </div>
 
-                {/* 2. BANK DHOFAR */}
-                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
-                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                {/* CARD 2: BANK DHOFAR */}
+                <div className="bg-[#e6f3fa] border border-[#bce3f7] rounded-none p-5 shadow-xs">
+                  <h3 className="text-center font-extrabold text-slate-900 text-xs tracking-wider uppercase mb-3.5">
                     BANK DHOFAR
-                  </div>
-                  <div className="divide-y divide-[#ebf8ff] text-xs">
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                  </h3>
+                  
+                  <div className="bg-white/80 border border-slate-200 text-xs">
+                    <div className="grid grid-cols-12 divide-y divide-slate-200 text-[11px]">
+                      
+                      {/* Customer Name */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         Customer Name
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-extrabold text-slate-900 uppercase">
-                        {bankDhofarCustomer}
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 uppercase tracking-wide">
+                        {bankDhofarName}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* SWIFT Code */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         SWIFT Code
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900">
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider">
                         {bankDhofarSwift}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* IBAN */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         IBAN
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider font-mono text-[11.5px]">
                         {bankDhofarIban}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+
+                      {/* Account Number */}
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         Account Number
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
-                        {bankDhofarAcc}
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider font-mono text-[11.5px]">
+                        {bankDhofarAccount}
                       </div>
+
                     </div>
                   </div>
                 </div>
 
-                {/* 3. MOBILE BANKING */}
-                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
-                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                {/* CARD 3: MOBILE BANKING */}
+                <div className="bg-[#e6f3fa] border border-[#bce3f7] rounded-none p-5 shadow-xs">
+                  <h3 className="text-center font-extrabold text-slate-900 text-xs tracking-wider uppercase mb-3.5">
                     MOBILE BANKING
-                  </div>
-                  <div className="text-xs">
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                  </h3>
+                  
+                  <div className="bg-white/80 border border-slate-200 text-xs">
+                    <div className="grid grid-cols-12 text-[11px]">
+                      <div className="col-span-4 bg-slate-50/80 p-2.5 font-bold text-slate-800 border-r border-slate-200 pl-3 border-l-2 border-l-[#0073b7]">
                         Mobile Number
                       </div>
-                      <div className="col-span-8 py-2.5 px-4 font-mono font-extrabold text-slate-900 tracking-wider">
-                        {mobileBankingNum}
+                      <div className="col-span-8 p-2.5 font-bold text-slate-900 tracking-wider font-mono text-[11.5px]">
+                        {mobileBankingNumber}
                       </div>
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
 
             {/* Page 3 Footer */}
-            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
-              <span>OSBIC International LLC</span>
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center font-medium">
+              <span>OSBIC International LLC • Muscat, Oman</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
-              <span>Page 3</span>
+              <span>Page {pageNumBank}</span>
             </div>
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* ================== PAGE 4: CONTACT & ACCEPTABLE SELFIE ================== */}
+        {/* ===================== PAGE 4: CONTACT & SELFIE GUIDE ==================== */}
         {/* ========================================================================= */}
         {showP4 && (
           <div className="p-8 md:p-10 min-h-[1120px] relative flex flex-col justify-between print:min-h-[297mm] print:break-after-page print:m-0">
@@ -680,35 +687,35 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               {/* Header */}
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0288d1]">OSBIC</h1>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0073b7]">OSBIC</h1>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-[#0288d1] uppercase tracking-widest">
+                  <span className="text-xs font-extrabold text-[#0073b7] uppercase tracking-widest">
                     CONFIDENTIAL
                   </span>
                 </div>
               </div>
 
-              <div className="w-full h-[2px] bg-[#0288d1] mb-6" />
+              <div className="w-full h-[2px] bg-[#0073b7] mb-6" />
 
               {/* CONTACT INFORMATION Section */}
               <div className="mb-6">
-                <div className="border-b border-[#0288d1] pb-1 mb-4">
-                  <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
+                <div className="border-b-2 border-[#0073b7] pb-1 mb-4">
+                  <h3 className="text-sm font-extrabold text-[#0073b7] uppercase tracking-wider">
                     CONTACT INFORMATION
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   {/* Left Solid Blue Box */}
-                  <div className="bg-[#0073b7] text-white p-4 rounded-sm space-y-2">
+                  <div className="bg-[#0073b7] text-white p-4 rounded-none space-y-2 shadow-sm">
                     <h4 className="font-extrabold text-sm uppercase tracking-wide border-b border-cyan-400/30 pb-1">
                       OSBIC INTERNATIONAL LLC
                     </h4>
                     <div className="space-y-1.5 text-[11px] text-cyan-50">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                        <span>Muscat, Sultanate of Oman</span>
+                        <span>Sultanate of Oman</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
@@ -726,12 +733,12 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </div>
 
                   {/* Right Light Blue Box */}
-                  <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-sm flex flex-col justify-between">
+                  <div className="bg-[#ebf8ff] border border-[#bee3f8] p-4 rounded-none flex flex-col justify-between">
                     <div>
                       <h4 className="font-extrabold text-[#0073b7] text-sm mb-1.5">
                         Ready to Partner?
                       </h4>
-                      <p className="text-[11px] text-slate-700 leading-relaxed mb-3">
+                      <p className="text-[11px] text-slate-700 leading-relaxed mb-3 font-normal">
                         Contact our business development team today to begin the discussion and formalize your preferred partnership model.
                       </p>
                     </div>
@@ -743,13 +750,13 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               </div>
 
               {/* Sub-Banner */}
-              <div className="text-center text-[10.5px] text-slate-600 font-semibold italic mb-4">
+              <div className="text-center text-[10.5px] text-slate-600 font-semibold italic mb-5">
                 — OSBIC International LLC | Established in Oman | www.osbic.net
               </div>
 
-              {/* Selfie Guide Section (Matching Image 4) */}
+              {/* Selfie Guide Section */}
               {showSelfieGuide && (
-                <div className="border border-[#0073b7] rounded-sm overflow-hidden mb-6">
+                <div className="border border-[#0073b7] rounded-none overflow-hidden mb-6 shadow-sm">
                   <div className="bg-[#0073b7] text-white text-center py-2 px-4 font-extrabold text-xs tracking-wider uppercase">
                     Example of Acceptable Selfie With Passport
                   </div>
@@ -768,10 +775,10 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
             </div>
 
             {/* Page 4 Footer */}
-            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
-              <span>OSBIC International LLC</span>
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center font-medium">
+              <span>OSBIC International LLC • Muscat, Oman</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
-              <span>Page {showBankDetails ? '4' : '3'}</span>
+              <span>Page {pageNumContact}</span>
             </div>
           </div>
         )}

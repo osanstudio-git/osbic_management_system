@@ -5,7 +5,7 @@ import {
   ArrowLeft, Printer, Save, Building2, User, Phone, 
   Mail, ShieldCheck, Handshake, Globe, DollarSign, FileText, 
   RotateCcw, Sparkles, ChevronRight, Eye, ZoomIn, ZoomOut, 
-  Maximize2, Sliders, CheckSquare, Layers, Landmark, Smartphone, CreditCard
+  Maximize2, Sliders, CheckSquare, Layers, Landmark, HelpCircle, Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -40,7 +40,9 @@ export default function B2BProposalBuilder() {
   // View & Zoom controls for Live Preview
   const [zoomLevel, setZoomLevel] = useState<number>(0.68);
   const [activePreviewPage, setActivePreviewPage] = useState<'all' | '1' | '2' | '3' | '4'>('all');
-  const [formTab, setFormTab] = useState<'recipient' | 'intro' | 'new_cr' | 'existing_cr' | 'models' | 'bank_details'>('recipient');
+  
+  // Page-Wise UX Tab on Left Panel
+  const [pageTab, setPageTab] = useState<'page1' | 'page2' | 'page3' | 'page4'>('page1');
 
   // Form State
   const [recipientType, setRecipientType] = useState<'partner' | 'lead' | 'custom'>('partner');
@@ -63,8 +65,7 @@ export default function B2BProposalBuilder() {
     introP1: string;
     introP2: string;
 
-    // Page 1: Column Titles & Scope
-    pkgNewCrTitle: string;
+    // Page 1: New CR Package
     pkgNewCrServicesT1: string;
     pkgNewCrNoAttest: number;
     pkgNewCrServicesT2: string;
@@ -73,7 +74,6 @@ export default function B2BProposalBuilder() {
     pkgNewCrTimeline: string;
 
     // Page 1: Existing CR Package
-    pkgExistingCrTitle: string;
     pkgExistingCrServices: string;
     pkgExistingCr: number;
     pkgExistingCrDocs: string;
@@ -88,19 +88,19 @@ export default function B2BProposalBuilder() {
     optionBTitle: string;
     optionBDesc: string;
 
-    // Page 3: Bank Account Details
+    // Page 3: Bank Details
     showBankDetails: boolean;
-    bankMuscatCustomer: string;
+    bankMuscatName: string;
     bankMuscatSwift: string;
     bankMuscatIban: string;
-    bankMuscatAcc: string;
-    bankDhofarCustomer: string;
+    bankMuscatAccount: string;
+    bankDhofarName: string;
     bankDhofarSwift: string;
     bankDhofarIban: string;
-    bankDhofarAcc: string;
-    mobileBankingNum: string;
+    bankDhofarAccount: string;
+    mobileBankingNumber: string;
 
-    // Page 4: Selfie Guide
+    // Page 4: Selfie Guide & Internal Notes
     showSelfieGuide: boolean;
     notes: string;
     status: Invoice['status'];
@@ -119,8 +119,7 @@ export default function B2BProposalBuilder() {
     introP1: 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
     introP2: 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
 
-    // Page 1 Scope Titles & Column defaults
-    pkgNewCrTitle: 'NEW COMPANY REGISTRATION (CR)',
+    // Page 1 New CR defaults (matching Image 2)
     pkgNewCrServicesT1: 'New commercial registration',
     pkgNewCrNoAttest: 2000,
     pkgNewCrServicesT2: 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.',
@@ -128,8 +127,7 @@ export default function B2BProposalBuilder() {
     pkgNewCrDocs: 'Passport copy & Passport with selfie\nEmail address\nPhone number\nBusiness activity list\nProposed company name(s)',
     pkgNewCrTimeline: 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days',
 
-    // Page 1 Existing CR defaults
-    pkgExistingCrTitle: 'EXISTING COMPANY (CR) PACKAGE',
+    // Page 1 Existing CR defaults (matching Image 2)
     pkgExistingCrServices: 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.',
     pkgExistingCr: 13000,
     pkgExistingCrDocs: 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)',
@@ -143,18 +141,18 @@ export default function B2BProposalBuilder() {
     showOptionB: true,
     optionBTitle: 'Reference-Based Partnership',
     optionBDesc: 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
-    
-    // Page 3 Bank Account Details defaults (matching official OSBIC accounts)
+
+    // Page 3 Bank Details defaults (matching Image 1)
     showBankDetails: true,
-    bankMuscatCustomer: 'OSBIC INTERNATIONAL LLC',
+    bankMuscatName: 'OSBIC INTERNATIONAL LLC',
     bankMuscatSwift: 'BMUSOMRXXX',
     bankMuscatIban: 'OM550270423081077790019',
-    bankMuscatAcc: '0423081077790019',
-    bankDhofarCustomer: 'OSBIC INTERNATIONAL LLC',
+    bankMuscatAccount: '0423081077790019',
+    bankDhofarName: 'OSBIC INTERNATIONAL LLC',
     bankDhofarSwift: 'BDOFOMRUXXX',
     bankDhofarIban: 'OM390250001045788333002',
-    bankDhofarAcc: '01045788333002',
-    mobileBankingNum: '72229827',
+    bankDhofarAccount: '01045788333002',
+    mobileBankingNumber: '72229827',
 
     // Page 4 defaults
     showSelfieGuide: true,
@@ -182,6 +180,15 @@ export default function B2BProposalBuilder() {
       }
     `,
   });
+
+  // Switch tab & optionally focus preview
+  const handleTabChange = (tab: 'page1' | 'page2' | 'page3' | 'page4') => {
+    setPageTab(tab);
+    if (tab === 'page1') setActivePreviewPage('1');
+    else if (tab === 'page2') setActivePreviewPage('2');
+    else if (tab === 'page3') setActivePreviewPage('3');
+    else if (tab === 'page4') setActivePreviewPage('4');
+  };
 
   // Handle URL query parameters for pre-filling on new proposal
   useEffect(() => {
@@ -266,7 +273,6 @@ export default function B2BProposalBuilder() {
         introP1: meta.b2b_intro_p1 || 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
         introP2: meta.b2b_intro_p2 || 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
 
-        pkgNewCrTitle: meta.pkg_new_cr_title || 'NEW COMPANY REGISTRATION (CR)',
         pkgNewCrServicesT1: typeof meta.pkg_new_cr_services_t1 === 'string' ? meta.pkg_new_cr_services_t1 : (Array.isArray(meta.pkg_new_cr_services_t1) ? meta.pkg_new_cr_services_t1.join('\n') : 'New commercial registration'),
         pkgNewCrNoAttest: meta.pkg_new_cr_no_attest ?? 2000,
         pkgNewCrServicesT2: typeof meta.pkg_new_cr_services_t2 === 'string' ? meta.pkg_new_cr_services_t2 : (Array.isArray(meta.pkg_new_cr_services_t2) ? meta.pkg_new_cr_services_t2.join('\n') : 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.'),
@@ -274,7 +280,6 @@ export default function B2BProposalBuilder() {
         pkgNewCrDocs: typeof meta.pkg_new_cr_docs === 'string' ? meta.pkg_new_cr_docs : (Array.isArray(meta.pkg_new_cr_docs) ? meta.pkg_new_cr_docs.join('\n') : 'Passport copy & Passport with selfie\nEmail address\nPhone number\nBusiness activity list\nProposed company name(s)'),
         pkgNewCrTimeline: typeof meta.pkg_new_cr_timeline === 'string' ? meta.pkg_new_cr_timeline : (Array.isArray(meta.pkg_new_cr_timeline) ? meta.pkg_new_cr_timeline.join('\n') : 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days'),
 
-        pkgExistingCrTitle: meta.pkg_existing_cr_title || 'EXISTING COMPANY (CR) PACKAGE',
         pkgExistingCrServices: typeof meta.pkg_existing_cr_services === 'string' ? meta.pkg_existing_cr_services : (Array.isArray(meta.pkg_existing_cr_services) ? meta.pkg_existing_cr_services.join('\n') : 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.'),
         pkgExistingCr: meta.pkg_existing_cr ?? 13000,
         pkgExistingCrDocs: typeof meta.pkg_existing_cr_docs === 'string' ? meta.pkg_existing_cr_docs : (Array.isArray(meta.pkg_existing_cr_docs) ? meta.pkg_existing_cr_docs.join('\n') : 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)'),
@@ -287,17 +292,17 @@ export default function B2BProposalBuilder() {
         showOptionB: meta.show_option_b !== false,
         optionBTitle: meta.b2b_option_b_title || 'Reference-Based Partnership',
         optionBDesc: meta.b2b_option_b_desc || 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
-        
+
         showBankDetails: meta.show_bank_details !== false,
-        bankMuscatCustomer: meta.bank_muscat_customer || 'OSBIC INTERNATIONAL LLC',
+        bankMuscatName: meta.bank_muscat_name || 'OSBIC INTERNATIONAL LLC',
         bankMuscatSwift: meta.bank_muscat_swift || 'BMUSOMRXXX',
         bankMuscatIban: meta.bank_muscat_iban || 'OM550270423081077790019',
-        bankMuscatAcc: meta.bank_muscat_acc || '0423081077790019',
-        bankDhofarCustomer: meta.bank_dhofar_customer || 'OSBIC INTERNATIONAL LLC',
+        bankMuscatAccount: meta.bank_muscat_account || '0423081077790019',
+        bankDhofarName: meta.bank_dhofar_name || 'OSBIC INTERNATIONAL LLC',
         bankDhofarSwift: meta.bank_dhofar_swift || 'BDOFOMRUXXX',
         bankDhofarIban: meta.bank_dhofar_iban || 'OM390250001045788333002',
-        bankDhofarAcc: meta.bank_dhofar_acc || '01045788333002',
-        mobileBankingNum: meta.mobile_banking_num || '72229827',
+        bankDhofarAccount: meta.bank_dhofar_account || '01045788333002',
+        mobileBankingNumber: meta.mobile_banking_number || '72229827',
 
         showSelfieGuide: meta.show_selfie_guide !== false,
         notes: initialData.notes || 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
@@ -377,7 +382,6 @@ export default function B2BProposalBuilder() {
           b2b_intro_p1: proposalData.introP1,
           b2b_intro_p2: proposalData.introP2,
 
-          pkg_new_cr_title: proposalData.pkgNewCrTitle,
           pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
           pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
           pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
@@ -385,7 +389,6 @@ export default function B2BProposalBuilder() {
           pkg_new_cr_docs: proposalData.pkgNewCrDocs,
           pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
 
-          pkg_existing_cr_title: proposalData.pkgExistingCrTitle,
           pkg_existing_cr_services: proposalData.pkgExistingCrServices,
           pkg_existing_cr: Number(proposalData.pkgExistingCr),
           pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
@@ -400,17 +403,17 @@ export default function B2BProposalBuilder() {
           b2b_option_b_title: proposalData.optionBTitle,
           b2b_option_b_desc: proposalData.optionBDesc,
 
-          // Page 3 Bank Account Details
+          // Page 3 Bank Details
           show_bank_details: proposalData.showBankDetails,
-          bank_muscat_customer: proposalData.bankMuscatCustomer,
+          bank_muscat_name: proposalData.bankMuscatName,
           bank_muscat_swift: proposalData.bankMuscatSwift,
           bank_muscat_iban: proposalData.bankMuscatIban,
-          bank_muscat_acc: proposalData.bankMuscatAcc,
-          bank_dhofar_customer: proposalData.bankDhofarCustomer,
+          bank_muscat_account: proposalData.bankMuscatAccount,
+          bank_dhofar_name: proposalData.bankDhofarName,
           bank_dhofar_swift: proposalData.bankDhofarSwift,
           bank_dhofar_iban: proposalData.bankDhofarIban,
-          bank_dhofar_acc: proposalData.bankDhofarAcc,
-          mobile_banking_num: proposalData.mobileBankingNum,
+          bank_dhofar_account: proposalData.bankDhofarAccount,
+          mobile_banking_number: proposalData.mobileBankingNumber,
 
           // Page 4 details
           show_selfie_guide: proposalData.showSelfieGuide,
@@ -472,7 +475,6 @@ export default function B2BProposalBuilder() {
       b2b_intro_p1: proposalData.introP1,
       b2b_intro_p2: proposalData.introP2,
 
-      pkg_new_cr_title: proposalData.pkgNewCrTitle,
       pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
       pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
       pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
@@ -480,7 +482,6 @@ export default function B2BProposalBuilder() {
       pkg_new_cr_docs: proposalData.pkgNewCrDocs,
       pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
 
-      pkg_existing_cr_title: proposalData.pkgExistingCrTitle,
       pkg_existing_cr_services: proposalData.pkgExistingCrServices,
       pkg_existing_cr: Number(proposalData.pkgExistingCr),
       pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
@@ -495,22 +496,22 @@ export default function B2BProposalBuilder() {
       b2b_option_b_desc: proposalData.optionBDesc,
 
       show_bank_details: proposalData.showBankDetails,
-      bank_muscat_customer: proposalData.bankMuscatCustomer,
+      bank_muscat_name: proposalData.bankMuscatName,
       bank_muscat_swift: proposalData.bankMuscatSwift,
       bank_muscat_iban: proposalData.bankMuscatIban,
-      bank_muscat_acc: proposalData.bankMuscatAcc,
-      bank_dhofar_customer: proposalData.bankDhofarCustomer,
+      bank_muscat_account: proposalData.bankMuscatAccount,
+      bank_dhofar_name: proposalData.bankDhofarName,
       bank_dhofar_swift: proposalData.bankDhofarSwift,
       bank_dhofar_iban: proposalData.bankDhofarIban,
-      bank_dhofar_acc: proposalData.bankDhofarAcc,
-      mobile_banking_num: proposalData.mobileBankingNum,
+      bank_dhofar_account: proposalData.bankDhofarAccount,
+      mobile_banking_number: proposalData.mobileBankingNumber,
 
       show_selfie_guide: proposalData.showSelfieGuide
     }
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -530,15 +531,15 @@ export default function B2BProposalBuilder() {
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                  B2B Strategic Proposal
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#0073b7]/15 text-[#0073b7] dark:text-cyan-400 border border-[#0073b7]/30">
+                  Strategic B2B Quotation
                 </span>
                 <span className="text-xs text-muted-foreground font-mono">
-                  {isNew ? 'New Draft' : `#${id?.slice(0, 8)}`}
+                  {isNew ? 'New Quotation' : `#${id?.slice(0, 8)}`}
                 </span>
               </div>
               <h1 className="text-sm font-bold text-foreground truncate max-w-[280px] sm:max-w-md">
-                {proposalData.submittedTo || 'Untitled Partnership Proposal'}
+                {proposalData.submittedTo || 'Untitled Partnership Quotation'}
               </h1>
             </div>
           </div>
@@ -550,9 +551,9 @@ export default function B2BProposalBuilder() {
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition flex items-center gap-1.5 shadow-xs"
             >
-              <Printer className="w-4 h-4 text-emerald-500" />
+              <Printer className="w-4 h-4 text-[#0073b7]" />
               <span className="hidden sm:inline">Print / Export PDF</span>
             </button>
 
@@ -560,10 +561,10 @@ export default function B2BProposalBuilder() {
               type="button"
               disabled={isSaving}
               onClick={handleSave}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-[#0073b7] hover:bg-[#00609a] text-white text-xs font-bold rounded-xl shadow-lg shadow-[#0073b7]/25 transition flex items-center gap-1.5 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Saving...' : 'Save Proposal'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save Quotation'}</span>
             </button>
           </div>
         </div>
@@ -572,532 +573,470 @@ export default function B2BProposalBuilder() {
       {/* Main Workspace Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* ================= LEFT: FORM CONTROLS (5 Cols) ================= */}
+        {/* ================= LEFT: PAGE-WISE FORM CONTROLS (5 Cols) ================= */}
         <div className="lg:col-span-5 space-y-4 print:hidden">
 
-          {/* Form Section Navigation Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 bg-muted/60 p-1 rounded-2xl border border-border text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setFormTab('recipient')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
-                formTab === 'recipient'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              1. Recipient & Title
-            </button>
+          {/* PAGE NAVIGATION TABS (OPTIMAL UX: Direct Page-Wise Organization) */}
+          <div className="bg-card border border-border rounded-2xl p-2 shadow-sm">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground mb-1.5 px-1 flex items-center justify-between">
+              <span>Page-by-Page Editor</span>
+              <span className="text-[#0073b7] font-semibold">Live Preview Synced</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => handleTabChange('page1')}
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
+                  pageTab === 'page1'
+                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span className="text-[10px] uppercase opacity-80">Page 1</span>
+                <span className="truncate w-full text-[11px]">Scope & Price</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setFormTab('intro')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
-                formTab === 'intro'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              2. Introduction
-            </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('page2')}
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
+                  pageTab === 'page2'
+                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span className="text-[10px] uppercase opacity-80">Page 2</span>
+                <span className="truncate w-full text-[11px]">Partnership</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setFormTab('new_cr')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
-                formTab === 'new_cr'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              3. New CR
-            </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('page3')}
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
+                  pageTab === 'page3'
+                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span className="text-[10px] uppercase opacity-80">Page 3</span>
+                <span className="truncate w-full text-[11px]">Bank Details</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setFormTab('existing_cr')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
-                formTab === 'existing_cr'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              4. Existing CR
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFormTab('models')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
-                formTab === 'models'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              5. Operating Models
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFormTab('bank_details')}
-              className={`px-3 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1.5 ${
-                formTab === 'bank_details'
-                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Landmark className="w-3.5 h-3.5 text-blue-500" />
-              <span>6. Bank Details</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('page4')}
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
+                  pageTab === 'page4'
+                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span className="text-[10px] uppercase opacity-80">Page 4</span>
+                <span className="truncate w-full text-[11px]">Selfie & Notes</span>
+              </button>
+            </div>
           </div>
 
-          {/* TAB 1: RECIPIENT & TITLE */}
-          {formTab === 'recipient' && (
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-500" />
-                  Partner Recipient & Header Info
-                </h2>
-              </div>
+          {/* ========================================================================= */}
+          {/* =================== TAB 1: PAGE 1 (SCOPE & PRICING) ===================== */}
+          {/* ========================================================================= */}
+          {pageTab === 'page1' && (
+            <div className="space-y-4">
+              
+              {/* Recipient & Header Box */}
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#0073b7]" />
+                    Page 1: Recipient & Proposal Header
+                  </h2>
+                </div>
 
-              {/* Source Selector */}
-              <div className="grid grid-cols-3 gap-1.5 bg-muted p-1 rounded-xl text-xs">
-                <button
-                  type="button"
-                  onClick={() => setRecipientType('partner')}
-                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                    recipientType === 'partner'
-                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  B2B Partner
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecipientType('lead')}
-                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                    recipientType === 'lead'
-                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Saudi Lead
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecipientType('custom')}
-                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                    recipientType === 'custom'
-                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
-
-              {/* Dropdowns */}
-              {recipientType === 'partner' && (
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Choose Partner Firm
-                  </label>
-                  <select
-                    value={selectedPartnerId}
-                    onChange={(e) => handlePartnerSelect(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                {/* Source Selector */}
+                <div className="grid grid-cols-3 gap-1.5 bg-muted p-1 rounded-xl text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType('partner')}
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                      recipientType === 'partner'
+                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <option value="">-- Choose Partner Company --</option>
-                    {partners.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.country === 'KSA' ? '🇸🇦' : '🇴🇲'} {p.name} ({p.partner_type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {recipientType === 'lead' && (
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Choose Saudi/GCC Lead
-                  </label>
-                  <select
-                    value={selectedLeadId}
-                    onChange={(e) => handleLeadSelect(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                    B2B Partner
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType('lead')}
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                      recipientType === 'lead'
+                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <option value="">-- Choose Lead --</option>
-                    {(leads || []).map(l => (
-                      <option key={l.id} value={l.id}>
-                        {l.company_name ? `${l.company_name} — ${l.contact_name}` : l.contact_name} ({l.nationality || 'Client'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Submitted To & Phone */}
-              <div className="space-y-3 pt-2 border-t border-border/60">
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Submitted To (Partner / Company Name) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={proposalData.submittedTo}
-                    onChange={(e) => setProposalData({ ...proposalData, submittedTo: e.target.value })}
-                    placeholder="e.g. A C H"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-emerald-500 outline-none"
-                  />
+                    Saudi Lead
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType('custom')}
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                      recipientType === 'custom'
+                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Custom
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Dropdowns */}
+                {recipientType === 'partner' && (
                   <div>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                      Contact Person
-                    </label>
-                    <input
-                      type="text"
-                      value={proposalData.contactPerson}
-                      onChange={(e) => setProposalData({ ...proposalData, contactPerson: e.target.value })}
-                      placeholder="e.g. Eng. Mohammed"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-emerald-500" /> Client Phone
-                    </label>
-                    <input
-                      type="text"
-                      value={proposalData.clientPhone}
-                      onChange={(e) => setProposalData({ ...proposalData, clientPhone: e.target.value })}
-                      placeholder="e.g. +966582288816"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Proposal Title & Presenter */}
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Proposal Title (Banner Heading)
-                  </label>
-                  <input
-                    type="text"
-                    value={proposalData.proposalTitle}
-                    onChange={(e) => setProposalData({ ...proposalData, proposalTitle: e.target.value })}
-                    placeholder="Oman Company Formation Services"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-emerald-500 outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                      Submitted By
-                    </label>
-                    <input
-                      type="text"
-                      value={proposalData.submittedBy}
-                      onChange={(e) => setProposalData({ ...proposalData, submittedBy: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                      Prepared By (Representative)
-                    </label>
-                    <input
-                      type="text"
-                      value={proposalData.preparedBy}
-                      onChange={(e) => setProposalData({ ...proposalData, preparedBy: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                      Currency
+                      Choose Partner Firm
                     </label>
                     <select
-                      value={proposalData.currency}
-                      onChange={(e) => setProposalData({ ...proposalData, currency: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none"
+                      value={selectedPartnerId}
+                      onChange={(e) => handlePartnerSelect(e.target.value)}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
                     >
-                      <option value="SAR">🇸🇦 SAR (Saudi Riyal)</option>
-                      <option value="OMR">🇴🇲 OMR (Omani Rial)</option>
-                      <option value="AED">🇦🇪 AED (UAE Dirham)</option>
-                      <option value="USD">🇺🇸 USD (US Dollar)</option>
+                      <option value="">-- Choose Partner Company --</option>
+                      {partners.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.country === 'KSA' ? '🇸🇦' : '🇴🇲'} {p.name} ({p.partner_type})
+                        </option>
+                      ))}
                     </select>
+                  </div>
+                )}
+
+                {recipientType === 'lead' && (
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Choose Saudi/GCC Lead
+                    </label>
+                    <select
+                      value={selectedLeadId}
+                      onChange={(e) => handleLeadSelect(e.target.value)}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    >
+                      <option value="">-- Choose Lead --</option>
+                      {(leads || []).map(l => (
+                        <option key={l.id} value={l.id}>
+                          {l.company_name ? `${l.company_name} — ${l.contact_name}` : l.contact_name} ({l.nationality || 'Client'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Submitted To & Phone */}
+                <div className="space-y-3 pt-2 border-t border-border/60">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Submitted To (Partner / Client Company Name) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={proposalData.submittedTo}
+                      onChange={(e) => setProposalData({ ...proposalData, submittedTo: e.target.value })}
+                      placeholder="e.g. A C H"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                        Contact Person
+                      </label>
+                      <input
+                        type="text"
+                        value={proposalData.contactPerson}
+                        onChange={(e) => setProposalData({ ...proposalData, contactPerson: e.target.value })}
+                        placeholder="e.g. Eng. Mohammed"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-[#0073b7]" /> Client Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={proposalData.clientPhone}
+                        onChange={(e) => setProposalData({ ...proposalData, clientPhone: e.target.value })}
+                        placeholder="e.g. +966582288816"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Proposal Title & Currency */}
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Proposal Title (Banner Subheading)
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.proposalTitle}
+                      onChange={(e) => setProposalData({ ...proposalData, proposalTitle: e.target.value })}
+                      placeholder="Oman Company Formation Services"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                        Currency
+                      </label>
+                      <select
+                        value={proposalData.currency}
+                        onChange={(e) => setProposalData({ ...proposalData, currency: e.target.value })}
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                      >
+                        <option value="SAR">🇸🇦 SAR (Saudi Riyal)</option>
+                        <option value="OMR">🇴🇲 OMR (Omani Rial)</option>
+                        <option value="AED">🇦🇪 AED (UAE Dirham)</option>
+                        <option value="USD">🇺🇸 USD (US Dollar)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                        Prepared By (Rep Name)
+                      </label>
+                      <input
+                        type="text"
+                        value={proposalData.preparedBy}
+                        onChange={(e) => setProposalData({ ...proposalData, preparedBy: e.target.value })}
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Introduction Text Box */}
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-3">
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#0073b7]" />
+                  Executive Introduction Paragraphs
+                </h3>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Introduction — Paragraph 1
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={proposalData.introP1}
+                    onChange={(e) => setProposalData({ ...proposalData, introP1: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Introduction — Paragraph 2
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={proposalData.introP2}
+                    onChange={(e) => setProposalData({ ...proposalData, introP2: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              {/* Scope of Services: New CR Column */}
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b border-border pb-2.5">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0073b7]" />
+                    Scope of Services: New CR Column (Left Side)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Controls the 2 tiers, required documents, and timeline on the left column.
+                  </p>
+                </div>
+
+                {/* Tier 1 */}
+                <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
+                  <label className="text-[10px] font-bold text-foreground uppercase block">
+                    Tier 1: Services List (Without Attestation)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={proposalData.pkgNewCrServicesT1}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT1: e.target.value })}
+                    placeholder="One service per line"
+                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                  />
+
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                      Tier 1 Total Amount ({proposalData.currency})
+                    </span>
+                    <input
+                      type="number"
+                      value={proposalData.pkgNewCrNoAttest}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgNewCrNoAttest: Number(e.target.value) })}
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Tier 2 */}
+                <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
+                  <label className="text-[10px] font-bold text-foreground uppercase block">
+                    Tier 2: Services List (With Attestation)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={proposalData.pkgNewCrServicesT2}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT2: e.target.value })}
+                    placeholder="One service per line"
+                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                  />
+
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                      Tier 2 Total Amount ({proposalData.currency})
+                    </span>
+                    <input
+                      type="number"
+                      value={proposalData.pkgNewCrWithAttest}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgNewCrWithAttest: Number(e.target.value) })}
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Docs & Timeline */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Required Documents (Line by Line)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={proposalData.pkgNewCrDocs}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgNewCrDocs: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                    />
                   </div>
 
                   <div>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                      Our Phone Numbers
+                      Processing Timeline (Line by Line)
                     </label>
-                    <input
-                      type="text"
-                      value={proposalData.ourPhone}
-                      onChange={(e) => setProposalData({ ...proposalData, ourPhone: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                    <textarea
+                      rows={3}
+                      value={proposalData.pkgNewCrTimeline}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTimeline: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
                     />
                   </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* TAB 2: INTRODUCTION */}
-          {formTab === 'intro' && (
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-500" />
-                  Page 1: Introduction Section (Editable)
-                </h2>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Introduction — Paragraph 1
-                </label>
-                <textarea
-                  rows={4}
-                  value={proposalData.introP1}
-                  onChange={(e) => setProposalData({ ...proposalData, introP1: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Introduction — Paragraph 2
-                </label>
-                <textarea
-                  rows={3}
-                  value={proposalData.introP2}
-                  onChange={(e) => setProposalData({ ...proposalData, introP2: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: NEW CR PACKAGE */}
-          {formTab === 'new_cr' && (
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-500" />
-                  Page 1: New Company Registration (CR) Column
-                </h2>
-              </div>
-
-              {/* Column Header Title */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Column Header Title
-                </label>
-                <input
-                  type="text"
-                  value={proposalData.pkgNewCrTitle}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTitle: e.target.value })}
-                  placeholder="NEW COMPANY REGISTRATION (CR)"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase tracking-wide"
-                />
-              </div>
-
-              {/* Tier 1 */}
-              <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
-                <label className="text-[10px] font-bold text-foreground uppercase block">
-                  Tier 1: Services List (Without Attestation)
-                </label>
-                <textarea
-                  rows={2}
-                  value={proposalData.pkgNewCrServicesT1}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT1: e.target.value })}
-                  placeholder="One service item per line"
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
-                />
-
-                <div className="flex items-center justify-between gap-3 pt-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                    Tier 1 Total Amount ({proposalData.currency})
-                  </span>
-                  <input
-                    type="number"
-                    value={proposalData.pkgNewCrNoAttest}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrNoAttest: Number(e.target.value) })}
-                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right"
-                  />
+              {/* Scope of Services: Existing CR Column */}
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="border-b border-border pb-2.5">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0073b7]" />
+                    Scope of Services: Existing CR Package (Right Side)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Controls package services, all-inclusive price, required docs, and timeline.
+                  </p>
                 </div>
-              </div>
 
-              {/* Tier 2 */}
-              <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
-                <label className="text-[10px] font-bold text-foreground uppercase block">
-                  Tier 2: Services List (With Attestation)
-                </label>
-                <textarea
-                  rows={3}
-                  value={proposalData.pkgNewCrServicesT2}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT2: e.target.value })}
-                  placeholder="One service item per line"
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
-                />
-
-                <div className="flex items-center justify-between gap-3 pt-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                    Tier 2 Total Amount ({proposalData.currency})
-                  </span>
-                  <input
-                    type="number"
-                    value={proposalData.pkgNewCrWithAttest}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrWithAttest: Number(e.target.value) })}
-                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right"
-                  />
-                </div>
-              </div>
-
-              {/* Required Documents */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Required Documents (Line by Line)
-                </label>
-                <textarea
-                  rows={4}
-                  value={proposalData.pkgNewCrDocs}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrDocs: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
-                />
-              </div>
-
-              {/* Processing Timeline */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Processing Timeline (Line by Line)
-                </label>
-                <textarea
-                  rows={3}
-                  value={proposalData.pkgNewCrTimeline}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTimeline: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: EXISTING CR PACKAGE */}
-          {formTab === 'existing_cr' && (
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-500" />
-                  Page 1: Existing Company (CR) Package Column
-                </h2>
-              </div>
-
-              {/* Column Header Title */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Column Header Title
-                </label>
-                <input
-                  type="text"
-                  value={proposalData.pkgExistingCrTitle}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTitle: e.target.value })}
-                  placeholder="EXISTING COMPANY (CR) PACKAGE"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase tracking-wide"
-                />
-              </div>
-
-              {/* Services List */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-foreground uppercase block">
-                  Included Package Services (Line by Line)
-                </label>
-                <textarea
-                  rows={4}
-                  value={proposalData.pkgExistingCrServices}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrServices: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
-                />
-              </div>
-
-              {/* Total Amount */}
-              <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
                 <div>
-                  <span className="text-xs font-bold text-foreground block">Package Total Amount</span>
-                  <span className="text-[10px] text-muted-foreground">Standard all-inclusive CR package price</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={proposalData.pkgExistingCr}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgExistingCr: Number(e.target.value) })}
-                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right font-mono"
+                  <label className="text-[10px] font-bold text-foreground uppercase block mb-1">
+                    Included Services (Line by Line)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={proposalData.pkgExistingCrServices}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrServices: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none"
                   />
-                  <span className="text-xs font-bold text-foreground">{proposalData.currency}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
+                  <div>
+                    <span className="text-xs font-bold text-foreground block">Package Total Amount</span>
+                    <span className="text-[10px] text-muted-foreground">Standard all-inclusive CR package price</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={proposalData.pkgExistingCr}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgExistingCr: Number(e.target.value) })}
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                    />
+                    <span className="text-xs font-bold text-foreground">{proposalData.currency}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Required Documents (Line by Line)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={proposalData.pkgExistingCrDocs}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrDocs: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Processing Timeline (Line by Line)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={proposalData.pkgExistingCrTimeline}
+                      onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTimeline: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Required Documents */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Required Documents (Line by Line)
-                </label>
-                <textarea
-                  rows={4}
-                  value={proposalData.pkgExistingCrDocs}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrDocs: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
-                />
-              </div>
-
-              {/* Processing Timeline */}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Processing Timeline (Line by Line)
-                </label>
-                <textarea
-                  rows={2}
-                  value={proposalData.pkgExistingCrTimeline}
-                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTimeline: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
-                />
-              </div>
             </div>
           )}
 
-          {/* TAB 5: PARTNERSHIP MODELS & SURCHARGE */}
-          {formTab === 'models' && (
+          {/* ========================================================================= */}
+          {/* =================== TAB 2: PAGE 2 (PARTNERSHIP MODELS) ================== */}
+          {/* ========================================================================= */}
+          {pageTab === 'page2' && (
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-cyan-500" />
-                  Page 2: Operating Models & Page 4 Selfie Guide
+                  <Sliders className="w-4 h-4 text-[#0073b7]" />
+                  Page 2: Surcharge Notice & Partnership Models
                 </h2>
               </div>
 
               {/* Surcharge Note */}
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Surcharge Notice (Page 2 Top Box)
+                  Surcharge Notice (Page 2 Accent Box)
                 </label>
                 <textarea
                   rows={2}
                   value={proposalData.surchargeNote}
                   onChange={(e) => setProposalData({ ...proposalData, surchargeNote: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
                 />
               </div>
 
@@ -1108,7 +1047,7 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showOptionA}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionA: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
                   />
                   <span>Include Option A (B2B Partnership)</span>
                 </label>
@@ -1120,13 +1059,13 @@ export default function B2BProposalBuilder() {
                       value={proposalData.optionATitle}
                       onChange={(e) => setProposalData({ ...proposalData, optionATitle: e.target.value })}
                       placeholder="B2B Partnership"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-cyan-500 outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
                     />
                     <textarea
                       rows={2}
                       value={proposalData.optionADesc}
                       onChange={(e) => setProposalData({ ...proposalData, optionADesc: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-cyan-500 outline-none"
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
                     />
                   </div>
                 )}
@@ -1139,7 +1078,7 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showOptionB}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionB: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
                   />
                   <span>Include Option B (Reference-Based Partnership)</span>
                 </label>
@@ -1151,16 +1090,220 @@ export default function B2BProposalBuilder() {
                       value={proposalData.optionBTitle}
                       onChange={(e) => setProposalData({ ...proposalData, optionBTitle: e.target.value })}
                       placeholder="Reference-Based Partnership"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-cyan-500 outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
                     />
                     <textarea
                       rows={2}
                       value={proposalData.optionBDesc}
                       onChange={(e) => setProposalData({ ...proposalData, optionBDesc: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-cyan-500 outline-none"
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Informational preview of Why Partner With OSBIC */}
+              <div className="p-3 bg-muted/20 border border-border rounded-xl text-xs space-y-1">
+                <span className="font-bold text-foreground text-[11px] block">
+                  Why Partner With OSBIC? (6 Visual Cards)
+                </span>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Fast & Reliable • End-to-End Support • Market Expertise • Competitive Pricing • Dedicated Team • Fully Compliant. These 6 enterprise trust cards are displayed directly on Page 2 in the live preview.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* =================== TAB 3: PAGE 3 (BANK DETAILS) ======================== */}
+          {/* ========================================================================= */}
+          {pageTab === 'page3' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Landmark className="w-4 h-4 text-[#0073b7]" />
+                  Page 3: Bank Account Details
+                </h2>
+                <label className="flex items-center gap-2 text-xs font-bold text-[#0073b7] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={proposalData.showBankDetails}
+                    onChange={(e) => setProposalData({ ...proposalData, showBankDetails: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
+                  />
+                  <span>Include Page</span>
+                </label>
+              </div>
+
+              {proposalData.showBankDetails ? (
+                <div className="space-y-4">
+                  {/* Bank Muscat */}
+                  <div className="bg-muted/30 p-3.5 rounded-xl border border-border space-y-3">
+                    <div className="flex items-center justify-between border-b border-border pb-1.5">
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                        1. Bank Muscat Details
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Primary</span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Customer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatName}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatName: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                            SWIFT Code
+                          </label>
+                          <input
+                            type="text"
+                            value={proposalData.bankMuscatSwift}
+                            onChange={(e) => setProposalData({ ...proposalData, bankMuscatSwift: e.target.value })}
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                            Account Number
+                          </label>
+                          <input
+                            type="text"
+                            value={proposalData.bankMuscatAccount}
+                            onChange={(e) => setProposalData({ ...proposalData, bankMuscatAccount: e.target.value })}
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          IBAN Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatIban}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatIban: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bank Dhofar */}
+                  <div className="bg-muted/30 p-3.5 rounded-xl border border-border space-y-3">
+                    <div className="flex items-center justify-between border-b border-border pb-1.5">
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                        2. Bank Dhofar Details
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Secondary</span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Customer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarName}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarName: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                            SWIFT Code
+                          </label>
+                          <input
+                            type="text"
+                            value={proposalData.bankDhofarSwift}
+                            onChange={(e) => setProposalData({ ...proposalData, bankDhofarSwift: e.target.value })}
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                            Account Number
+                          </label>
+                          <input
+                            type="text"
+                            value={proposalData.bankDhofarAccount}
+                            onChange={(e) => setProposalData({ ...proposalData, bankDhofarAccount: e.target.value })}
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          IBAN Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarIban}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarIban: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Banking */}
+                  <div className="bg-muted/30 p-3.5 rounded-xl border border-border space-y-2">
+                    <span className="text-xs font-bold text-foreground uppercase tracking-wide block border-b border-border pb-1.5">
+                      3. Mobile Banking Number
+                    </span>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="text"
+                        value={proposalData.mobileBankingNumber}
+                        onChange={(e) => setProposalData({ ...proposalData, mobileBankingNumber: e.target.value })}
+                        className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-muted-foreground border border-dashed border-border rounded-xl">
+                  <p className="text-xs font-medium">Bank details page is currently excluded from this proposal.</p>
+                  <button
+                    type="button"
+                    onClick={() => setProposalData({ ...proposalData, showBankDetails: true })}
+                    className="mt-2 text-xs font-bold text-[#0073b7] hover:underline"
+                  >
+                    Enable Bank Details Page
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* =================== TAB 4: PAGE 4 (SELFIE & NOTES) ====================== */}
+          {/* ========================================================================= */}
+          {pageTab === 'page4' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <CheckSquare className="w-4 h-4 text-[#0073b7]" />
+                  Page 4: Contact & Selfie Guide Settings
+                </h2>
               </div>
 
               {/* Page 4 Selfie Guide Checkbox */}
@@ -1170,198 +1313,46 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showSelfieGuide}
                     onChange={(e) => setProposalData({ ...proposalData, showSelfieGuide: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
                   />
-                  <span>Include Page 4 (Corporate Contact Info & Passport Selfie Guide)</span>
+                  <span>Display "Example of Acceptable Selfie With Passport" visual box</span>
                 </label>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: BANK ACCOUNT DETAILS */}
-          {formTab === 'bank_details' && (
-            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Landmark className="w-4 h-4 text-blue-500" />
-                  Page 3: Bank Account Details
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProposalData(prev => ({
-                      ...prev,
-                      bankMuscatCustomer: 'OSBIC INTERNATIONAL LLC',
-                      bankMuscatSwift: 'BMUSOMRXXX',
-                      bankMuscatIban: 'OM550270423081077790019',
-                      bankMuscatAcc: '0423081077790019',
-                      bankDhofarCustomer: 'OSBIC INTERNATIONAL LLC',
-                      bankDhofarSwift: 'BDOFOMRUXXX',
-                      bankDhofarIban: 'OM390250001045788333002',
-                      bankDhofarAcc: '01045788333002',
-                      mobileBankingNum: '72229827'
-                    }));
-                    toast.success('Reset to official OSBIC bank details');
-                  }}
-                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3 h-3" /> Reset Defaults
-                </button>
+                <p className="text-[10px] text-muted-foreground mt-1 ml-6 leading-relaxed">
+                  Crucial compliance visual to prevent partner and client document rejections during Royal Oman Police & Ministry processing.
+                </p>
               </div>
 
-              {/* Master Toggle */}
-              <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
-                <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={proposalData.showBankDetails}
-                    onChange={(e) => setProposalData({ ...proposalData, showBankDetails: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+              {/* Internal Notes & Quotation Status */}
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Internal Deal Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={proposalData.notes}
+                    onChange={(e) => setProposalData({ ...proposalData, notes: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    placeholder="Internal reference notes for sales tracking..."
                   />
-                  <span>Include Official Bank Account Details Page (Page 3)</span>
-                </label>
-              </div>
-
-              {proposalData.showBankDetails && (
-                <div className="space-y-4 pt-1">
-                  {/* 1. BANK MUSCAT */}
-                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-2 border-b border-border pb-2">
-                      <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Bank Muscat Account
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          Customer Name
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankMuscatCustomer}
-                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatCustomer: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          SWIFT Code
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankMuscatSwift}
-                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatSwift: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          IBAN Number
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankMuscatIban}
-                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatIban: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          Account Number
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankMuscatAcc}
-                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatAcc: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. BANK DHOFAR */}
-                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-2 border-b border-border pb-2">
-                      <CreditCard className="w-3.5 h-3.5 text-cyan-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Bank Dhofar Account
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          Customer Name
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankDhofarCustomer}
-                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarCustomer: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          SWIFT Code
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankDhofarSwift}
-                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarSwift: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          IBAN Number
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankDhofarIban}
-                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarIban: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                          Account Number
-                        </label>
-                        <input
-                          type="text"
-                          value={proposalData.bankDhofarAcc}
-                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarAcc: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. MOBILE BANKING */}
-                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-2 border-b border-border pb-2">
-                      <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Mobile Banking Number
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                        Registered Mobile / Alias Number
-                      </label>
-                      <input
-                        type="text"
-                        value={proposalData.mobileBankingNum}
-                        onChange={(e) => setProposalData({ ...proposalData, mobileBankingNum: e.target.value })}
-                        placeholder="72229827"
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
-                      />
-                    </div>
-                  </div>
                 </div>
-              )}
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Quotation Lifecycle Status
+                  </label>
+                  <select
+                    value={proposalData.status}
+                    onChange={(e) => setProposalData({ ...proposalData, status: e.target.value as Invoice['status'] })}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                  >
+                    <option value="draft">📝 Draft</option>
+                    <option value="sent">📨 Sent to Partner/Client</option>
+                    <option value="paid">✅ Accepted / Finalized</option>
+                    <option value="cancelled">❌ Cancelled</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1373,24 +1364,24 @@ export default function B2BProposalBuilder() {
           {/* Controls Bar */}
           <div className="w-full flex flex-wrap items-center justify-between gap-3 mb-3 text-xs bg-card border border-border p-2.5 rounded-2xl shadow-sm">
             {/* Page Filter Tabs */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-bold">
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-bold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('all')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === 'all'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                All (1-4)
+                All Pages
               </button>
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('1')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '1'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1399,35 +1390,37 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('2')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '2'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Page 2
               </button>
-              <button
-                type="button"
-                onClick={() => setActivePreviewPage('3')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
-                  activePreviewPage === '3'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Page 3 (Bank)
-              </button>
+              {proposalData.showBankDetails && (
+                <button
+                  type="button"
+                  onClick={() => setActivePreviewPage('3')}
+                  className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
+                    activePreviewPage === '3'
+                      ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Page 3 (Bank)
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('4')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '4'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                Page 4 (Contact)
+                Page {proposalData.showBankDetails ? '4' : '3'} (Selfie)
               </button>
             </div>
 
@@ -1468,7 +1461,7 @@ export default function B2BProposalBuilder() {
             {/* Export PDF Button */}
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-[#0073b7] hover:bg-[#00609a] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" /> Export PDF
             </button>
