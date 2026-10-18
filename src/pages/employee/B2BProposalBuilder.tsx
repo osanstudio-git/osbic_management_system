@@ -5,7 +5,7 @@ import {
   ArrowLeft, Printer, Save, Building2, User, Phone, 
   Mail, ShieldCheck, Handshake, Globe, DollarSign, FileText, 
   RotateCcw, Sparkles, ChevronRight, Eye, ZoomIn, ZoomOut, 
-  Maximize2, Sliders, CheckSquare, Layers
+  Maximize2, Sliders, CheckSquare, Layers, Landmark, Smartphone, CreditCard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -39,8 +39,8 @@ export default function B2BProposalBuilder() {
 
   // View & Zoom controls for Live Preview
   const [zoomLevel, setZoomLevel] = useState<number>(0.68);
-  const [activePreviewPage, setActivePreviewPage] = useState<'all' | '1' | '2' | '3'>('all');
-  const [formTab, setFormTab] = useState<'recipient' | 'intro' | 'new_cr' | 'existing_cr' | 'models'>('recipient');
+  const [activePreviewPage, setActivePreviewPage] = useState<'all' | '1' | '2' | '3' | '4'>('all');
+  const [formTab, setFormTab] = useState<'recipient' | 'intro' | 'new_cr' | 'existing_cr' | 'models' | 'bank_details'>('recipient');
 
   // Form State
   const [recipientType, setRecipientType] = useState<'partner' | 'lead' | 'custom'>('partner');
@@ -63,7 +63,8 @@ export default function B2BProposalBuilder() {
     introP1: string;
     introP2: string;
 
-    // Page 1: New CR Package
+    // Page 1: Column Titles & Scope
+    pkgNewCrTitle: string;
     pkgNewCrServicesT1: string;
     pkgNewCrNoAttest: number;
     pkgNewCrServicesT2: string;
@@ -72,12 +73,13 @@ export default function B2BProposalBuilder() {
     pkgNewCrTimeline: string;
 
     // Page 1: Existing CR Package
+    pkgExistingCrTitle: string;
     pkgExistingCrServices: string;
     pkgExistingCr: number;
     pkgExistingCrDocs: string;
     pkgExistingCrTimeline: string;
 
-    // Page 2 & 3: Models & Surcharge
+    // Page 2: Models & Surcharge
     surchargeNote: string;
     showOptionA: boolean;
     optionATitle: string;
@@ -85,6 +87,20 @@ export default function B2BProposalBuilder() {
     showOptionB: boolean;
     optionBTitle: string;
     optionBDesc: string;
+
+    // Page 3: Bank Account Details
+    showBankDetails: boolean;
+    bankMuscatCustomer: string;
+    bankMuscatSwift: string;
+    bankMuscatIban: string;
+    bankMuscatAcc: string;
+    bankDhofarCustomer: string;
+    bankDhofarSwift: string;
+    bankDhofarIban: string;
+    bankDhofarAcc: string;
+    mobileBankingNum: string;
+
+    // Page 4: Selfie Guide
     showSelfieGuide: boolean;
     notes: string;
     status: Invoice['status'];
@@ -103,7 +119,8 @@ export default function B2BProposalBuilder() {
     introP1: 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
     introP2: 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
 
-    // Page 1 New CR defaults
+    // Page 1 Scope Titles & Column defaults
+    pkgNewCrTitle: 'NEW COMPANY REGISTRATION (CR)',
     pkgNewCrServicesT1: 'New commercial registration',
     pkgNewCrNoAttest: 2000,
     pkgNewCrServicesT2: 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.',
@@ -112,12 +129,13 @@ export default function B2BProposalBuilder() {
     pkgNewCrTimeline: 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days',
 
     // Page 1 Existing CR defaults
+    pkgExistingCrTitle: 'EXISTING COMPANY (CR) PACKAGE',
     pkgExistingCrServices: 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.',
     pkgExistingCr: 13000,
     pkgExistingCrDocs: 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)',
     pkgExistingCrTimeline: 'Complete documentation: Within 10-15 working days.',
 
-    // Page 2 & 3 defaults
+    // Page 2 defaults
     surchargeNote: 'An additional fee of OMR 250 will apply, subject to the IQAMA & POA are not available as per the conditions mentioned above.',
     showOptionA: true,
     optionATitle: 'B2B Partnership',
@@ -125,6 +143,20 @@ export default function B2BProposalBuilder() {
     showOptionB: true,
     optionBTitle: 'Reference-Based Partnership',
     optionBDesc: 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
+    
+    // Page 3 Bank Account Details defaults (matching official OSBIC accounts)
+    showBankDetails: true,
+    bankMuscatCustomer: 'OSBIC INTERNATIONAL LLC',
+    bankMuscatSwift: 'BMUSOMRXXX',
+    bankMuscatIban: 'OM550270423081077790019',
+    bankMuscatAcc: '0423081077790019',
+    bankDhofarCustomer: 'OSBIC INTERNATIONAL LLC',
+    bankDhofarSwift: 'BDOFOMRUXXX',
+    bankDhofarIban: 'OM390250001045788333002',
+    bankDhofarAcc: '01045788333002',
+    mobileBankingNum: '72229827',
+
+    // Page 4 defaults
     showSelfieGuide: true,
     notes: 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
     status: 'draft'
@@ -234,6 +266,7 @@ export default function B2BProposalBuilder() {
         introP1: meta.b2b_intro_p1 || 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
         introP2: meta.b2b_intro_p2 || 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
 
+        pkgNewCrTitle: meta.pkg_new_cr_title || 'NEW COMPANY REGISTRATION (CR)',
         pkgNewCrServicesT1: typeof meta.pkg_new_cr_services_t1 === 'string' ? meta.pkg_new_cr_services_t1 : (Array.isArray(meta.pkg_new_cr_services_t1) ? meta.pkg_new_cr_services_t1.join('\n') : 'New commercial registration'),
         pkgNewCrNoAttest: meta.pkg_new_cr_no_attest ?? 2000,
         pkgNewCrServicesT2: typeof meta.pkg_new_cr_services_t2 === 'string' ? meta.pkg_new_cr_services_t2 : (Array.isArray(meta.pkg_new_cr_services_t2) ? meta.pkg_new_cr_services_t2.join('\n') : 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.'),
@@ -241,6 +274,7 @@ export default function B2BProposalBuilder() {
         pkgNewCrDocs: typeof meta.pkg_new_cr_docs === 'string' ? meta.pkg_new_cr_docs : (Array.isArray(meta.pkg_new_cr_docs) ? meta.pkg_new_cr_docs.join('\n') : 'Passport copy & Passport with selfie\nEmail address\nPhone number\nBusiness activity list\nProposed company name(s)'),
         pkgNewCrTimeline: typeof meta.pkg_new_cr_timeline === 'string' ? meta.pkg_new_cr_timeline : (Array.isArray(meta.pkg_new_cr_timeline) ? meta.pkg_new_cr_timeline.join('\n') : 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days'),
 
+        pkgExistingCrTitle: meta.pkg_existing_cr_title || 'EXISTING COMPANY (CR) PACKAGE',
         pkgExistingCrServices: typeof meta.pkg_existing_cr_services === 'string' ? meta.pkg_existing_cr_services : (Array.isArray(meta.pkg_existing_cr_services) ? meta.pkg_existing_cr_services.join('\n') : 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.'),
         pkgExistingCr: meta.pkg_existing_cr ?? 13000,
         pkgExistingCrDocs: typeof meta.pkg_existing_cr_docs === 'string' ? meta.pkg_existing_cr_docs : (Array.isArray(meta.pkg_existing_cr_docs) ? meta.pkg_existing_cr_docs.join('\n') : 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)'),
@@ -253,6 +287,18 @@ export default function B2BProposalBuilder() {
         showOptionB: meta.show_option_b !== false,
         optionBTitle: meta.b2b_option_b_title || 'Reference-Based Partnership',
         optionBDesc: meta.b2b_option_b_desc || 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
+        
+        showBankDetails: meta.show_bank_details !== false,
+        bankMuscatCustomer: meta.bank_muscat_customer || 'OSBIC INTERNATIONAL LLC',
+        bankMuscatSwift: meta.bank_muscat_swift || 'BMUSOMRXXX',
+        bankMuscatIban: meta.bank_muscat_iban || 'OM550270423081077790019',
+        bankMuscatAcc: meta.bank_muscat_acc || '0423081077790019',
+        bankDhofarCustomer: meta.bank_dhofar_customer || 'OSBIC INTERNATIONAL LLC',
+        bankDhofarSwift: meta.bank_dhofar_swift || 'BDOFOMRUXXX',
+        bankDhofarIban: meta.bank_dhofar_iban || 'OM390250001045788333002',
+        bankDhofarAcc: meta.bank_dhofar_acc || '01045788333002',
+        mobileBankingNum: meta.mobile_banking_num || '72229827',
+
         showSelfieGuide: meta.show_selfie_guide !== false,
         notes: initialData.notes || 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
         status: initialData.status || 'draft'
@@ -331,6 +377,7 @@ export default function B2BProposalBuilder() {
           b2b_intro_p1: proposalData.introP1,
           b2b_intro_p2: proposalData.introP2,
 
+          pkg_new_cr_title: proposalData.pkgNewCrTitle,
           pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
           pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
           pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
@@ -338,12 +385,13 @@ export default function B2BProposalBuilder() {
           pkg_new_cr_docs: proposalData.pkgNewCrDocs,
           pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
 
+          pkg_existing_cr_title: proposalData.pkgExistingCrTitle,
           pkg_existing_cr_services: proposalData.pkgExistingCrServices,
           pkg_existing_cr: Number(proposalData.pkgExistingCr),
           pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
           pkg_existing_cr_timeline: proposalData.pkgExistingCrTimeline,
 
-          // Page 2 & 3 details
+          // Page 2 details
           b2b_surcharge_note: proposalData.surchargeNote,
           show_option_a: proposalData.showOptionA,
           b2b_option_a_title: proposalData.optionATitle,
@@ -351,6 +399,20 @@ export default function B2BProposalBuilder() {
           show_option_b: proposalData.showOptionB,
           b2b_option_b_title: proposalData.optionBTitle,
           b2b_option_b_desc: proposalData.optionBDesc,
+
+          // Page 3 Bank Account Details
+          show_bank_details: proposalData.showBankDetails,
+          bank_muscat_customer: proposalData.bankMuscatCustomer,
+          bank_muscat_swift: proposalData.bankMuscatSwift,
+          bank_muscat_iban: proposalData.bankMuscatIban,
+          bank_muscat_acc: proposalData.bankMuscatAcc,
+          bank_dhofar_customer: proposalData.bankDhofarCustomer,
+          bank_dhofar_swift: proposalData.bankDhofarSwift,
+          bank_dhofar_iban: proposalData.bankDhofarIban,
+          bank_dhofar_acc: proposalData.bankDhofarAcc,
+          mobile_banking_num: proposalData.mobileBankingNum,
+
+          // Page 4 details
           show_selfie_guide: proposalData.showSelfieGuide,
 
           company_name: proposalData.submittedTo,
@@ -410,6 +472,7 @@ export default function B2BProposalBuilder() {
       b2b_intro_p1: proposalData.introP1,
       b2b_intro_p2: proposalData.introP2,
 
+      pkg_new_cr_title: proposalData.pkgNewCrTitle,
       pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
       pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
       pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
@@ -417,6 +480,7 @@ export default function B2BProposalBuilder() {
       pkg_new_cr_docs: proposalData.pkgNewCrDocs,
       pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
 
+      pkg_existing_cr_title: proposalData.pkgExistingCrTitle,
       pkg_existing_cr_services: proposalData.pkgExistingCrServices,
       pkg_existing_cr: Number(proposalData.pkgExistingCr),
       pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
@@ -429,6 +493,18 @@ export default function B2BProposalBuilder() {
       show_option_b: proposalData.showOptionB,
       b2b_option_b_title: proposalData.optionBTitle,
       b2b_option_b_desc: proposalData.optionBDesc,
+
+      show_bank_details: proposalData.showBankDetails,
+      bank_muscat_customer: proposalData.bankMuscatCustomer,
+      bank_muscat_swift: proposalData.bankMuscatSwift,
+      bank_muscat_iban: proposalData.bankMuscatIban,
+      bank_muscat_acc: proposalData.bankMuscatAcc,
+      bank_dhofar_customer: proposalData.bankDhofarCustomer,
+      bank_dhofar_swift: proposalData.bankDhofarSwift,
+      bank_dhofar_iban: proposalData.bankDhofarIban,
+      bank_dhofar_acc: proposalData.bankDhofarAcc,
+      mobile_banking_num: proposalData.mobileBankingNum,
+
       show_selfie_guide: proposalData.showSelfieGuide
     }
   };
@@ -558,7 +634,20 @@ export default function B2BProposalBuilder() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              5. Page 2 & 3
+              5. Operating Models
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormTab('bank_details')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1.5 ${
+                formTab === 'bank_details'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Landmark className="w-3.5 h-3.5 text-blue-500" />
+              <span>6. Bank Details</span>
             </button>
           </div>
 
@@ -813,6 +902,20 @@ export default function B2BProposalBuilder() {
                 </h2>
               </div>
 
+              {/* Column Header Title */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Column Header Title
+                </label>
+                <input
+                  type="text"
+                  value={proposalData.pkgNewCrTitle}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTitle: e.target.value })}
+                  placeholder="NEW COMPANY REGISTRATION (CR)"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase tracking-wide"
+                />
+              </div>
+
               {/* Tier 1 */}
               <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
                 <label className="text-[10px] font-bold text-foreground uppercase block">
@@ -903,6 +1006,20 @@ export default function B2BProposalBuilder() {
                 </h2>
               </div>
 
+              {/* Column Header Title */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Column Header Title
+                </label>
+                <input
+                  type="text"
+                  value={proposalData.pkgExistingCrTitle}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTitle: e.target.value })}
+                  placeholder="EXISTING COMPANY (CR) PACKAGE"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase tracking-wide"
+                />
+              </div>
+
               {/* Services List */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-foreground uppercase block">
@@ -961,13 +1078,13 @@ export default function B2BProposalBuilder() {
             </div>
           )}
 
-          {/* TAB 5: PAGE 2 & 3 OPTIONS */}
+          {/* TAB 5: PARTNERSHIP MODELS & SURCHARGE */}
           {formTab === 'models' && (
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-cyan-500" />
-                  Page 2 & 3: Partnership Models & Selfie Guide
+                  Page 2: Operating Models & Page 4 Selfie Guide
                 </h2>
               </div>
 
@@ -1046,7 +1163,7 @@ export default function B2BProposalBuilder() {
                 )}
               </div>
 
-              {/* Page 3 Selfie Guide Checkbox */}
+              {/* Page 4 Selfie Guide Checkbox */}
               <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
                 <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
                   <input
@@ -1055,9 +1172,196 @@ export default function B2BProposalBuilder() {
                     onChange={(e) => setProposalData({ ...proposalData, showSelfieGuide: e.target.checked })}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
                   />
-                  <span>Include Page 3 (Contact Info & Acceptable Passport Selfie Guide)</span>
+                  <span>Include Page 4 (Corporate Contact Info & Passport Selfie Guide)</span>
                 </label>
               </div>
+            </div>
+          )}
+
+          {/* TAB 6: BANK ACCOUNT DETAILS */}
+          {formTab === 'bank_details' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Landmark className="w-4 h-4 text-blue-500" />
+                  Page 3: Bank Account Details
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProposalData(prev => ({
+                      ...prev,
+                      bankMuscatCustomer: 'OSBIC INTERNATIONAL LLC',
+                      bankMuscatSwift: 'BMUSOMRXXX',
+                      bankMuscatIban: 'OM550270423081077790019',
+                      bankMuscatAcc: '0423081077790019',
+                      bankDhofarCustomer: 'OSBIC INTERNATIONAL LLC',
+                      bankDhofarSwift: 'BDOFOMRUXXX',
+                      bankDhofarIban: 'OM390250001045788333002',
+                      bankDhofarAcc: '01045788333002',
+                      mobileBankingNum: '72229827'
+                    }));
+                    toast.success('Reset to official OSBIC bank details');
+                  }}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reset Defaults
+                </button>
+              </div>
+
+              {/* Master Toggle */}
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+                <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={proposalData.showBankDetails}
+                    onChange={(e) => setProposalData({ ...proposalData, showBankDetails: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                  />
+                  <span>Include Official Bank Account Details Page (Page 3)</span>
+                </label>
+              </div>
+
+              {proposalData.showBankDetails && (
+                <div className="space-y-4 pt-1">
+                  {/* 1. BANK MUSCAT */}
+                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border pb-2">
+                      <CreditCard className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Bank Muscat Account
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Customer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatCustomer}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatCustomer: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          SWIFT Code
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatSwift}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatSwift: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          IBAN Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatIban}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatIban: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Account Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankMuscatAcc}
+                          onChange={(e) => setProposalData({ ...proposalData, bankMuscatAcc: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. BANK DHOFAR */}
+                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border pb-2">
+                      <CreditCard className="w-3.5 h-3.5 text-cyan-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Bank Dhofar Account
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Customer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarCustomer}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarCustomer: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          SWIFT Code
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarSwift}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarSwift: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          IBAN Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarIban}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarIban: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                          Account Number
+                        </label>
+                        <input
+                          type="text"
+                          value={proposalData.bankDhofarAcc}
+                          onChange={(e) => setProposalData({ ...proposalData, bankDhofarAcc: e.target.value })}
+                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. MOBILE BANKING */}
+                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border pb-2">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Mobile Banking Number
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                        Registered Mobile / Alias Number
+                      </label>
+                      <input
+                        type="text"
+                        value={proposalData.mobileBankingNum}
+                        onChange={(e) => setProposalData({ ...proposalData, mobileBankingNum: e.target.value })}
+                        placeholder="72229827"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold text-foreground focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1079,7 +1383,7 @@ export default function B2BProposalBuilder() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                All (1-3)
+                All (1-4)
               </button>
               <button
                 type="button"
@@ -1112,7 +1416,18 @@ export default function B2BProposalBuilder() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                Page 3
+                Page 3 (Bank)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewPage('4')}
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                  activePreviewPage === '4'
+                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Page 4 (Contact)
               </button>
             </div>
 

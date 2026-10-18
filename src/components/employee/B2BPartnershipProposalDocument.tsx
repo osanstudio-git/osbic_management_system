@@ -3,12 +3,12 @@ import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCurrencyConfig } from '../../hooks/shared/useCurrencyRates';
 import { 
-  Zap, FileText, Briefcase, DollarSign, Users, ShieldCheck, Phone, Mail, Globe, MapPin 
+  Zap, FileText, Briefcase, DollarSign, Users, ShieldCheck, Phone, Mail, Globe, MapPin, Landmark, Smartphone 
 } from 'lucide-react';
 
 interface B2BProposalDocumentProps {
   invoice: Invoice;
-  activePagePreview?: 'all' | '1' | '2' | '3';
+  activePagePreview?: 'all' | '1' | '2' | '3' | '4';
 }
 
 export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProposalDocumentProps>(
@@ -34,6 +34,10 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
     // Page 1: Introduction text
     const introP1 = meta.b2b_intro_p1 || 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.';
     const introP2 = meta.b2b_intro_p2 || 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.';
+
+    // Page 1: Column Headers
+    const pkgNewCrTitle = meta.pkg_new_cr_title || 'NEW COMPANY REGISTRATION (CR)';
+    const pkgExistingCrTitle = meta.pkg_existing_cr_title || 'EXISTING COMPANY (CR) PACKAGE';
 
     // Page 1: New CR Package Details
     const pkgNewCrServicesT1: string[] = meta.pkg_new_cr_services_t1 
@@ -106,12 +110,28 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
     const optionBTitle = meta.b2b_option_b_title || 'Reference-Based Partnership';
     const optionBDesc = meta.b2b_option_b_desc || 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.';
 
+    // Page 3: Bank Account Details
+    const showBankDetails = meta.show_bank_details !== false;
+    const bankMuscatCustomer = meta.bank_muscat_customer || 'OSBIC INTERNATIONAL LLC';
+    const bankMuscatSwift = meta.bank_muscat_swift || 'BMUSOMRXXX';
+    const bankMuscatIban = meta.bank_muscat_iban || 'OM550270423081077790019';
+    const bankMuscatAcc = meta.bank_muscat_acc || '0423081077790019';
+
+    const bankDhofarCustomer = meta.bank_dhofar_customer || 'OSBIC INTERNATIONAL LLC';
+    const bankDhofarSwift = meta.bank_dhofar_swift || 'BDOFOMRUXXX';
+    const bankDhofarIban = meta.bank_dhofar_iban || 'OM390250001045788333002';
+    const bankDhofarAcc = meta.bank_dhofar_acc || '01045788333002';
+
+    const mobileBankingNum = meta.mobile_banking_num || '72229827';
+
+    // Page 4: Selfie Guide & Contact
     const showSelfieGuide = meta.show_selfie_guide !== false;
 
     // Helper to determine if a page should be shown in preview
     const showP1 = activePagePreview === 'all' || activePagePreview === '1';
     const showP2 = activePagePreview === 'all' || activePagePreview === '2';
-    const showP3 = activePagePreview === 'all' || activePagePreview === '3';
+    const showP3 = (activePagePreview === 'all' && showBankDetails) || activePagePreview === '3';
+    const showP4 = activePagePreview === 'all' || activePagePreview === '4';
 
     return (
       <div 
@@ -201,7 +221,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 </p>
               </div>
 
-              {/* SCOPE OF SERVICES Section */}
+              {/* SCOPE OF SERVICES Section - Attention-Rich Corporate Table */}
               <div className="mb-4">
                 <div className="border-b border-[#0288d1] pb-1 mb-3">
                   <h3 className="text-sm font-extrabold text-[#0288d1] uppercase tracking-wider">
@@ -209,20 +229,20 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                   </h3>
                 </div>
 
-                {/* 2-Column Exact Model Table */}
-                <div className="border border-[#0073b7] rounded-sm overflow-hidden text-xs">
+                {/* 2-Column Exact Model Table Matching Image 2 */}
+                <div className="border border-[#0073b7] rounded-sm overflow-hidden text-xs shadow-xs">
                   {/* Table Headers */}
-                  <div className="grid grid-cols-2 bg-[#0073b7] text-white font-bold text-center py-2 px-3 tracking-wide">
-                    <div className="border-r border-cyan-200/30 uppercase text-[11px]">
-                      NEW COMPANY REGISTRATION (CR)
+                  <div className="grid grid-cols-2 bg-[#0088cc] text-white font-extrabold text-center py-2.5 px-3 tracking-wide">
+                    <div className="border-r border-cyan-200/40 uppercase text-[11px]">
+                      {pkgNewCrTitle}
                     </div>
                     <div className="uppercase text-[11px]">
-                      EXISTING COMPANY (CR) PACKAGE
+                      {pkgExistingCrTitle}
                     </div>
                   </div>
 
-                  {/* Table Body */}
-                  <div className="grid grid-cols-2 divide-x divide-[#0073b7]/30 bg-white">
+                  {/* Table Body - Soft Cyan Tone */}
+                  <div className="grid grid-cols-2 divide-x divide-[#0073b7]/30 bg-[#ebf8ff]/70 text-slate-900">
                     
                     {/* LEFT COLUMN: NEW CR */}
                     <div className="p-3.5 space-y-3">
@@ -237,9 +257,14 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 border border-slate-400 bg-[#ebf8ff] grid grid-cols-2 text-center text-xs font-bold divide-x divide-slate-400 rounded-[2px]">
-                          <div className="py-1 uppercase text-slate-900 text-[10.5px] tracking-wider">TOTAL AMOUNT</div>
-                          <div className="py-1 text-slate-900 text-[11px]">{Number(pkgNewCrNoAttest).toLocaleString()} {currSym}</div>
+                        {/* Total Amount Box with Crisp Border */}
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
+                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                            TOTAL AMOUNT
+                          </div>
+                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                            {Number(pkgNewCrNoAttest).toLocaleString()} {currSym}
+                          </div>
                         </div>
                       </div>
 
@@ -254,15 +279,20 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 border border-slate-400 bg-[#ebf8ff] grid grid-cols-2 text-center text-xs font-bold divide-x divide-slate-400 rounded-[2px]">
-                          <div className="py-1 uppercase text-slate-900 text-[10.5px] tracking-wider">TOTAL AMOUNT</div>
-                          <div className="py-1 text-slate-900 text-[11px]">{Number(pkgNewCrWithAttest).toLocaleString()} {currSym}</div>
+                        {/* Total Amount Box with Crisp Border */}
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
+                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                            TOTAL AMOUNT
+                          </div>
+                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                            {Number(pkgNewCrWithAttest).toLocaleString()} {currSym}
+                          </div>
                         </div>
                       </div>
 
                       {/* Required Documents */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <div className="font-bold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-[#bee3f8]">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
                           Required Documents
                         </div>
                         <ul className="space-y-0.5 text-[10.5px] text-slate-700">
@@ -276,8 +306,8 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                       </div>
 
                       {/* Processing Timeline */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <div className="font-bold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-[#bee3f8]">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
                           Processing Timeline
                         </div>
                         <ul className="space-y-0.5 text-[10.5px] text-slate-700">
@@ -303,15 +333,20 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 border border-slate-400 bg-[#ebf8ff] grid grid-cols-2 text-center text-xs font-bold divide-x divide-slate-400 rounded-[2px]">
-                          <div className="py-1 uppercase text-slate-900 text-[10.5px] tracking-wider">TOTAL AMOUNT</div>
-                          <div className="py-1 text-slate-900 text-[11px]">{Number(pkgExistingCr).toLocaleString()} {currSym}</div>
+                        {/* Total Amount Box with Crisp Border */}
+                        <div className="my-2.5 border border-slate-700 bg-white grid grid-cols-12 text-center text-xs font-bold divide-x divide-slate-700 rounded-[2px] shadow-2xs">
+                          <div className="col-span-6 py-1.5 px-2 uppercase text-slate-900 text-[11px] tracking-wider font-extrabold flex items-center justify-center">
+                            TOTAL AMOUNT
+                          </div>
+                          <div className="col-span-6 py-1.5 px-2 text-slate-950 text-[11.5px] font-black tracking-wide flex items-center justify-center font-mono">
+                            {Number(pkgExistingCr).toLocaleString()} {currSym}
+                          </div>
                         </div>
                       </div>
 
                       {/* Required Documents */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <div className="font-bold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-[#bee3f8]">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
                           Required Documents
                         </div>
                         <ul className="space-y-0.5 text-[10.5px] text-slate-700">
@@ -325,8 +360,8 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                       </div>
 
                       {/* Processing Timeline */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <div className="font-bold text-[#0073b7] text-[11px] mb-1">
+                      <div className="pt-2 border-t border-[#bee3f8]">
+                        <div className="font-extrabold text-[#0073b7] text-[11px] mb-1">
                           Processing Timeline
                         </div>
                         <ul className="space-y-0.5 text-[10.5px] text-slate-700">
@@ -498,9 +533,148 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
         )}
 
         {/* ========================================================================= */}
-        {/* ================================= PAGE 3 ================================ */}
+        {/* ======================= PAGE 3: BANK ACCOUNT DETAILS ==================== */}
         {/* ========================================================================= */}
         {showP3 && (
+          <div className="p-8 md:p-10 min-h-[1120px] relative flex flex-col justify-between border-b border-slate-200 print:border-none print:min-h-[297mm] print:break-after-page print:m-0">
+            <div>
+              {/* Header */}
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider text-[#0288d1]">OSBIC</h1>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-[#0288d1] uppercase tracking-widest">
+                    CONFIDENTIAL
+                  </span>
+                </div>
+              </div>
+
+              <div className="w-full h-[2px] bg-[#0288d1] mb-6" />
+
+              {/* Bank Account Details Banner (Matching Image 1) */}
+              <div className="bg-[#0088cc] text-white py-2.5 px-6 text-center rounded-sm shadow-sm mb-6 font-extrabold text-base md:text-lg tracking-wider">
+                Bank Account Details
+              </div>
+
+              {/* Bank Cards Container */}
+              <div className="space-y-6">
+
+                {/* 1. BANK MUSCAT */}
+                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
+                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                    BANK MUSCAT
+                  </div>
+                  <div className="divide-y divide-[#ebf8ff] text-xs">
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        Customer Name
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-extrabold text-slate-900 uppercase">
+                        {bankMuscatCustomer}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        SWIFT Code
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900">
+                        {bankMuscatSwift}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        IBAN
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                        {bankMuscatIban}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        Account Number
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                        {bankMuscatAcc}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. BANK DHOFAR */}
+                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
+                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                    BANK DHOFAR
+                  </div>
+                  <div className="divide-y divide-[#ebf8ff] text-xs">
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        Customer Name
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-extrabold text-slate-900 uppercase">
+                        {bankDhofarCustomer}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        SWIFT Code
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900">
+                        {bankDhofarSwift}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        IBAN
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                        {bankDhofarIban}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        Account Number
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-bold text-slate-900 tracking-wider">
+                        {bankDhofarAcc}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. MOBILE BANKING */}
+                <div className="border border-[#bee3f8] rounded-sm overflow-hidden bg-white shadow-xs">
+                  <div className="bg-[#ebf8ff] text-[#0073b7] font-extrabold text-xs tracking-wider uppercase text-center py-2.5 border-b border-[#bee3f8]">
+                    MOBILE BANKING
+                  </div>
+                  <div className="text-xs">
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-4 py-2.5 px-4 font-bold text-slate-800 bg-[#f7fbfe] border-r border-[#ebf8ff] border-l-2 border-[#0073b7]">
+                        Mobile Number
+                      </div>
+                      <div className="col-span-8 py-2.5 px-4 font-mono font-extrabold text-slate-900 tracking-wider">
+                        {mobileBankingNum}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Page 3 Footer */}
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
+              <span>OSBIC International LLC</span>
+              <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
+              <span>Page 3</span>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* ================== PAGE 4: CONTACT & ACCEPTABLE SELFIE ================== */}
+        {/* ========================================================================= */}
+        {showP4 && (
           <div className="p-8 md:p-10 min-h-[1120px] relative flex flex-col justify-between print:min-h-[297mm] print:break-after-page print:m-0">
             <div>
               {/* Header */}
@@ -534,7 +708,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                     <div className="space-y-1.5 text-[11px] text-cyan-50">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                        <span>Sultanate of Oman</span>
+                        <span>Muscat, Sultanate of Oman</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
@@ -573,7 +747,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                 — OSBIC International LLC | Established in Oman | www.osbic.net
               </div>
 
-              {/* Selfie Guide Section (Image 4) */}
+              {/* Selfie Guide Section (Matching Image 4) */}
               {showSelfieGuide && (
                 <div className="border border-[#0073b7] rounded-sm overflow-hidden mb-6">
                   <div className="bg-[#0073b7] text-white text-center py-2 px-4 font-extrabold text-xs tracking-wider uppercase">
@@ -593,11 +767,11 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
               )}
             </div>
 
-            {/* Page 3 Footer */}
+            {/* Page 4 Footer */}
             <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
               <span>OSBIC International LLC</span>
               <span className="font-semibold text-[#0073b7]">www.osbic.net</span>
-              <span>Page 3</span>
+              <span>Page {showBankDetails ? '4' : '3'}</span>
             </div>
           </div>
         )}

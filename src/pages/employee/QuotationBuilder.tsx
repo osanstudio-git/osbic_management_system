@@ -1162,7 +1162,7 @@ const QuotationBuilder = () => {
                         <span>🤝 Dedicated B2B Proposal Form</span>
                         <ArrowUpRight className="w-3.5 h-3.5" />
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Open dedicated 2-page partnership builder</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Open dedicated 4-page partnership proposal builder (Scope, Model, Bank, Selfie)</div>
                     </div>
                   </button>
                 </div>
