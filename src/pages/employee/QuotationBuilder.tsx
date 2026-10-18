@@ -4,7 +4,7 @@ import {
   ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, 
   CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
   Camera, Layers, Settings2, Sliders, UserCheck, User, 
-  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle, ArrowUpRight 
+  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle 
 } from 'lucide-react';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
@@ -144,7 +144,6 @@ const QuotationBuilder = () => {
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [restoredDraftInfo, setRestoredDraftInfo] = useState<{ savedAt: string } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-  const [filterB2BOnly, setFilterB2BOnly] = useState<boolean>(false);
 
   // Concurrency Mutex & Timers
   const isSavingRef = useRef<boolean>(false);
@@ -1119,153 +1118,9 @@ const QuotationBuilder = () => {
 
             <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-6">
               
-              {/* Document Format & Template Switcher */}
-              <div className="bg-gradient-to-r from-[#0073b7]/10 via-[#0288d1]/10 to-[#e0f7fa]/30 border border-[#0288d1]/30 rounded-2xl p-5 space-y-3 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-[#0288d1]" />
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                      Quotation Format & Template
-                    </h3>
-                  </div>
-                  <span className="text-[10px] font-semibold text-[#0288d1] uppercase px-2.5 py-0.5 rounded-full bg-[#0288d1]/15">
-                    {formData.metadata?.proposal_type === 'b2b_proposal' ? 'B2B Strategic Proposal' : 'Standard Quotation'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({
-                      ...formData,
-                      metadata: { ...formData.metadata, proposal_type: 'standard' }
-                    })}
-                    className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                      formData.metadata?.proposal_type !== 'b2b_proposal'
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                        : 'bg-card border-border hover:bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-bold text-xs">📄 Standard Line-Item Quote</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">Itemized service fees & totals</div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate('/employee/b2b/proposals/new')}
-                    className="p-3 rounded-xl text-left border transition-all flex flex-col justify-between bg-card border-border hover:border-cyan-500 hover:bg-muted text-foreground group"
-                  >
-                    <div>
-                      <div className="font-bold text-xs flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 group-hover:translate-x-0.5 transition-transform">
-                        <span>🤝 Dedicated B2B Proposal Form</span>
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Open dedicated 4-page strategic proposal builder (Scope & Pricing, Models, Bank Details, Selfie Guide)</div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* B2B Proposal Specific Customization Controls */}
-                {formData.metadata?.proposal_type === 'b2b_proposal' && (
-                  <div className="pt-3 border-t border-[#0288d1]/20 space-y-3">
-                    <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Partnership Model Display Options</div>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={formData.metadata?.show_option_a !== false}
-                            onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, show_option_a: e.target.checked } })}
-                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
-                          />
-                          Option A (B2B Partnership)
-                        </label>
-
-                        <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={formData.metadata?.show_option_b !== false}
-                            onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, show_option_b: e.target.checked } })}
-                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
-                          />
-                          Option B (Reference Partnership)
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Submitted To (Partner / Client)</label>
-                        <input
-                          type="text"
-                          value={formData.metadata?.b2b_submitted_to || ''}
-                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, b2b_submitted_to: e.target.value } })}
-                          placeholder="MUHAMMED MUNAZIM"
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:border-primary outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Prepared By (Staff Name)</label>
-                        <input
-                          type="text"
-                          value={formData.metadata?.b2b_prepared_by || ''}
-                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, b2b_prepared_by: e.target.value } })}
-                          placeholder="ANSAR NV"
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:border-primary outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">New CR (No Attest)</label>
-                        <input
-                          type="number"
-                          value={formData.metadata?.pkg_new_cr_no_attest ?? 2000}
-                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_new_cr_no_attest: Number(e.target.value) } })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">New CR (With Attest)</label>
-                        <input
-                          type="number"
-                          value={formData.metadata?.pkg_new_cr_with_attest ?? 4000}
-                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_new_cr_with_attest: Number(e.target.value) } })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-muted-foreground uppercase block mb-1">Existing CR Package</label>
-                        <input
-                          type="number"
-                          value={formData.metadata?.pkg_existing_cr ?? 12250}
-                          onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, pkg_existing_cr: Number(e.target.value) } })}
-                          className="w-full bg-background border border-border rounded-xl px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
                 <div className="space-y-2 col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
-                    <label className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={filterB2BOnly}
-                        onChange={e => setFilterB2BOnly(e.target.checked)}
-                        className="w-4 h-4 rounded text-emerald-600 accent-emerald-600 cursor-pointer"
-                      />
-                      <span>Filter B2B Partners & Corporate Clients Only 🌐</span>
-                    </label>
-                  </div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">Select Recipient *</label>
                   <select
                     value={formData.client_id ? `client:${formData.client_id}` : (formData.lead_id ? `lead:${formData.lead_id}` : '')}
                     onChange={e => {
@@ -1285,8 +1140,6 @@ const QuotationBuilder = () => {
                             recipient_name: selectedClient?.full_name || '',
                             company_name: selectedClient?.company_name || '',
                             recipient_phone: selectedClient?.phone || '',
-                            b2b_submitted_to: selectedClient?.company_name || selectedClient?.full_name || '',
-                            b2b_submitted_phone: selectedClient?.phone || '',
                             recipient_display_mode: selectedClient?.company_name ? 'both' : 'contact'
                           }
                         });
@@ -1305,8 +1158,6 @@ const QuotationBuilder = () => {
                             recipient_name: selectedLead?.contact_name || '',
                             company_name: selectedLead?.company_name || '',
                             recipient_phone: selectedLead?.contact_phone || '',
-                            b2b_submitted_to: selectedLead?.company_name || selectedLead?.contact_name || '',
-                            b2b_submitted_phone: selectedLead?.contact_phone || selectedLead?.contact_whatsapp || '',
                             recipient_display_mode: selectedLead?.company_name ? 'both' : 'contact'
                           }
                         });
@@ -1324,25 +1175,21 @@ const QuotationBuilder = () => {
                     className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
                   >
                     <option value="">-- Choose Client or Lead --</option>
-                    <optgroup label={filterB2BOnly ? "🌐 B2B Partners & Corporate Clients" : "Active Clients"}>
+                    <optgroup label="Active Clients">
                       {formData.client && !activeClients.some(c => c.id === formData.client.id) && (
                         <option value={`client:${formData.client.id}`}>{formData.client.full_name} ({formData.client.company_name || 'Individual'})</option>
                       )}
-                      {activeClients
-                        .filter(c => !filterB2BOnly || c.company_name || (c as any).is_b2b)
-                        .map(c => (
-                          <option key={c.id} value={`client:${c.id}`}>{c.full_name} ({c.company_name || 'Individual'})</option>
-                        ))}
+                      {activeClients.map(c => (
+                        <option key={c.id} value={`client:${c.id}`}>{c.full_name} ({c.company_name || 'Individual'})</option>
+                      ))}
                     </optgroup>
-                    <optgroup label={filterB2BOnly ? "🌐 B2B Cross-Border Leads" : "Active Leads"}>
+                    <optgroup label="Active Leads">
                       {formData.lead && !leads?.some(l => l.id === formData.lead.id) && (
                         <option value={`lead:${formData.lead.id}`}>{formData.lead.contact_name} ({formData.lead.company_name || 'Individual Lead'})</option>
                       )}
-                      {leads
-                        ?.filter(l => !filterB2BOnly || (l as any).is_b2b || (l as any).b2b_flow_type || (l as any).b2b_partner_id || l.company_name || l.nationality?.toLowerCase().includes('saudi') || l.nationality?.toLowerCase().includes('ksa'))
-                        .map(l => (
-                          <option key={l.id} value={`lead:${l.id}`}>{l.contact_name} ({l.company_name || 'Individual Lead'})</option>
-                        ))}
+                      {leads?.map(l => (
+                        <option key={l.id} value={`lead:${l.id}`}>{l.contact_name} ({l.company_name || 'Individual Lead'})</option>
+                      ))}
                     </optgroup>
                   </select>
                 </div>
