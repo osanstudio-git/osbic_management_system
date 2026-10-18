@@ -15,7 +15,6 @@ import { useLeads, useAdminLeads } from '../../hooks/shared/useLeads';
 import { useAdminClients } from '../../hooks/admin/useAdminClients';
 import { useCurrencyRates, getCurrencyConfig } from '../../hooks/shared/useCurrencyRates';
 import { B2BPartnershipProposalDocument } from '../../components/employee/B2BPartnershipProposalDocument';
-import ThemeToggle from '../../components/ThemeToggle';
 import { supabase } from '../../lib/supabase';
 
 export default function B2BProposalBuilder() {
@@ -546,8 +545,6 @@ export default function B2BProposalBuilder() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
-
             <button
               type="button"
               onClick={handlePrint}
@@ -1457,14 +1454,6 @@ export default function B2BProposalBuilder() {
                 Fit Width
               </button>
             </div>
-
-            {/* Export PDF Button */}
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-[#0073b7] hover:bg-[#00609a] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
-            >
-              <Printer className="w-3.5 h-3.5" /> Export PDF
-            </button>
           </div>
 
           {/* Scaled Document Viewport Container */}
