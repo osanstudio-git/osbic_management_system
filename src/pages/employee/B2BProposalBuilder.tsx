@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { 
-  ArrowLeft, Printer, Save, CheckCircle2, Building2, User, Phone, 
+  ArrowLeft, Printer, Save, Building2, User, Phone, 
   Mail, ShieldCheck, Handshake, Globe, DollarSign, FileText, 
-  RotateCcw, Sparkles, ChevronRight, Eye
+  RotateCcw, Sparkles, ChevronRight, Eye, ZoomIn, ZoomOut, 
+  Maximize2, Sliders, CheckSquare, Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,6 +37,11 @@ export default function B2BProposalBuilder() {
   const adminClients = useAdminClients().data || [];
   const { data: ratesData } = useCurrencyRates();
 
+  // View & Zoom controls for Live Preview
+  const [zoomLevel, setZoomLevel] = useState<number>(0.68);
+  const [activePreviewPage, setActivePreviewPage] = useState<'all' | '1' | '2' | '3'>('all');
+  const [formTab, setFormTab] = useState<'recipient' | 'intro' | 'new_cr' | 'existing_cr' | 'models'>('recipient');
+
   // Form State
   const [recipientType, setRecipientType] = useState<'partner' | 'lead' | 'custom'>('partner');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
@@ -48,32 +54,78 @@ export default function B2BProposalBuilder() {
     contactPerson: string;
     clientPhone: string;
     clientEmail: string;
+    submittedBy: string;
     preparedBy: string;
     ourPhone: string;
     currency: string;
-    showOptionA: boolean;
-    showOptionB: boolean;
+    
+    // Page 1: Introduction text
+    introP1: string;
+    introP2: string;
+
+    // Page 1: New CR Package
+    pkgNewCrServicesT1: string;
     pkgNewCrNoAttest: number;
+    pkgNewCrServicesT2: string;
     pkgNewCrWithAttest: number;
+    pkgNewCrDocs: string;
+    pkgNewCrTimeline: string;
+
+    // Page 1: Existing CR Package
+    pkgExistingCrServices: string;
     pkgExistingCr: number;
+    pkgExistingCrDocs: string;
+    pkgExistingCrTimeline: string;
+
+    // Page 2 & 3: Models & Surcharge
     surchargeNote: string;
+    showOptionA: boolean;
+    optionATitle: string;
+    optionADesc: string;
+    showOptionB: boolean;
+    optionBTitle: string;
+    optionBDesc: string;
+    showSelfieGuide: boolean;
     notes: string;
     status: Invoice['status'];
   }>({
     proposalTitle: 'Oman Company Formation Services',
-    submittedTo: '',
+    submittedTo: 'A C H',
     contactPerson: '',
     clientPhone: '',
     clientEmail: '',
+    submittedBy: 'OSBIC International LLC',
     preparedBy: profile?.full_name || 'ANSAR NV',
     ourPhone: '+968 72596531, +968 72229827',
     currency: 'SAR',
-    showOptionA: true,
-    showOptionB: true,
+
+    // Page 1 Introduction defaults
+    introP1: 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
+    introP2: 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
+
+    // Page 1 New CR defaults
+    pkgNewCrServicesT1: 'New commercial registration',
     pkgNewCrNoAttest: 2000,
+    pkgNewCrServicesT2: 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.',
     pkgNewCrWithAttest: 4000,
-    pkgExistingCr: 12250,
-    surchargeNote: 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
+    pkgNewCrDocs: 'Passport copy & Passport with selfie\nEmail address\nPhone number\nBusiness activity list\nProposed company name(s)',
+    pkgNewCrTimeline: 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days',
+
+    // Page 1 Existing CR defaults
+    pkgExistingCrServices: 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.',
+    pkgExistingCr: 13000,
+    pkgExistingCrDocs: 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)',
+    pkgExistingCrTimeline: 'Complete documentation: Within 10-15 working days.',
+
+    // Page 2 & 3 defaults
+    surchargeNote: 'An additional fee of OMR 250 will apply, subject to the IQAMA & POA are not available as per the conditions mentioned above.',
+    showOptionA: true,
+    optionATitle: 'B2B Partnership',
+    optionADesc: 'Direct business cooperation with structured agreements, defined service levels, and formalized billing arrangements between both organizations.',
+    showOptionB: true,
+    optionBTitle: 'Reference-Based Partnership',
+    optionBDesc: 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
+    showSelfieGuide: true,
     notes: 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
     status: 'draft'
   });
@@ -170,19 +222,38 @@ export default function B2BProposalBuilder() {
 
       setProposalData({
         proposalTitle: meta.b2b_proposal_title || 'Oman Company Formation Services',
-        submittedTo: meta.b2b_submitted_to || initialData.client?.company_name || initialData.lead?.company_name || initialData.client?.full_name || initialData.lead?.contact_name || '',
+        submittedTo: meta.b2b_submitted_to || initialData.client?.company_name || initialData.lead?.company_name || initialData.client?.full_name || initialData.lead?.contact_name || 'A C H',
         contactPerson: meta.b2b_contact_person || initialData.client?.full_name || initialData.lead?.contact_name || '',
         clientPhone: meta.b2b_submitted_phone || initialData.client?.phone || initialData.lead?.contact_phone || '',
         clientEmail: meta.b2b_submitted_email || initialData.client?.email || initialData.lead?.contact_email || '',
+        submittedBy: meta.b2b_submitted_by || 'OSBIC International LLC',
         preparedBy: meta.b2b_prepared_by || initialData.employee?.full_name || profile?.full_name || 'ANSAR NV',
         ourPhone: meta.b2b_our_phone || '+968 72596531, +968 72229827',
         currency: initialData.currency || 'SAR',
-        showOptionA: meta.show_option_a !== false,
-        showOptionB: meta.show_option_b !== false,
+
+        introP1: meta.b2b_intro_p1 || 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
+        introP2: meta.b2b_intro_p2 || 'We believe this collaboration presents a valuable opportunity for both organizations to expand service offerings, generate additional revenue streams, and deliver tangible value to mutual clients.',
+
+        pkgNewCrServicesT1: typeof meta.pkg_new_cr_services_t1 === 'string' ? meta.pkg_new_cr_services_t1 : (Array.isArray(meta.pkg_new_cr_services_t1) ? meta.pkg_new_cr_services_t1.join('\n') : 'New commercial registration'),
         pkgNewCrNoAttest: meta.pkg_new_cr_no_attest ?? 2000,
+        pkgNewCrServicesT2: typeof meta.pkg_new_cr_services_t2 === 'string' ? meta.pkg_new_cr_services_t2 : (Array.isArray(meta.pkg_new_cr_services_t2) ? meta.pkg_new_cr_services_t2.join('\n') : 'New commercial registration\nAttestation of CR with MOFA & SAUDI EMBASSY.'),
         pkgNewCrWithAttest: meta.pkg_new_cr_with_attest ?? 4000,
-        pkgExistingCr: meta.pkg_existing_cr ?? 12250,
-        surchargeNote: meta.b2b_surcharge_note || 'Please note: In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged.',
+        pkgNewCrDocs: typeof meta.pkg_new_cr_docs === 'string' ? meta.pkg_new_cr_docs : (Array.isArray(meta.pkg_new_cr_docs) ? meta.pkg_new_cr_docs.join('\n') : 'Passport copy & Passport with selfie\nEmail address\nPhone number\nBusiness activity list\nProposed company name(s)'),
+        pkgNewCrTimeline: typeof meta.pkg_new_cr_timeline === 'string' ? meta.pkg_new_cr_timeline : (Array.isArray(meta.pkg_new_cr_timeline) ? meta.pkg_new_cr_timeline.join('\n') : 'Name approval: Same day\nCR issuance: Same day (post-approval)\nAttestation: Within 4 working days'),
+
+        pkgExistingCrServices: typeof meta.pkg_existing_cr_services === 'string' ? meta.pkg_existing_cr_services : (Array.isArray(meta.pkg_existing_cr_services) ? meta.pkg_existing_cr_services.join('\n') : 'Commercial registration with MOFA & Saudi embassy attestation\nMOA with MOFA & Saudi attestation\nAudit report with MOFA & Saudi embassy attestation\n1 POA for Saudi client, with MOFA & Saudi attestation.'),
+        pkgExistingCr: meta.pkg_existing_cr ?? 13000,
+        pkgExistingCrDocs: typeof meta.pkg_existing_cr_docs === 'string' ? meta.pkg_existing_cr_docs : (Array.isArray(meta.pkg_existing_cr_docs) ? meta.pkg_existing_cr_docs.join('\n') : 'Passport copy & Iqama copy\nPassport with selfie\nEmail address\nPhone number\nPower of Attorney (POA)'),
+        pkgExistingCrTimeline: typeof meta.pkg_existing_cr_timeline === 'string' ? meta.pkg_existing_cr_timeline : (Array.isArray(meta.pkg_existing_cr_timeline) ? meta.pkg_existing_cr_timeline.join('\n') : 'Complete documentation: Within 10-15 working days.'),
+
+        surchargeNote: meta.b2b_surcharge_note || 'An additional fee of OMR 250 will apply, subject to the IQAMA & POA are not available as per the conditions mentioned above.',
+        showOptionA: meta.show_option_a !== false,
+        optionATitle: meta.b2b_option_a_title || 'B2B Partnership',
+        optionADesc: meta.b2b_option_a_desc || 'Direct business cooperation with structured agreements, defined service levels, and formalized billing arrangements between both organizations.',
+        showOptionB: meta.show_option_b !== false,
+        optionBTitle: meta.b2b_option_b_title || 'Reference-Based Partnership',
+        optionBDesc: meta.b2b_option_b_desc || 'Commission-based model where your organization refers clients to OSBIC and receives a competitive commission for each successful company formation.',
+        showSelfieGuide: meta.show_selfie_guide !== false,
         notes: initialData.notes || 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
         status: initialData.status || 'draft'
       });
@@ -228,7 +299,7 @@ export default function B2BProposalBuilder() {
     }
 
     try {
-      const totalAmount = Number(proposalData.pkgExistingCr || 12250);
+      const totalAmount = Number(proposalData.pkgExistingCr || 13000);
       const payload: Invoice = {
         id: isNew ? undefined : id,
         type: 'quotation',
@@ -252,14 +323,36 @@ export default function B2BProposalBuilder() {
           b2b_contact_person: proposalData.contactPerson,
           b2b_submitted_phone: proposalData.clientPhone,
           b2b_submitted_email: proposalData.clientEmail,
+          b2b_submitted_by: proposalData.submittedBy,
           b2b_prepared_by: proposalData.preparedBy,
           b2b_our_phone: proposalData.ourPhone,
-          show_option_a: proposalData.showOptionA,
-          show_option_b: proposalData.showOptionB,
+
+          // Page 1 details
+          b2b_intro_p1: proposalData.introP1,
+          b2b_intro_p2: proposalData.introP2,
+
+          pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
           pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
+          pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
           pkg_new_cr_with_attest: Number(proposalData.pkgNewCrWithAttest),
+          pkg_new_cr_docs: proposalData.pkgNewCrDocs,
+          pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
+
+          pkg_existing_cr_services: proposalData.pkgExistingCrServices,
           pkg_existing_cr: Number(proposalData.pkgExistingCr),
+          pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
+          pkg_existing_cr_timeline: proposalData.pkgExistingCrTimeline,
+
+          // Page 2 & 3 details
           b2b_surcharge_note: proposalData.surchargeNote,
+          show_option_a: proposalData.showOptionA,
+          b2b_option_a_title: proposalData.optionATitle,
+          b2b_option_a_desc: proposalData.optionADesc,
+          show_option_b: proposalData.showOptionB,
+          b2b_option_b_title: proposalData.optionBTitle,
+          b2b_option_b_desc: proposalData.optionBDesc,
+          show_selfie_guide: proposalData.showSelfieGuide,
+
           company_name: proposalData.submittedTo,
           recipient_name: proposalData.contactPerson || proposalData.submittedTo,
           recipient_phone: proposalData.clientPhone
@@ -285,14 +378,14 @@ export default function B2BProposalBuilder() {
     }
   };
 
-  // Virtual Invoice Object for live preview
+  // Live preview virtual invoice
   const livePreviewInvoice: Invoice = {
     id: id || 'preview',
     type: 'quotation',
     status: proposalData.status,
     currency: proposalData.currency,
-    subtotal: Number(proposalData.pkgExistingCr || 12250),
-    total_amount: Number(proposalData.pkgExistingCr || 12250),
+    subtotal: Number(proposalData.pkgExistingCr || 13000),
+    total_amount: Number(proposalData.pkgExistingCr || 13000),
     tax_percentage: 0,
     tax_amount: 0,
     discount_amount: 0,
@@ -310,18 +403,35 @@ export default function B2BProposalBuilder() {
       b2b_contact_person: proposalData.contactPerson,
       b2b_submitted_phone: proposalData.clientPhone,
       b2b_submitted_email: proposalData.clientEmail,
+      b2b_submitted_by: proposalData.submittedBy,
       b2b_prepared_by: proposalData.preparedBy,
       b2b_our_phone: proposalData.ourPhone,
-      show_option_a: proposalData.showOptionA,
-      show_option_b: proposalData.showOptionB,
+
+      b2b_intro_p1: proposalData.introP1,
+      b2b_intro_p2: proposalData.introP2,
+
+      pkg_new_cr_services_t1: proposalData.pkgNewCrServicesT1,
       pkg_new_cr_no_attest: Number(proposalData.pkgNewCrNoAttest),
+      pkg_new_cr_services_t2: proposalData.pkgNewCrServicesT2,
       pkg_new_cr_with_attest: Number(proposalData.pkgNewCrWithAttest),
+      pkg_new_cr_docs: proposalData.pkgNewCrDocs,
+      pkg_new_cr_timeline: proposalData.pkgNewCrTimeline,
+
+      pkg_existing_cr_services: proposalData.pkgExistingCrServices,
       pkg_existing_cr: Number(proposalData.pkgExistingCr),
-      b2b_surcharge_note: proposalData.surchargeNote
+      pkg_existing_cr_docs: proposalData.pkgExistingCrDocs,
+      pkg_existing_cr_timeline: proposalData.pkgExistingCrTimeline,
+
+      b2b_surcharge_note: proposalData.surchargeNote,
+      show_option_a: proposalData.showOptionA,
+      b2b_option_a_title: proposalData.optionATitle,
+      b2b_option_a_desc: proposalData.optionADesc,
+      show_option_b: proposalData.showOptionB,
+      b2b_option_b_title: proposalData.optionBTitle,
+      b2b_option_b_desc: proposalData.optionBDesc,
+      show_selfie_guide: proposalData.showSelfieGuide
     }
   };
-
-  const currCfg = getCurrencyConfig(proposalData.currency);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -364,10 +474,10 @@ export default function B2BProposalBuilder() {
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition flex items-center gap-1.5"
             >
               <Printer className="w-4 h-4 text-emerald-500" />
-              <span className="hidden sm:inline">Print / PDF</span>
+              <span className="hidden sm:inline">Print / Export PDF</span>
             </button>
 
             <button
@@ -383,350 +493,687 @@ export default function B2BProposalBuilder() {
         </div>
       </header>
 
-      {/* Main Workspace Layout: Left Form + Right Live 2-Page Preview */}
+      {/* Main Workspace Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* ================= LEFT: FORM CONTROLS (5 Cols) ================= */}
-        <div className="lg:col-span-5 space-y-5 print:hidden">
+        <div className="lg:col-span-5 space-y-4 print:hidden">
 
-          {/* CARD 1: RECIPIENT & PARTNER SELECTION */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-emerald-500" />
-                1. Recipient / B2B Partner
-              </h2>
-              <span className="text-[10px] text-muted-foreground">Select or Type Details</span>
-            </div>
+          {/* Form Section Navigation Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 bg-muted/60 p-1 rounded-2xl border border-border text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setFormTab('recipient')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
+                formTab === 'recipient'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              1. Recipient & Title
+            </button>
 
-            {/* Recipient Source Selector */}
-            <div className="grid grid-cols-3 gap-1.5 bg-muted p-1 rounded-xl text-xs">
-              <button
-                type="button"
-                onClick={() => setRecipientType('partner')}
-                className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                  recipientType === 'partner'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                B2B Partner
-              </button>
-              <button
-                type="button"
-                onClick={() => setRecipientType('lead')}
-                className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                  recipientType === 'lead'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Saudi Lead
-              </button>
-              <button
-                type="button"
-                onClick={() => setRecipientType('custom')}
-                className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                  recipientType === 'custom'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Custom Name
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setFormTab('intro')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
+                formTab === 'intro'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              2. Introduction
+            </button>
 
-            {/* Partner Dropdown */}
-            {recipientType === 'partner' && (
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Choose Existing Partner Firm
-                </label>
-                <select
-                  value={selectedPartnerId}
-                  onChange={(e) => handlePartnerSelect(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+            <button
+              type="button"
+              onClick={() => setFormTab('new_cr')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
+                formTab === 'new_cr'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              3. New CR
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormTab('existing_cr')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
+                formTab === 'existing_cr'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              4. Existing CR
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormTab('models')}
+              className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
+                formTab === 'models'
+                  ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              5. Page 2 & 3
+            </button>
+          </div>
+
+          {/* TAB 1: RECIPIENT & TITLE */}
+          {formTab === 'recipient' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-emerald-500" />
+                  Partner Recipient & Header Info
+                </h2>
+              </div>
+
+              {/* Source Selector */}
+              <div className="grid grid-cols-3 gap-1.5 bg-muted p-1 rounded-xl text-xs">
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('partner')}
+                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                    recipientType === 'partner'
+                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <option value="">-- Choose Partner Company --</option>
-                  {partners.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.country === 'KSA' ? '🇸🇦' : '🇴🇲'} {p.name} ({p.partner_type})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Lead Dropdown */}
-            {recipientType === 'lead' && (
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Choose Cross-Border Lead
-                </label>
-                <select
-                  value={selectedLeadId}
-                  onChange={(e) => handleLeadSelect(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                  B2B Partner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('lead')}
+                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                    recipientType === 'lead'
+                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <option value="">-- Choose Lead --</option>
-                  {(leads || []).map(l => (
-                    <option key={l.id} value={l.id}>
-                      {l.company_name ? `${l.company_name} — ${l.contact_name}` : l.contact_name} ({l.nationality || 'Client'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Editable Contact Fields */}
-            <div className="space-y-3 pt-2 border-t border-border/60">
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Submitted To (Partner / Company Name) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={proposalData.submittedTo}
-                  onChange={(e) => setProposalData({ ...proposalData, submittedTo: e.target.value })}
-                  placeholder="e.g. UNITED ENGINEERS CO."
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-emerald-500 outline-none"
-                />
+                  Saudi Lead
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('custom')}
+                  className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
+                    recipientType === 'custom'
+                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Custom
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Dropdowns */}
+              {recipientType === 'partner' && (
                 <div>
                   <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Contact Person
+                    Choose Partner Firm
+                  </label>
+                  <select
+                    value={selectedPartnerId}
+                    onChange={(e) => handlePartnerSelect(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                  >
+                    <option value="">-- Choose Partner Company --</option>
+                    {partners.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.country === 'KSA' ? '🇸🇦' : '🇴🇲'} {p.name} ({p.partner_type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {recipientType === 'lead' && (
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Choose Saudi/GCC Lead
+                  </label>
+                  <select
+                    value={selectedLeadId}
+                    onChange={(e) => handleLeadSelect(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                  >
+                    <option value="">-- Choose Lead --</option>
+                    {(leads || []).map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.company_name ? `${l.company_name} — ${l.contact_name}` : l.contact_name} ({l.nationality || 'Client'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Submitted To & Phone */}
+              <div className="space-y-3 pt-2 border-t border-border/60">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Submitted To (Partner / Company Name) *
                   </label>
                   <input
                     type="text"
-                    value={proposalData.contactPerson}
-                    onChange={(e) => setProposalData({ ...proposalData, contactPerson: e.target.value })}
-                    placeholder="e.g. Eng. Mohammed"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                    required
+                    value={proposalData.submittedTo}
+                    onChange={(e) => setProposalData({ ...proposalData, submittedTo: e.target.value })}
+                    placeholder="e.g. A C H"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-emerald-500 outline-none"
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Contact Person
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.contactPerson}
+                      onChange={(e) => setProposalData({ ...proposalData, contactPerson: e.target.value })}
+                      placeholder="e.g. Eng. Mohammed"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-emerald-500" /> Client Phone
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.clientPhone}
+                      onChange={(e) => setProposalData({ ...proposalData, clientPhone: e.target.value })}
+                      placeholder="e.g. +966582288816"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Proposal Title & Presenter */}
                 <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-emerald-500" /> Client Phone
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Proposal Title (Banner Heading)
                   </label>
                   <input
                     type="text"
-                    value={proposalData.clientPhone}
-                    onChange={(e) => setProposalData({ ...proposalData, clientPhone: e.target.value })}
-                    placeholder="e.g. +966 50 123 4567"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                    value={proposalData.proposalTitle}
+                    onChange={(e) => setProposalData({ ...proposalData, proposalTitle: e.target.value })}
+                    placeholder="Oman Company Formation Services"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-emerald-500 outline-none"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Submitted By
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.submittedBy}
+                      onChange={(e) => setProposalData({ ...proposalData, submittedBy: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Prepared By (Representative)
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.preparedBy}
+                      onChange={(e) => setProposalData({ ...proposalData, preparedBy: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Currency
+                    </label>
+                    <select
+                      value={proposalData.currency}
+                      onChange={(e) => setProposalData({ ...proposalData, currency: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none"
+                    >
+                      <option value="SAR">🇸🇦 SAR (Saudi Riyal)</option>
+                      <option value="OMR">🇴🇲 OMR (Omani Rial)</option>
+                      <option value="AED">🇦🇪 AED (UAE Dirham)</option>
+                      <option value="USD">🇺🇸 USD (US Dollar)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                      Our Phone Numbers
+                    </label>
+                    <input
+                      type="text"
+                      value={proposalData.ourPhone}
+                      onChange={(e) => setProposalData({ ...proposalData, ourPhone: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* CARD 2: PROPOSAL TITLE & PRESENTER DETAILS */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-              <FileText className="w-4 h-4 text-cyan-500" />
-              2. Scope & OSBIC Presenter
-            </h2>
+          {/* TAB 2: INTRODUCTION */}
+          {formTab === 'intro' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-cyan-500" />
+                  Page 1: Introduction Section (Editable)
+                </h2>
+              </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                Proposal Title (Banner Heading)
-              </label>
-              <input
-                type="text"
-                value={proposalData.proposalTitle}
-                onChange={(e) => setProposalData({ ...proposalData, proposalTitle: e.target.value })}
-                placeholder="Oman Company Formation Services"
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-cyan-500 outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Prepared By (Representative)
+                  Introduction — Paragraph 1
                 </label>
-                <input
-                  type="text"
-                  value={proposalData.preparedBy}
-                  onChange={(e) => setProposalData({ ...proposalData, preparedBy: e.target.value })}
-                  placeholder="ANSAR NV"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-cyan-500 outline-none"
+                <textarea
+                  rows={4}
+                  value={proposalData.introP1}
+                  onChange={(e) => setProposalData({ ...proposalData, introP1: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Currency
+                  Introduction — Paragraph 2
                 </label>
-                <select
-                  value={proposalData.currency}
-                  onChange={(e) => setProposalData({ ...proposalData, currency: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-cyan-500 outline-none"
-                >
-                  <option value="SAR">🇸🇦 SAR (Saudi Riyal) - Standard</option>
-                  <option value="OMR">🇴🇲 OMR (Omani Rial)</option>
-                  <option value="AED">🇦🇪 AED (UAE Dirham)</option>
-                  <option value="USD">🇺🇸 USD (US Dollar)</option>
-                </select>
+                <textarea
+                  rows={3}
+                  value={proposalData.introP2}
+                  onChange={(e) => setProposalData({ ...proposalData, introP2: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
+                />
               </div>
             </div>
+          )}
 
-            <div>
-              <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
-                <Phone className="w-3 h-3 text-cyan-500" /> OSBIC Official Contact Numbers
-              </label>
-              <input
-                type="text"
-                value={proposalData.ourPhone}
-                onChange={(e) => setProposalData({ ...proposalData, ourPhone: e.target.value })}
-                placeholder="+968 72596531, +968 72229827"
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-cyan-500 outline-none font-mono"
-              />
-            </div>
-          </div>
-
-          {/* CARD 3: PARTNERSHIP MODELS & PACKAGE PRICING */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-              <Handshake className="w-4 h-4 text-emerald-500" />
-              3. Partnership Models & Package Pricing ({proposalData.currency})
-            </h2>
-
-            {/* Model Display Checkboxes */}
-            <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase">
-                Included Partnership Options
+          {/* TAB 3: NEW CR PACKAGE */}
+          {formTab === 'new_cr' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-emerald-500" />
+                  Page 1: New Company Registration (CR) Column
+                </h2>
               </div>
-              <div className="flex items-center gap-4 flex-wrap">
-                <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
+
+              {/* Tier 1 */}
+              <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
+                <label className="text-[10px] font-bold text-foreground uppercase block">
+                  Tier 1: Services List (Without Attestation)
+                </label>
+                <textarea
+                  rows={2}
+                  value={proposalData.pkgNewCrServicesT1}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT1: e.target.value })}
+                  placeholder="One service item per line"
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
+                />
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Tier 1 Total Amount ({proposalData.currency})
+                  </span>
+                  <input
+                    type="number"
+                    value={proposalData.pkgNewCrNoAttest}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrNoAttest: Number(e.target.value) })}
+                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right"
+                  />
+                </div>
+              </div>
+
+              {/* Tier 2 */}
+              <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-2">
+                <label className="text-[10px] font-bold text-foreground uppercase block">
+                  Tier 2: Services List (With Attestation)
+                </label>
+                <textarea
+                  rows={3}
+                  value={proposalData.pkgNewCrServicesT2}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT2: e.target.value })}
+                  placeholder="One service item per line"
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
+                />
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Tier 2 Total Amount ({proposalData.currency})
+                  </span>
+                  <input
+                    type="number"
+                    value={proposalData.pkgNewCrWithAttest}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrWithAttest: Number(e.target.value) })}
+                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right"
+                  />
+                </div>
+              </div>
+
+              {/* Required Documents */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Required Documents (Line by Line)
+                </label>
+                <textarea
+                  rows={4}
+                  value={proposalData.pkgNewCrDocs}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrDocs: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                />
+              </div>
+
+              {/* Processing Timeline */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Processing Timeline (Line by Line)
+                </label>
+                <textarea
+                  rows={3}
+                  value={proposalData.pkgNewCrTimeline}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTimeline: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: EXISTING CR PACKAGE */}
+          {formTab === 'existing_cr' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                  Page 1: Existing Company (CR) Package Column
+                </h2>
+              </div>
+
+              {/* Services List */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-foreground uppercase block">
+                  Included Package Services (Line by Line)
+                </label>
+                <textarea
+                  rows={4}
+                  value={proposalData.pkgExistingCrServices}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrServices: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none"
+                />
+              </div>
+
+              {/* Total Amount */}
+              <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
+                <div>
+                  <span className="text-xs font-bold text-foreground block">Package Total Amount</span>
+                  <span className="text-[10px] text-muted-foreground">Standard all-inclusive CR package price</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={proposalData.pkgExistingCr}
+                    onChange={(e) => setProposalData({ ...proposalData, pkgExistingCr: Number(e.target.value) })}
+                    className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-emerald-500 outline-none text-right font-mono"
+                  />
+                  <span className="text-xs font-bold text-foreground">{proposalData.currency}</span>
+                </div>
+              </div>
+
+              {/* Required Documents */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Required Documents (Line by Line)
+                </label>
+                <textarea
+                  rows={4}
+                  value={proposalData.pkgExistingCrDocs}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrDocs: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                />
+              </div>
+
+              {/* Processing Timeline */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Processing Timeline (Line by Line)
+                </label>
+                <textarea
+                  rows={2}
+                  value={proposalData.pkgExistingCrTimeline}
+                  onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTimeline: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none font-mono"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: PAGE 2 & 3 OPTIONS */}
+          {formTab === 'models' && (
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-cyan-500" />
+                  Page 2 & 3: Partnership Models & Selfie Guide
+                </h2>
+              </div>
+
+              {/* Surcharge Note */}
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                  Surcharge Notice (Page 2 Top Box)
+                </label>
+                <textarea
+                  rows={2}
+                  value={proposalData.surchargeNote}
+                  onChange={(e) => setProposalData({ ...proposalData, surchargeNote: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-cyan-500 outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Option A Toggle & Description */}
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={proposalData.showOptionA}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionA: e.target.checked })}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
                   />
-                  <span>Option A (B2B Partnership)</span>
+                  <span>Include Option A (B2B Partnership)</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
+                {proposalData.showOptionA && (
+                  <div className="space-y-2 pt-2">
+                    <input
+                      type="text"
+                      value={proposalData.optionATitle}
+                      onChange={(e) => setProposalData({ ...proposalData, optionATitle: e.target.value })}
+                      placeholder="B2B Partnership"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-cyan-500 outline-none"
+                    />
+                    <textarea
+                      rows={2}
+                      value={proposalData.optionADesc}
+                      onChange={(e) => setProposalData({ ...proposalData, optionADesc: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Option B Toggle & Description */}
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={proposalData.showOptionB}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionB: e.target.checked })}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
                   />
-                  <span>Option B (Reference Referral)</span>
+                  <span>Include Option B (Reference-Based Partnership)</span>
                 </label>
-              </div>
-            </div>
 
-            {/* Pricing Packages */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  New CR (No Attest)
-                </label>
-                <div className="relative">
+                {proposalData.showOptionB && (
+                  <div className="space-y-2 pt-2">
+                    <input
+                      type="text"
+                      value={proposalData.optionBTitle}
+                      onChange={(e) => setProposalData({ ...proposalData, optionBTitle: e.target.value })}
+                      placeholder="Reference-Based Partnership"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-cyan-500 outline-none"
+                    />
+                    <textarea
+                      rows={2}
+                      value={proposalData.optionBDesc}
+                      onChange={(e) => setProposalData({ ...proposalData, optionBDesc: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Page 3 Selfie Guide Checkbox */}
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+                <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer select-none">
                   <input
-                    type="number"
-                    value={proposalData.pkgNewCrNoAttest}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrNoAttest: Number(e.target.value) })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none"
+                    type="checkbox"
+                    checked={proposalData.showSelfieGuide}
+                    onChange={(e) => setProposalData({ ...proposalData, showSelfieGuide: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
                   />
-                  <span className="absolute right-2.5 top-2 text-[10px] text-muted-foreground font-bold">
-                    {proposalData.currency}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  New CR (With Attest)
+                  <span>Include Page 3 (Contact Info & Acceptable Passport Selfie Guide)</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={proposalData.pkgNewCrWithAttest}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgNewCrWithAttest: Number(e.target.value) })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none"
-                  />
-                  <span className="absolute right-2.5 top-2 text-[10px] text-muted-foreground font-bold">
-                    {proposalData.currency}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                  Existing CR Package
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={proposalData.pkgExistingCr}
-                    onChange={(e) => setProposalData({ ...proposalData, pkgExistingCr: Number(e.target.value) })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-emerald-500 outline-none"
-                  />
-                  <span className="absolute right-2.5 top-2 text-[10px] text-muted-foreground font-bold">
-                    {proposalData.currency}
-                  </span>
-                </div>
               </div>
             </div>
-
-            {/* Surcharge Note */}
-            <div>
-              <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                Surcharge Notice / Special Terms
-              </label>
-              <textarea
-                rows={2}
-                value={proposalData.surchargeNote}
-                onChange={(e) => setProposalData({ ...proposalData, surchargeNote: e.target.value })}
-                className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-emerald-500 outline-none resize-none"
-                placeholder="In cases where an Iqama or Power of Attorney is unavailable, Additional 2000 SAR will be charged."
-              />
-            </div>
-          </div>
-
-          {/* Quick Info Box */}
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 space-y-1">
-            <div className="font-bold flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              Verified 2-Page Confidential Proposal
-            </div>
-            <p className="text-[11px] opacity-90">
-              Official company email is automatically rendered as <strong>info@osbic.net</strong>. Document includes high-resolution print styles ready for immediate PDF export.
-            </p>
-          </div>
+          )}
 
         </div>
 
-        {/* ================= RIGHT: LIVE 2-PAGE DOCUMENT PREVIEW (7 Cols) ================= */}
+        {/* ================= RIGHT: LIVE DOCUMENT PREVIEW (7 Cols) ================= */}
         <div className="lg:col-span-7 flex flex-col items-center">
           
-          <div className="w-full flex items-center justify-between mb-3 text-xs text-muted-foreground px-2">
-            <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-foreground">
-              <Eye className="w-4 h-4 text-emerald-500" /> Live Document Preview (Page 1 & 2)
-            </span>
+          {/* Controls Bar */}
+          <div className="w-full flex flex-wrap items-center justify-between gap-3 mb-3 text-xs bg-card border border-border p-2.5 rounded-2xl shadow-sm">
+            {/* Page Filter Tabs */}
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActivePreviewPage('all')}
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                  activePreviewPage === 'all'
+                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                All (1-3)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewPage('1')}
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                  activePreviewPage === '1'
+                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Page 1
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewPage('2')}
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                  activePreviewPage === '2'
+                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Page 2
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewPage('3')}
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                  activePreviewPage === '3'
+                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Page 3
+              </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setZoomLevel(prev => Math.max(0.45, Number((prev - 0.08).toFixed(2))))}
+                className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground transition"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="text-[11px] font-mono font-bold text-muted-foreground w-12 text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setZoomLevel(prev => Math.min(1.2, Number((prev + 0.08).toFixed(2))))}
+                className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground transition"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setZoomLevel(0.68)}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-muted hover:bg-muted/80 text-foreground transition"
+                title="Fit Width"
+              >
+                Fit Width
+              </button>
+            </div>
+
+            {/* Export PDF Button */}
             <button
               onClick={handlePrint}
-              className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" /> Export PDF
             </button>
           </div>
 
-          {/* Document Container with responsive zoom/scroll */}
-          <div className="w-full overflow-x-auto bg-slate-900/10 dark:bg-black/30 p-3 sm:p-6 rounded-3xl border border-border shadow-inner flex justify-center">
-            <div className="transform origin-top transition-transform">
+          {/* Scaled Document Viewport Container */}
+          <div className="w-full overflow-hidden bg-slate-900/10 dark:bg-black/40 p-4 sm:p-6 rounded-3xl border border-border shadow-inner flex justify-center items-start min-h-[750px]">
+            <div 
+              style={{
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: 'top center',
+                width: 794,
+                marginBottom: `${(1 - zoomLevel) * -850}px`
+              }}
+              className="transition-transform duration-150 ease-out"
+            >
               <B2BPartnershipProposalDocument
                 ref={printRef}
                 invoice={livePreviewInvoice}
+                activePagePreview={activePreviewPage}
               />
             </div>
           </div>
