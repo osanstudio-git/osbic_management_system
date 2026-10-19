@@ -530,7 +530,7 @@ export default function B2BProposalBuilder() {
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#0073b7]/15 text-[#0073b7] dark:text-cyan-400 border border-[#0073b7]/30">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#0088cc]/15 text-[#0088cc] dark:text-cyan-400 border border-[#0088cc]/30">
                   Strategic B2B Quotation
                 </span>
                 <span className="text-xs text-muted-foreground font-mono">
@@ -550,7 +550,7 @@ export default function B2BProposalBuilder() {
               onClick={handlePrint}
               className="px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition flex items-center gap-1.5 shadow-xs"
             >
-              <Printer className="w-4 h-4 text-[#0073b7]" />
+              <Printer className="w-4 h-4 text-[#0088cc]" />
               <span className="hidden sm:inline">Print / Export PDF</span>
             </button>
 
@@ -558,7 +558,7 @@ export default function B2BProposalBuilder() {
               type="button"
               disabled={isSaving}
               onClick={handleSave}
-              className="px-4 py-2 bg-[#0073b7] hover:bg-[#00609a] text-white text-xs font-bold rounded-xl shadow-lg shadow-[#0073b7]/25 transition flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-[#0088cc] hover:bg-[#0077b3] text-white text-xs font-bold rounded-xl shadow-lg shadow-[#0088cc]/25 transition flex items-center gap-1.5 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Saving...' : 'Save Quotation'}</span>
@@ -577,7 +577,7 @@ export default function B2BProposalBuilder() {
           <div className="bg-card border border-border rounded-2xl p-2 shadow-sm">
             <div className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground mb-1.5 px-1 flex items-center justify-between">
               <span>Page-by-Page Editor</span>
-              <span className="text-[#0073b7] font-semibold">Live Preview Synced</span>
+              <span className="text-[#0088cc] font-semibold">Live Preview Synced</span>
             </div>
             
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -586,7 +586,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => handleTabChange('page1')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
                   pageTab === 'page1'
-                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -599,7 +599,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => handleTabChange('page2')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
                   pageTab === 'page2'
-                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -612,7 +612,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => handleTabChange('page3')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
                   pageTab === 'page3'
-                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -625,7 +625,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => handleTabChange('page4')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
                   pageTab === 'page4'
-                    ? 'bg-[#0073b7] text-white border-[#0073b7] shadow-sm'
+                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -645,7 +645,7 @@ export default function B2BProposalBuilder() {
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-border pb-3">
                   <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#0073b7]" />
+                    <Building2 className="w-4 h-4 text-[#0088cc]" />
                     Page 1: Recipient & Proposal Header
                   </h2>
                 </div>
@@ -657,7 +657,7 @@ export default function B2BProposalBuilder() {
                     onClick={() => setRecipientType('partner')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
                       recipientType === 'partner'
-                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -668,7 +668,7 @@ export default function B2BProposalBuilder() {
                     onClick={() => setRecipientType('lead')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
                       recipientType === 'lead'
-                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -679,7 +679,7 @@ export default function B2BProposalBuilder() {
                     onClick={() => setRecipientType('custom')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
                       recipientType === 'custom'
-                        ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -696,7 +696,7 @@ export default function B2BProposalBuilder() {
                     <select
                       value={selectedPartnerId}
                       onChange={(e) => handlePartnerSelect(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                     >
                       <option value="">-- Choose Partner Company --</option>
                       {partners.map(p => (
@@ -716,7 +716,7 @@ export default function B2BProposalBuilder() {
                     <select
                       value={selectedLeadId}
                       onChange={(e) => handleLeadSelect(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                     >
                       <option value="">-- Choose Lead --</option>
                       {(leads || []).map(l => (
@@ -740,7 +740,7 @@ export default function B2BProposalBuilder() {
                       value={proposalData.submittedTo}
                       onChange={(e) => setProposalData({ ...proposalData, submittedTo: e.target.value })}
                       placeholder="e.g. A C H"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0088cc] outline-none"
                     />
                   </div>
 
@@ -754,20 +754,20 @@ export default function B2BProposalBuilder() {
                         value={proposalData.contactPerson}
                         onChange={(e) => setProposalData({ ...proposalData, contactPerson: e.target.value })}
                         placeholder="e.g. Eng. Mohammed"
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                       />
                     </div>
 
                     <div>
                       <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1 flex items-center gap-1">
-                        <Phone className="w-3 h-3 text-[#0073b7]" /> Client Phone
+                        <Phone className="w-3 h-3 text-[#0088cc]" /> Client Phone
                       </label>
                       <input
                         type="text"
                         value={proposalData.clientPhone}
                         onChange={(e) => setProposalData({ ...proposalData, clientPhone: e.target.value })}
                         placeholder="e.g. +966582288816"
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0088cc] outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -782,7 +782,7 @@ export default function B2BProposalBuilder() {
                       value={proposalData.proposalTitle}
                       onChange={(e) => setProposalData({ ...proposalData, proposalTitle: e.target.value })}
                       placeholder="Oman Company Formation Services"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:border-[#0088cc] outline-none"
                     />
                   </div>
 
@@ -794,7 +794,7 @@ export default function B2BProposalBuilder() {
                       <select
                         value={proposalData.currency}
                         onChange={(e) => setProposalData({ ...proposalData, currency: e.target.value })}
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none"
                       >
                         <option value="SAR">🇸🇦 SAR (Saudi Riyal)</option>
                         <option value="OMR">🇴🇲 OMR (Omani Rial)</option>
@@ -811,7 +811,7 @@ export default function B2BProposalBuilder() {
                         type="text"
                         value={proposalData.preparedBy}
                         onChange={(e) => setProposalData({ ...proposalData, preparedBy: e.target.value })}
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                       />
                     </div>
                   </div>
@@ -821,7 +821,7 @@ export default function B2BProposalBuilder() {
               {/* Introduction Text Box */}
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-3">
                 <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#0073b7]" />
+                  <FileText className="w-4 h-4 text-[#0088cc]" />
                   Executive Introduction Paragraphs
                 </h3>
 
@@ -833,7 +833,7 @@ export default function B2BProposalBuilder() {
                     rows={3}
                     value={proposalData.introP1}
                     onChange={(e) => setProposalData({ ...proposalData, introP1: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none leading-relaxed"
                   />
                 </div>
 
@@ -845,7 +845,7 @@ export default function B2BProposalBuilder() {
                     rows={2}
                     value={proposalData.introP2}
                     onChange={(e) => setProposalData({ ...proposalData, introP2: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none leading-relaxed"
                   />
                 </div>
               </div>
@@ -854,7 +854,7 @@ export default function B2BProposalBuilder() {
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="border-b border-border pb-2.5">
                   <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#0073b7]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0088cc]" />
                     Scope of Services: New CR Column (Left Side)
                   </h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -872,7 +872,7 @@ export default function B2BProposalBuilder() {
                     value={proposalData.pkgNewCrServicesT1}
                     onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT1: e.target.value })}
                     placeholder="One service per line"
-                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                   />
 
                   <div className="flex items-center justify-between gap-3 pt-1">
@@ -883,7 +883,7 @@ export default function B2BProposalBuilder() {
                       type="number"
                       value={proposalData.pkgNewCrNoAttest}
                       onChange={(e) => setProposalData({ ...proposalData, pkgNewCrNoAttest: Number(e.target.value) })}
-                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none text-right font-mono"
                     />
                   </div>
                 </div>
@@ -898,7 +898,7 @@ export default function B2BProposalBuilder() {
                     value={proposalData.pkgNewCrServicesT2}
                     onChange={(e) => setProposalData({ ...proposalData, pkgNewCrServicesT2: e.target.value })}
                     placeholder="One service per line"
-                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                   />
 
                   <div className="flex items-center justify-between gap-3 pt-1">
@@ -909,7 +909,7 @@ export default function B2BProposalBuilder() {
                       type="number"
                       value={proposalData.pkgNewCrWithAttest}
                       onChange={(e) => setProposalData({ ...proposalData, pkgNewCrWithAttest: Number(e.target.value) })}
-                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none text-right font-mono"
                     />
                   </div>
                 </div>
@@ -924,7 +924,7 @@ export default function B2BProposalBuilder() {
                       rows={3}
                       value={proposalData.pkgNewCrDocs}
                       onChange={(e) => setProposalData({ ...proposalData, pkgNewCrDocs: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none font-mono"
                     />
                   </div>
 
@@ -936,7 +936,7 @@ export default function B2BProposalBuilder() {
                       rows={3}
                       value={proposalData.pkgNewCrTimeline}
                       onChange={(e) => setProposalData({ ...proposalData, pkgNewCrTimeline: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none font-mono"
                     />
                   </div>
                 </div>
@@ -946,7 +946,7 @@ export default function B2BProposalBuilder() {
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="border-b border-border pb-2.5">
                   <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#0073b7]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0088cc]" />
                     Scope of Services: Existing CR Package (Right Side)
                   </h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -962,7 +962,7 @@ export default function B2BProposalBuilder() {
                     rows={4}
                     value={proposalData.pkgExistingCrServices}
                     onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrServices: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none"
                   />
                 </div>
 
@@ -976,7 +976,7 @@ export default function B2BProposalBuilder() {
                       type="number"
                       value={proposalData.pkgExistingCr}
                       onChange={(e) => setProposalData({ ...proposalData, pkgExistingCr: Number(e.target.value) })}
-                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none text-right font-mono"
+                      className="w-32 bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none text-right font-mono"
                     />
                     <span className="text-xs font-bold text-foreground">{proposalData.currency}</span>
                   </div>
@@ -991,7 +991,7 @@ export default function B2BProposalBuilder() {
                       rows={3}
                       value={proposalData.pkgExistingCrDocs}
                       onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrDocs: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none font-mono"
                     />
                   </div>
 
@@ -1003,7 +1003,7 @@ export default function B2BProposalBuilder() {
                       rows={2}
                       value={proposalData.pkgExistingCrTimeline}
                       onChange={(e) => setProposalData({ ...proposalData, pkgExistingCrTimeline: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none font-mono"
+                      className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none font-mono"
                     />
                   </div>
                 </div>
@@ -1019,7 +1019,7 @@ export default function B2BProposalBuilder() {
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-[#0073b7]" />
+                  <Sliders className="w-4 h-4 text-[#0088cc]" />
                   Page 2: Surcharge Notice & Partnership Models
                 </h2>
               </div>
@@ -1033,7 +1033,7 @@ export default function B2BProposalBuilder() {
                   rows={2}
                   value={proposalData.surchargeNote}
                   onChange={(e) => setProposalData({ ...proposalData, surchargeNote: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none leading-relaxed"
+                  className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none leading-relaxed"
                 />
               </div>
 
@@ -1044,7 +1044,7 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showOptionA}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionA: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0088cc] focus:ring-[#0088cc] accent-[#0088cc] cursor-pointer"
                   />
                   <span>Include Option A (B2B Partnership)</span>
                 </label>
@@ -1056,13 +1056,13 @@ export default function B2BProposalBuilder() {
                       value={proposalData.optionATitle}
                       onChange={(e) => setProposalData({ ...proposalData, optionATitle: e.target.value })}
                       placeholder="B2B Partnership"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none"
                     />
                     <textarea
                       rows={2}
                       value={proposalData.optionADesc}
                       onChange={(e) => setProposalData({ ...proposalData, optionADesc: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                     />
                   </div>
                 )}
@@ -1075,7 +1075,7 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showOptionB}
                     onChange={(e) => setProposalData({ ...proposalData, showOptionB: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0088cc] focus:ring-[#0088cc] accent-[#0088cc] cursor-pointer"
                   />
                   <span>Include Option B (Reference-Based Partnership)</span>
                 </label>
@@ -1087,13 +1087,13 @@ export default function B2BProposalBuilder() {
                       value={proposalData.optionBTitle}
                       onChange={(e) => setProposalData({ ...proposalData, optionBTitle: e.target.value })}
                       placeholder="Reference-Based Partnership"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none"
                     />
                     <textarea
                       rows={2}
                       value={proposalData.optionBDesc}
                       onChange={(e) => setProposalData({ ...proposalData, optionBDesc: e.target.value })}
-                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                      className="w-full bg-background border border-border rounded-xl p-2 text-xs text-foreground focus:border-[#0088cc] outline-none"
                     />
                   </div>
                 )}
@@ -1118,15 +1118,15 @@ export default function B2BProposalBuilder() {
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Landmark className="w-4 h-4 text-[#0073b7]" />
+                  <Landmark className="w-4 h-4 text-[#0088cc]" />
                   Page 3: Bank Account Details
                 </h2>
-                <label className="flex items-center gap-2 text-xs font-bold text-[#0073b7] cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-xs font-bold text-[#0088cc] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={proposalData.showBankDetails}
                     onChange={(e) => setProposalData({ ...proposalData, showBankDetails: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0088cc] focus:ring-[#0088cc] accent-[#0088cc] cursor-pointer"
                   />
                   <span>Include Page</span>
                 </label>
@@ -1152,7 +1152,7 @@ export default function B2BProposalBuilder() {
                           type="text"
                           value={proposalData.bankMuscatName}
                           onChange={(e) => setProposalData({ ...proposalData, bankMuscatName: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0088cc] outline-none"
                         />
                       </div>
 
@@ -1165,7 +1165,7 @@ export default function B2BProposalBuilder() {
                             type="text"
                             value={proposalData.bankMuscatSwift}
                             onChange={(e) => setProposalData({ ...proposalData, bankMuscatSwift: e.target.value })}
-                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                           />
                         </div>
 
@@ -1177,7 +1177,7 @@ export default function B2BProposalBuilder() {
                             type="text"
                             value={proposalData.bankMuscatAccount}
                             onChange={(e) => setProposalData({ ...proposalData, bankMuscatAccount: e.target.value })}
-                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                           />
                         </div>
                       </div>
@@ -1190,7 +1190,7 @@ export default function B2BProposalBuilder() {
                           type="text"
                           value={proposalData.bankMuscatIban}
                           onChange={(e) => setProposalData({ ...proposalData, bankMuscatIban: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                         />
                       </div>
                     </div>
@@ -1214,7 +1214,7 @@ export default function B2BProposalBuilder() {
                           type="text"
                           value={proposalData.bankDhofarName}
                           onChange={(e) => setProposalData({ ...proposalData, bankDhofarName: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0073b7] outline-none"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:border-[#0088cc] outline-none"
                         />
                       </div>
 
@@ -1227,7 +1227,7 @@ export default function B2BProposalBuilder() {
                             type="text"
                             value={proposalData.bankDhofarSwift}
                             onChange={(e) => setProposalData({ ...proposalData, bankDhofarSwift: e.target.value })}
-                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                           />
                         </div>
 
@@ -1239,7 +1239,7 @@ export default function B2BProposalBuilder() {
                             type="text"
                             value={proposalData.bankDhofarAccount}
                             onChange={(e) => setProposalData({ ...proposalData, bankDhofarAccount: e.target.value })}
-                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                            className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                           />
                         </div>
                       </div>
@@ -1252,7 +1252,7 @@ export default function B2BProposalBuilder() {
                           type="text"
                           value={proposalData.bankDhofarIban}
                           onChange={(e) => setProposalData({ ...proposalData, bankDhofarIban: e.target.value })}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                          className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                         />
                       </div>
                     </div>
@@ -1271,7 +1271,7 @@ export default function B2BProposalBuilder() {
                         type="text"
                         value={proposalData.mobileBankingNumber}
                         onChange={(e) => setProposalData({ ...proposalData, mobileBankingNumber: e.target.value })}
-                        className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0073b7] outline-none"
+                        className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-foreground focus:border-[#0088cc] outline-none"
                       />
                     </div>
                   </div>
@@ -1282,7 +1282,7 @@ export default function B2BProposalBuilder() {
                   <button
                     type="button"
                     onClick={() => setProposalData({ ...proposalData, showBankDetails: true })}
-                    className="mt-2 text-xs font-bold text-[#0073b7] hover:underline"
+                    className="mt-2 text-xs font-bold text-[#0088cc] hover:underline"
                   >
                     Enable Bank Details Page
                   </button>
@@ -1298,7 +1298,7 @@ export default function B2BProposalBuilder() {
             <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h2 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-[#0073b7]" />
+                  <CheckSquare className="w-4 h-4 text-[#0088cc]" />
                   Page 4: Contact & Selfie Guide Settings
                 </h2>
               </div>
@@ -1310,7 +1310,7 @@ export default function B2BProposalBuilder() {
                     type="checkbox"
                     checked={proposalData.showSelfieGuide}
                     onChange={(e) => setProposalData({ ...proposalData, showSelfieGuide: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#0073b7] focus:ring-[#0073b7] accent-[#0073b7] cursor-pointer"
+                    className="w-4 h-4 rounded text-[#0088cc] focus:ring-[#0088cc] accent-[#0088cc] cursor-pointer"
                   />
                   <span>Display "Example of Acceptable Selfie With Passport" visual box</span>
                 </label>
@@ -1329,7 +1329,7 @@ export default function B2BProposalBuilder() {
                     rows={2}
                     value={proposalData.notes}
                     onChange={(e) => setProposalData({ ...proposalData, notes: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0073b7] outline-none"
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none"
                     placeholder="Internal reference notes for sales tracking..."
                   />
                 </div>
@@ -1341,7 +1341,7 @@ export default function B2BProposalBuilder() {
                   <select
                     value={proposalData.status}
                     onChange={(e) => setProposalData({ ...proposalData, status: e.target.value as Invoice['status'] })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0073b7] outline-none"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground focus:border-[#0088cc] outline-none"
                   >
                     <option value="draft">📝 Draft</option>
                     <option value="sent">📨 Sent to Partner/Client</option>
@@ -1367,7 +1367,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => setActivePreviewPage('all')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === 'all'
-                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1378,7 +1378,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => setActivePreviewPage('1')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '1'
-                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1389,7 +1389,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => setActivePreviewPage('2')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '2'
-                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1401,7 +1401,7 @@ export default function B2BProposalBuilder() {
                   onClick={() => setActivePreviewPage('3')}
                   className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                     activePreviewPage === '3'
-                      ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                      ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -1413,7 +1413,7 @@ export default function B2BProposalBuilder() {
                 onClick={() => setActivePreviewPage('4')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
                   activePreviewPage === '4'
-                    ? 'bg-card text-[#0073b7] dark:text-cyan-400 shadow-sm'
+                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
