@@ -205,12 +205,6 @@ export default function SaudiB2BWorkspace() {
               <FileText className="w-4 h-4" /> Create B2B Partnership Proposal
             </button>
             <button
-              onClick={() => navigate('/employee/quotations/new?currency=SAR')}
-              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition flex items-center gap-2 text-xs"
-            >
-              <Plus className="w-4 h-4" /> Create SAR Quotation
-            </button>
-            <button
               onClick={() => setShowAddPartnerModal(true)}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl border border-white/20 transition flex items-center gap-2 text-xs"
             >
@@ -439,13 +433,6 @@ export default function SaudiB2BWorkspace() {
                                 title="Create B2B Proposal"
                               >
                                 B2B Proposal
-                              </button>
-                              <button
-                                onClick={() => navigate(`/employee/quotations/new?lead_id=${lead.id}&currency=SAR`)}
-                                className="px-3 py-1.5 bg-muted text-foreground hover:bg-muted/80 text-xs rounded-xl font-bold transition-all border border-border"
-                                title="Create SAR Quote"
-                              >
-                                Quote (SAR)
                               </button>
                             </div>
                           </td>
