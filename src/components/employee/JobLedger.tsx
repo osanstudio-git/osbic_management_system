@@ -217,15 +217,27 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         finalNotes = finalNotes ? `${finalNotes}\n[RECEIPT:${filePath}|${receiptFile?.name}]` : `[RECEIPT:${filePath}|${receiptFile?.name}]`;
       }
 
-      const { data, error } = await supabase.from('job_payments').insert({
+      const insertPayload: any = {
         job_id: job.id,
         amount: parseFloat(newPayment.amount),
         payment_method: newPayment.method,
         reference_number: newPayment.reference || null,
         notes: finalNotes,
         recorded_by: profile?.id,
-        proof_url: filePath || null,
+      };
+
+      // Try inserting with proof_url if available, with automatic fallback if column does not exist in schema
+      let insertRes = await supabase.from('job_payments').insert({
+        ...insertPayload,
+        ...(filePath ? { proof_url: filePath } : {})
       } as any).select('*, profiles:recorded_by(full_name)').single();
+
+      // If proof_url column does not exist in database schema cache (PGRST204), retry without it
+      if (insertRes.error && (insertRes.error.code === 'PGRST204' || insertRes.error.message?.includes('proof_url'))) {
+        insertRes = await supabase.from('job_payments').insert(insertPayload).select('*, profiles:recorded_by(full_name)').single();
+      }
+
+      const { data, error } = insertRes;
 
       if (error) throw error;
       toast.success('Payment recorded successfully');
