@@ -101,6 +101,7 @@ export default function B2BProposalBuilder() {
 
     // Page 4: Selfie Guide & Internal Notes
     showSelfieGuide: boolean;
+    hideTotal: boolean;
     notes: string;
     status: Invoice['status'];
   }>({
@@ -113,6 +114,7 @@ export default function B2BProposalBuilder() {
     preparedBy: profile?.full_name || 'ANSAR NV',
     ourPhone: '+968 72596531, +968 72229827',
     currency: 'SAR',
+    hideTotal: false,
 
     // Page 1 Introduction defaults
     introP1: 'OSBIC International LLC is pleased to present this proposal for a strategic partnership to deliver professional Oman company formation and acquisition services to your clients. With deep expertise in Omani business regulations and a commitment to efficient, compliant service delivery, we are well-positioned to support your clients in establishing a credible corporate presence in the Sultanate of Oman.',
@@ -304,6 +306,7 @@ export default function B2BProposalBuilder() {
         mobileBankingNumber: meta.mobile_banking_number || '72229827',
 
         showSelfieGuide: meta.show_selfie_guide !== false,
+        hideTotal: !!meta.hide_total || !!meta.hideTotal,
         notes: initialData.notes || 'Strategic B2B Partnership Model for GCC Client Expansion into Oman.',
         status: initialData.status || 'draft'
       });
@@ -416,6 +419,8 @@ export default function B2BProposalBuilder() {
 
           // Page 4 details
           show_selfie_guide: proposalData.showSelfieGuide,
+          hide_total: proposalData.hideTotal,
+          hideTotal: proposalData.hideTotal,
 
           company_name: proposalData.submittedTo,
           recipient_name: proposalData.contactPerson || proposalData.submittedTo,
@@ -505,7 +510,9 @@ export default function B2BProposalBuilder() {
       bank_dhofar_account: proposalData.bankDhofarAccount,
       mobile_banking_number: proposalData.mobileBankingNumber,
 
-      show_selfie_guide: proposalData.showSelfieGuide
+      show_selfie_guide: proposalData.showSelfieGuide,
+      hide_totals: proposalData.hideTotal,
+      hideTotal: proposalData.hideTotal
     }
   };
 
@@ -848,6 +855,24 @@ export default function B2BProposalBuilder() {
                     className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:border-[#0088cc] outline-none leading-relaxed"
                   />
                 </div>
+              </div>
+
+              {/* Hide Total Value Toggle */}
+              <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={proposalData.hideTotal}
+                    onChange={(e) => setProposalData({ ...proposalData, hideTotal: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#0088cc] focus:ring-[#0088cc] accent-[#0088cc] cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-foreground block">Hide Total Package Amounts</span>
+                    <span className="text-[10px] text-muted-foreground block">
+                      {proposalData.hideTotal ? 'Total package value lines are hidden from proposal' : 'Default: Visible on proposal'}
+                    </span>
+                  </div>
+                </label>
               </div>
 
               {/* Scope of Services: New CR Column */}

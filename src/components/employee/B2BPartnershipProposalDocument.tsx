@@ -127,6 +127,7 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
 
     // Page 4: Selfie Guide
     const showSelfieGuide = meta.show_selfie_guide !== false;
+    const hideTotals = !!meta.hide_totals || !!meta.hideTotal;
 
     // Helper to determine if a page should be shown in preview
     const showP1 = activePagePreview === 'all' || activePagePreview === '1';
@@ -282,14 +283,16 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
-                            Total (No Attestation)
-                          </span>
-                          <span className="text-xs font-bold text-gray-900 font-mono">
-                            {Number(pkgNewCrNoAttest).toLocaleString()} {currSym}
-                          </span>
-                        </div>
+                        {!hideTotals && (
+                          <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
+                              Total (No Attestation)
+                            </span>
+                            <span className="text-xs font-bold text-gray-900 font-mono">
+                              {Number(pkgNewCrNoAttest).toLocaleString()} {currSym}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Tier 2 */}
@@ -303,14 +306,16 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
-                            Total (With Attestation)
-                          </span>
-                          <span className="text-xs font-bold text-gray-900 font-mono">
-                            {Number(pkgNewCrWithAttest).toLocaleString()} {currSym}
-                          </span>
-                        </div>
+                        {!hideTotals && (
+                          <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
+                              Total (With Attestation)
+                            </span>
+                            <span className="text-xs font-bold text-gray-900 font-mono">
+                              {Number(pkgNewCrWithAttest).toLocaleString()} {currSym}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Required Documents */}
@@ -361,14 +366,16 @@ export const B2BPartnershipProposalDocument = forwardRef<HTMLDivElement, B2BProp
                           ))}
                         </ul>
 
-                        <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
-                            Total Package Value
-                          </span>
-                          <span className="text-xs font-bold text-gray-900 font-mono">
-                            {Number(pkgExistingCr).toLocaleString()} {currSym}
-                          </span>
-                        </div>
+                        {!hideTotals && (
+                          <div className="my-2 p-2.5 flex justify-between items-center rounded-lg border border-[#0088cc]/20" style={{ backgroundColor: lightBg }}>
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
+                              Total Package Value
+                            </span>
+                            <span className="text-xs font-bold text-gray-900 font-mono">
+                              {Number(pkgExistingCr).toLocaleString()} {currSym}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Required Documents */}

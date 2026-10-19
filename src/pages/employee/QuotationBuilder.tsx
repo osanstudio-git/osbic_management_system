@@ -180,7 +180,8 @@ const QuotationBuilder = () => {
       showQuantity: false,
       showTimeline: true,
       showDocuments: true,
-      showKycProof: false
+      showKycProof: false,
+      hideTotal: false
     }
   });
 
@@ -1511,7 +1512,7 @@ const QuotationBuilder = () => {
                 <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                   <Sliders size={14} className="text-primary" /> Document Settings & Toggles
                 </h3>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                   {/* Show Quantity Toggle */}
                   <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
                     <input
@@ -1526,6 +1527,25 @@ const QuotationBuilder = () => {
                     <div>
                       <span className="text-xs font-bold text-foreground block">Show Quantity</span>
                       <span className="text-[9px] text-muted-foreground block">Display Qty column on quote</span>
+                    </div>
+                  </label>
+
+                  {/* Hide Total Package Value Toggle */}
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
+                    <input
+                      type="checkbox"
+                      checked={!!formData.metadata?.hideTotal}
+                      onChange={e => setFormData({
+                        ...formData,
+                        metadata: { ...formData.metadata, hideTotal: e.target.checked }
+                      })}
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Hide Total Value</span>
+                      <span className="text-[9px] text-muted-foreground block">
+                        {formData.metadata?.hideTotal ? 'Hidden from document' : 'Default: Visible on quote'}
+                      </span>
                     </div>
                   </label>
 

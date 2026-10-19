@@ -23,6 +23,7 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
   const showTimeline = invoice.metadata?.showTimeline !== false;
   const showKycProof = invoice.metadata?.showKycProof ?? false;
   const showDocuments = invoice.metadata?.showDocuments !== false;
+  const hideTotal = !!invoice.metadata?.hideTotal || !!invoice.metadata?.hideTotalValue;
 
   // Currency config — reads from invoice, defaults to OMR
   const currencyCfg = getCurrencyConfig(invoice.currency || 'OMR');
@@ -171,10 +172,12 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
         </div>
 
         {/* Total Package Value directly under service items */}
-        <div className="mt-3 p-3 flex justify-between items-center rounded-lg" style={{ backgroundColor: lightBg }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>Total Package Value</p>
-          <p className="text-base font-bold text-gray-900 uppercase font-mono">{currSym} {invoice.total_amount.toFixed(currDec)}</p>
-        </div>
+        {!hideTotal && (
+          <div className="mt-3 p-3 flex justify-between items-center rounded-lg" style={{ backgroundColor: lightBg }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>Total Package Value</p>
+            <p className="text-base font-bold text-gray-900 uppercase font-mono">{currSym} {invoice.total_amount.toFixed(currDec)}</p>
+          </div>
+        )}
       </div>
 
       {/* Documents Required Section */}
