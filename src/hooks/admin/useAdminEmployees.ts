@@ -49,6 +49,9 @@ export interface Employee {
   is_saudi_rep?: boolean;
   branch_id?: string | null;
   company_name?: string | null;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | null;
+  show_birthday_to_team?: boolean | null;
 }
 
 // ─── List All Employees (with optional branch filter) ─────────────────────────
@@ -233,6 +236,10 @@ export const useCreateEmployee = () => {
       can_do_accounts?: boolean;
       can_do_marketing?: boolean;
       is_pro?: boolean;
+      is_saudi_rep?: boolean;
+      date_of_birth?: string | null;
+      gender?: 'male' | 'female' | null;
+      show_birthday_to_team?: boolean;
     }) => {
       let avatarUrl = null;
 
@@ -298,8 +305,20 @@ export const useCreateEmployee = () => {
       }
       profileResult = rpcData;
 
-      if ((newEmployee as any).is_saudi_rep && profileResult?.id) {
-        await db.from('profiles').update({ is_saudi_rep: true }).eq('id', profileResult.id);
+      if (profileResult?.id) {
+        const extraProfileUpdates: Record<string, any> = {};
+        if ((newEmployee as any).is_saudi_rep) extraProfileUpdates.is_saudi_rep = true;
+        if (newEmployee.date_of_birth) extraProfileUpdates.date_of_birth = newEmployee.date_of_birth;
+        if (newEmployee.gender) extraProfileUpdates.gender = newEmployee.gender;
+        if (newEmployee.show_birthday_to_team !== undefined) extraProfileUpdates.show_birthday_to_team = newEmployee.show_birthday_to_team;
+        
+        if (Object.keys(extraProfileUpdates).length > 0) {
+          try {
+            await db.from('profiles').update(extraProfileUpdates).eq('id', profileResult.id);
+          } catch (extraErr) {
+            console.warn('Could not save extra profile attributes:', extraErr);
+          }
+        }
       }
 
       // Step D: Send credentials via Edge Function
@@ -363,9 +382,18 @@ export const useUpdateEmployee = () => {
           p_avatar_url: updates.avatar_url ?? null,
           p_is_active: updates.is_active ?? null
         });
+        const extraUpdateFields: Record<string, any> = {};
+        if (updates.is_saudi_rep !== undefined) extraUpdateFields.is_saudi_rep = updates.is_saudi_rep;
+        if (updates.date_of_birth !== undefined) extraUpdateFields.date_of_birth = updates.date_of_birth || null;
+        if (updates.gender !== undefined) extraUpdateFields.gender = updates.gender || null;
+        if (updates.show_birthday_to_team !== undefined) extraUpdateFields.show_birthday_to_team = updates.show_birthday_to_team;
 
-        if (updates.is_saudi_rep !== undefined) {
-          await db.from('profiles').update({ is_saudi_rep: updates.is_saudi_rep }).eq('id', id);
+        if (Object.keys(extraUpdateFields).length > 0) {
+          try {
+            await db.from('profiles').update(extraUpdateFields).eq('id', id);
+          } catch (extraErr) {
+            console.warn('Could not update extra profile fields:', extraErr);
+          }
         }
 
         if (!rpcError && rpcData) {

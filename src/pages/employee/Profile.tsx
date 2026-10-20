@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Shield, Key, CheckCircle2, AlertCircle, Eye, EyeOff,
-  UserCircle, Mail, Smartphone, Fingerprint, Camera, Loader2
+  UserCircle, Mail, Smartphone, Fingerprint, Camera, Loader2,
+  Cake, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -18,6 +19,23 @@ const EmployeeProfile = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
+
+  const [personalData, setPersonalData] = useState({
+    gender: 'male' as 'male' | 'female',
+    dateOfBirth: '',
+    showBirthdayToTeam: true,
+  });
+  const [savingPersonal, setSavingPersonal] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setPersonalData({
+        gender: ((profile as any).gender || 'male') as 'male' | 'female',
+        dateOfBirth: (profile as any).date_of_birth || '',
+        showBirthdayToTeam: (profile as any).show_birthday_to_team !== false,
+      });
+    }
+  }, [profile]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -107,6 +125,29 @@ const EmployeeProfile = () => {
     }
   };
 
+  const handlePersonalSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.id) return;
+    setSavingPersonal(true);
+    try {
+      const { error } = await (supabase.from('profiles') as any)
+        .update({
+          gender: personalData.gender,
+          date_of_birth: personalData.dateOfBirth || null,
+          show_birthday_to_team: personalData.showBirthdayToTeam,
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      if (refreshProfile) await refreshProfile();
+      toast.success(isRtl ? 'تم حفظ بيانات المناسبات بنجاح' : 'Personal milestone settings saved successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update settings');
+    } finally {
+      setSavingPersonal(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-12 p-4 sm:p-8" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Header Profile Card (Minimalist) */}
@@ -181,6 +222,94 @@ const EmployeeProfile = () => {
               </div>
             </div>
           </div>
+
+          {/* Milestones & Celebrations Card */}
+          <form onSubmit={handlePersonalSave} className="bg-transparent border border-gold/30 rounded-xl p-5 space-y-4 text-start bg-gold/5">
+            <div className="flex items-center justify-between border-b border-gold/20 pb-3">
+              <div className="flex items-center gap-2 text-gold">
+                <Cake size={16} />
+                <h3 className="font-bold text-sm">{isRtl ? 'المناسبات والتهاني' : 'Milestones & Birthday'}</h3>
+              </div>
+              <Sparkles size={14} className="text-gold/70 animate-pulse" />
+            </div>
+
+            {/* Gender Selection */}
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1.5">
+                {isRtl ? 'الجنس (للتهاني الرسمية)' : 'Gender (For respectful greetings)'}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPersonalData({ ...personalData, gender: 'male' })}
+                  className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    personalData.gender === 'male'
+                      ? 'bg-primary/20 border-primary text-primary'
+                      : 'bg-white/5 border-border text-muted-foreground hover:bg-white/10'
+                  }`}
+                >
+                  <span>👨</span> {isRtl ? 'ذكر (أخي)' : 'Male (Brother)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPersonalData({ ...personalData, gender: 'female' })}
+                  className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    personalData.gender === 'female'
+                      ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                      : 'bg-white/5 border-border text-muted-foreground hover:bg-white/10'
+                  }`}
+                >
+                  <span>👩</span> {isRtl ? 'أنثى (أختي)' : 'Female (Sister)'}
+                </button>
+              </div>
+            </div>
+
+            {/* Date of Birth */}
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1.5">
+                {isRtl ? 'تاريخ الميلاد' : 'Date of Birth'}
+              </label>
+              <input
+                type="date"
+                value={personalData.dateOfBirth}
+                onChange={(e) => setPersonalData({ ...personalData, dateOfBirth: e.target.value })}
+                className="w-full bg-muted/10 border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-gold transition-colors"
+              />
+              <p className="text-[9px] text-muted-foreground mt-1">
+                {isRtl ? 'الزملاء يرون اليوم والشهر فقط (العمر وسنة الميلاد مخفيان تماماً).' : 'Colleagues will only see month & day (age & year are completely private).'}
+              </p>
+            </div>
+
+            {/* Broadcast to Team */}
+            <div className="flex items-center justify-between pt-2 border-t border-gold/10">
+              <div>
+                <p className="text-xs font-medium text-foreground">{isRtl ? 'مشاركة المناسبة مع الفريق' : 'Share with Colleagues'}</p>
+                <p className="text-[9px] text-muted-foreground">{isRtl ? 'عرض بطاقة تهنئة على لوحة تحكم الزملاء' : 'Show birthday banner on team dashboard'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPersonalData({ ...personalData, showBirthdayToTeam: !personalData.showBirthdayToTeam })}
+                className={`w-9 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${
+                  personalData.showBirthdayToTeam ? 'bg-gold' : 'bg-white/10'
+                }`}
+              >
+                <div
+                  className={`bg-card w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
+                    personalData.showBirthdayToTeam ? 'translate-x-4' : ''
+                  }`}
+                />
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              disabled={savingPersonal}
+              className="w-full py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {savingPersonal ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              {isRtl ? 'حفظ إعدادات المناسبات' : 'Save Birthday Settings'}
+            </button>
+          </form>
 
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 text-start">
             <div className="flex items-center gap-2 mb-2 text-emerald-500">

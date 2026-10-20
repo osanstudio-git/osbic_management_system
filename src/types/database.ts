@@ -92,6 +92,9 @@ export interface Database {
         is_pro: boolean | null
         is_saudi_rep: boolean | null
         monthly_target: number | null
+        date_of_birth: string | null
+        gender: 'male' | 'female' | null
+        show_birthday_to_team: boolean | null
       }, never, 'role'>
 
 

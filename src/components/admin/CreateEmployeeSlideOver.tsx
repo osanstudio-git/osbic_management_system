@@ -39,6 +39,9 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     can_do_accounts: false,
     is_pro: false,
     is_saudi_rep: false,
+    gender: 'male' as 'male' | 'female',
+    dateOfBirth: '',
+    showBirthdayToTeam: true,
   });
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -81,6 +84,9 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         can_do_accounts: formData.can_do_accounts,
         is_pro: formData.is_pro,
         is_saudi_rep: formData.is_saudi_rep,
+        date_of_birth: formData.dateOfBirth || null,
+        gender: formData.gender,
+        show_birthday_to_team: formData.showBirthdayToTeam,
       }, {
       onSuccess: (data: any) => {
         setCredentials({
@@ -423,6 +429,78 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                               className="flex-1 bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-gold transition-colors"
                               placeholder="Phone number"
                             />
+                          </div>
+                        </div>
+
+                        {/* Birthday & Recognition Section */}
+                        <div className="p-4 rounded-xl bg-gold/5 border border-gold/20 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
+                              🎂 Milestones & Greetings
+                            </label>
+                            <span className="text-[10px] text-muted-foreground">Used for personalized greetings</span>
+                          </div>
+
+                          {/* Gender Selection */}
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender (For Respectful Greetings) *</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, gender: 'male' })}
+                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                                  formData.gender === 'male'
+                                    ? 'bg-primary/20 border-primary text-primary shadow-sm'
+                                    : 'bg-white/5 border-border text-muted-foreground hover:bg-white/10'
+                                }`}
+                              >
+                                <span>👨</span> Male (Brother)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, gender: 'female' })}
+                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                                  formData.gender === 'female'
+                                    ? 'bg-pink-500/20 border-pink-500 text-pink-400 shadow-sm'
+                                    : 'bg-white/5 border-border text-muted-foreground hover:bg-white/10'
+                                }`}
+                              >
+                                <span>👩</span> Female (Sister)
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Date of Birth */}
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Date of Birth</label>
+                            <input
+                              type="date"
+                              value={formData.dateOfBirth}
+                              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                              className="w-full bg-white/5 border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-gold transition-colors text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-1">Colleagues will only see month & day (age remains 100% private).</p>
+                          </div>
+
+                          {/* Share with Colleagues Toggle */}
+                          <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">Broadcast to Team</p>
+                              <p className="text-[9px] text-muted-foreground">Show birthday banner to colleagues on their dashboard</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, showBirthdayToTeam: !formData.showBirthdayToTeam })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                                formData.showBirthdayToTeam ? 'bg-gold' : 'bg-white/10'
+                              }`}
+                            >
+                              <div
+                                className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${
+                                  formData.showBirthdayToTeam ? 'translate-x-5' : ''
+                                }`}
+                              />
+                            </button>
                           </div>
                         </div>
                       </div>
