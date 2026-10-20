@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { BirthdayCelebrationModal } from '../../components/employee/BirthdayCelebrationModal';
 
 const EmployeeProfile = () => {
   const { profile, refreshProfile } = useAuth();
@@ -17,6 +18,7 @@ const EmployeeProfile = () => {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [previewPosterOpen, setPreviewPosterOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
 
@@ -301,14 +303,24 @@ const EmployeeProfile = () => {
               </button>
             </div>
 
-            <button
-              type="submit"
-              disabled={savingPersonal}
-              className="w-full py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {savingPersonal ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {isRtl ? 'حفظ إعدادات المناسبات' : 'Save Birthday Settings'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={savingPersonal}
+                className="flex-1 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {savingPersonal ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                {isRtl ? 'حفظ البيانات' : 'Save Settings'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewPosterOpen(true)}
+                className="px-3 py-2 bg-white/10 hover:bg-white/15 text-white border border-white/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+              >
+                <Sparkles size={13} className="text-amber-400" />
+                <span>{isRtl ? 'معاينة البوستر 🎉' : 'Preview Poster 🎉'}</span>
+              </button>
+            </div>
           </form>
 
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 text-start">
@@ -413,6 +425,17 @@ const EmployeeProfile = () => {
           </div>
         </div>
       </div>
+
+      {/* Birthday Poster Preview Modal */}
+      <BirthdayCelebrationModal
+        isOpen={previewPosterOpen}
+        onClose={() => setPreviewPosterOpen(false)}
+        employeeName={profile?.full_name || 'Abdullah Al Hasani'}
+        avatarUrl={profile?.avatar_url}
+        gender={personalData.gender}
+        department={profile?.department}
+        role={profile?.role}
+      />
     </div>
   );
 };

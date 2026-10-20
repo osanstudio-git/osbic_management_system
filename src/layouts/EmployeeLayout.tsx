@@ -409,6 +409,8 @@ const EmployeeLayout: React.FC = () => {
         employeeName={profile?.full_name || 'Team Member'}
         avatarUrl={profile?.avatar_url}
         gender={(profile as any)?.gender || 'male'}
+        department={profile?.department}
+        role={profile?.role}
       />
     </div>
   );

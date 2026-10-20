@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Volume2, VolumeX, X, Heart, Award } from 'lucide-react';
+import { Sparkles, Volume2, VolumeX, X, Download, Heart } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
+import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
 interface BirthdayCelebrationModalProps {
@@ -10,6 +12,8 @@ interface BirthdayCelebrationModalProps {
   employeeName: string;
   avatarUrl?: string | null;
   gender?: 'male' | 'female' | null;
+  department?: string | null;
+  role?: string | null;
 }
 
 // Gentle celebration harmonic melody using Web Audio API
@@ -19,7 +23,6 @@ const playCelebrationChime = () => {
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
 
-    // Notes: C4, E4, G4, B4, C5, E5 (ascending pleasant celebratory chime)
     const notes = [261.63, 329.63, 392.00, 493.88, 523.25, 659.25];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
@@ -39,7 +42,7 @@ const playCelebrationChime = () => {
       osc.stop(ctx.currentTime + idx * 0.12 + 0.85);
     });
   } catch (err) {
-    console.warn('Audio playback not permitted or unavailable:', err);
+    console.warn('Audio playback unavailable:', err);
   }
 };
 
@@ -49,199 +52,358 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
   employeeName,
   avatarUrl,
   gender = 'male',
+  department = 'Operations',
 }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
   const [isMuted, setIsMuted] = useState(false);
-  const audioPlayedRef = useRef(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const posterRef = useRef<HTMLDivElement>(null);
 
-  // Trigger celebration confetti and melody
-  const triggerCelebration = () => {
-    // 1. Confetti burst
+  // Split name for double paper stickers
+  const nameParts = employeeName.trim().split(' ');
+  const firstName = nameParts[0] || 'Valued';
+  const lastName = nameParts.slice(1).join(' ') || 'Colleague';
+
+  // Format today's date for poster badge (e.g. "October 20th")
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  });
+
+  // Department display title
+  const formattedDept = department
+    ? department.charAt(0).toUpperCase() + department.slice(1) + ' Department'
+    : 'OSBIC Team';
+
+  // Confetti trigger
+  const triggerConfetti = () => {
     try {
       confetti({
-        particleCount: 80,
+        particleCount: 90,
         spread: 90,
-        origin: { y: 0.6 },
-        colors: ['#0088cc', '#eab308', '#ec4899', '#10b981', '#ffffff'],
+        origin: { y: 0.5 },
+        colors: ['#0088cc', '#eab308', '#ef4444', '#10b981', '#ffffff'],
       });
 
-      // Side cannons
       setTimeout(() => {
         confetti({
-          particleCount: 50,
+          particleCount: 45,
           angle: 60,
-          spread: 55,
+          spread: 60,
           origin: { x: 0 },
           colors: ['#0088cc', '#eab308', '#38bdf8'],
         });
         confetti({
-          particleCount: 50,
+          particleCount: 45,
           angle: 120,
-          spread: 55,
+          spread: 60,
           origin: { x: 1 },
-          colors: ['#eab308', '#ec4899', '#f59e0b'],
+          colors: ['#eab308', '#ef4444', '#f59e0b'],
         });
-      }, 350);
+      }, 300);
     } catch (e) {
       // ignore
-    }
-
-    // 2. Play gentle celebration sound if not muted
-    if (!isMuted) {
-      playCelebrationChime();
     }
   };
 
   useEffect(() => {
     if (isOpen) {
-      triggerCelebration();
-      audioPlayedRef.current = true;
+      triggerConfetti();
+      if (!isMuted) {
+        playCelebrationChime();
+      }
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  const handleDownloadPoster = async () => {
+    if (!posterRef.current) return;
+    setIsDownloading(true);
+    const toastId = toast.loading('Generating high-res birthday poster...');
+    try {
+      const canvas = await html2canvas(posterRef.current, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#070f26',
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `OSBIC_Birthday_${firstName}_${lastName}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Birthday poster downloaded successfully! 🎉', { id: toastId });
+    } catch (err: any) {
+      toast.error('Could not download image', { id: toastId });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
-  const isFemale = gender === 'female';
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 bg-black/85 backdrop-blur-md"
         />
 
-        {/* Modal Card */}
+        {/* Outer Modal Container */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 20 }}
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.85, y: 20 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-          className="relative w-full max-w-lg bg-gradient-to-b from-[#0f172a] via-[#090d16] to-[#040711] border-2 border-gold/40 rounded-3xl shadow-[0_0_60px_rgba(234,179,8,0.25)] p-6 sm:p-8 text-center text-foreground overflow-hidden z-10"
-          dir={isRtl ? 'rtl' : 'ltr'}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+          className="relative w-full max-w-md my-auto z-10 flex flex-col items-center"
         >
-          {/* Ambient Lighting Orbs */}
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-gold/20 rounded-full blur-3xl pointer-events-none" />
+          {/* Top Control Bar */}
+          <div className="w-full flex items-center justify-between mb-3 px-1 text-white">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMuted(!isMuted);
+                  if (isMuted) playCelebrationChime();
+                }}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-lg"
+              >
+                {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} className="text-amber-400" />}
+                <span className="text-[11px]">{isMuted ? 'Muted' : 'Sound'}</span>
+              </button>
 
-          {/* Top Controls */}
-          <div className="flex items-center justify-between relative z-10 mb-4">
-            <button
-              onClick={() => {
-                setIsMuted(!isMuted);
-                if (isMuted) playCelebrationChime();
-              }}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-gold transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer"
-              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
-            >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} className="text-gold" />}
-              <span className="text-[11px]">{isMuted ? 'Muted' : 'Sound On'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={triggerConfetti}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-lg"
+              >
+                <Sparkles size={14} className="text-amber-400" />
+                <span className="text-[11px]">Confetti 🎉</span>
+              </button>
+            </div>
 
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-          </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPoster}
+                disabled={isDownloading}
+                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer active:scale-95"
+              >
+                <Download size={14} />
+                <span>{isDownloading ? 'Saving...' : 'Download Poster 📥'}</span>
+              </button>
 
-          {/* OSBIC Crest / Ribbon */}
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs font-bold uppercase tracking-widest shadow-inner">
-              <Sparkles size={13} className="animate-spin text-gold" style={{ animationDuration: '4s' }} />
-              <span>OSBIC Family Milestone</span>
-              <Sparkles size={13} className="animate-spin text-gold" style={{ animationDuration: '4s' }} />
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
 
-          {/* Celebrant Photo in Golden Laurel Ring */}
-          <div className="relative inline-block mx-auto mb-5">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full p-1.5 bg-gradient-to-tr from-gold via-amber-200 to-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)] animate-pulse">
-              <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border-2 border-slate-950 flex items-center justify-center">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={employeeName} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-3xl sm:text-4xl font-bold font-syne text-gold">
-                    {employeeName?.[0]?.toUpperCase() || '★'}
+          {/* ══════════════════════════════════════════════════════════════════════
+              POSTER CANVAS (EXACT REFERENCE DESIGN WITH OSBIC COLOR THEME)
+             ══════════════════════════════════════════════════════════════════════ */}
+          <div
+            ref={posterRef}
+            className="w-full relative rounded-3xl overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,136,204,0.35)] border border-white/20 select-none"
+            style={{
+              aspectRatio: '9/16',
+              maxHeight: '82vh',
+              background: 'linear-gradient(180deg, #09132e 0%, #060c20 50%, #040816 100%)',
+            }}
+          >
+            {/* Background Texture: Vertical Luxury Slat Panels (Lockers / Architectural Slats) */}
+            <div className="absolute inset-0 flex justify-between opacity-25 pointer-events-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 border-r border-cyan-400/20 last:border-r-0 relative flex flex-col justify-around py-8"
+                >
+                  <div className="w-1.5 h-6 bg-cyan-400/30 mx-auto rounded-full" />
+                  <div className="w-1.5 h-6 bg-cyan-400/30 mx-auto rounded-full" />
+                  <div className="w-1.5 h-6 bg-cyan-400/30 mx-auto rounded-full" />
+                  <div className="w-1.5 h-6 bg-cyan-400/30 mx-auto rounded-full" />
+                </div>
+              ))}
+            </div>
+
+            {/* Ambient Radial Glows */}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-[#0088cc]/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Poster Inner Container */}
+            <div className="relative h-full flex flex-col justify-between p-6 sm:p-7 z-10">
+              {/* ── TOP SECTION: LOGOS BADGE & HEADLINE ── */}
+              <div className="flex flex-col items-center">
+                {/* 1. Official Logos Pill */}
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-md border border-slate-200 mb-5">
+                  <div className="w-5 h-5 rounded-full bg-[#0088cc] flex items-center justify-center text-white font-bold text-[10px]">
+                    OS
+                  </div>
+                  <span className="text-[10px] font-extrabold tracking-widest text-slate-800 uppercase font-sans">
+                    OSBIC CORPORATE
                   </span>
-                )}
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                    OMAN
+                  </span>
+                </div>
+
+                {/* 2. "HAPPY" Red/Cyan Angled Banner */}
+                <div className="relative z-20 -mb-3 transform -rotate-2">
+                  <div className="bg-[#ef4444] text-white px-7 py-1 shadow-lg border border-red-400/50">
+                    <span className="text-xl sm:text-2xl font-black tracking-widest uppercase font-sans drop-shadow-sm">
+                      HAPPY
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. "BIRTHDAY" Cream Torn-Paper Cutout Banner */}
+                <div
+                  className="relative z-10 w-full max-w-[340px] transform rotate-1 drop-shadow-xl"
+                  style={{
+                    filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.45))',
+                  }}
+                >
+                  <div
+                    className="bg-[#fbf7ed] text-[#3e0808] py-2 px-6 text-center"
+                    style={{
+                      clipPath:
+                        'polygon(0% 12%, 4% 0%, 96% 2%, 100% 15%, 97% 88%, 93% 100%, 7% 98%, 0% 86%)',
+                    }}
+                  >
+                    <span
+                      className="text-4xl sm:text-5xl font-black tracking-tight uppercase"
+                      style={{
+                        fontFamily: 'Georgia, "Playfair Display", serif',
+                        fontStyle: 'italic',
+                        color: '#450a0a',
+                        letterSpacing: '-0.02em',
+                      }}
+                    >
+                      Birthday
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── CENTER SECTION: PHOTO COLLAGE CUTOUT & STARBURST ── */}
+              <div className="relative my-auto flex items-center justify-center py-2">
+                {/* Golden Starburst Graphic (Right side of photo) */}
+                <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-0 transform rotate-12 pointer-events-none scale-110 sm:scale-125">
+                  <svg width="120" height="120" viewBox="0 0 100 100" className="fill-amber-400 drop-shadow-lg">
+                    <polygon points="50,0 62,35 98,20 75,48 100,75 65,70 60,100 45,72 15,90 30,55 0,40 35,32" />
+                  </svg>
+                </div>
+
+                {/* Torn Paper Photo Cutout */}
+                <div
+                  className="relative z-10 w-52 h-64 sm:w-60 sm:h-72 p-2.5 bg-[#fbf7ed] shadow-2xl transition-transform"
+                  style={{
+                    clipPath:
+                      'polygon(8% 0%, 93% 5%, 100% 20%, 97% 85%, 92% 100%, 5% 96%, 0% 80%, 3% 15%)',
+                    filter: 'drop-shadow(0 15px 25px rgba(0,0,0,0.6))',
+                  }}
+                >
+                  <div
+                    className="w-full h-full overflow-hidden bg-slate-900"
+                    style={{
+                      clipPath:
+                        'polygon(7% 2%, 91% 6%, 98% 21%, 95% 84%, 90% 98%, 6% 94%, 2% 78%, 5% 16%)',
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={employeeName}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0088cc] to-[#040816] text-white">
+                        <span className="text-6xl font-bold font-syne">{firstName[0]}</span>
+                        <span className="text-xs font-semibold tracking-wider text-amber-300 mt-2">
+                          OSBIC SPECIALIST
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Double Paper Stickers for Name (Bottom-Left) */}
+                <div className="absolute left-3 sm:left-6 bottom-4 z-20 flex flex-col gap-1.5 pointer-events-none">
+                  {/* First Name Sticker */}
+                  <div
+                    className="bg-[#fbf7ed] text-[#0f172a] px-3.5 py-1 text-sm sm:text-base font-extrabold uppercase font-sans tracking-wide shadow-md transform -rotate-3"
+                    style={{
+                      boxShadow: '2px 4px 10px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    {firstName}
+                  </div>
+
+                  {/* Last Name Sticker */}
+                  <div
+                    className="bg-[#fbf7ed] text-[#0f172a] px-3.5 py-1 text-sm sm:text-base font-extrabold uppercase font-sans tracking-wide shadow-md transform rotate-2 -mt-1 ml-2"
+                    style={{
+                      boxShadow: '2px 4px 10px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    {lastName}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── BOTTOM SECTION: WISHES, DATE & ROLE ── */}
+              <div className="flex flex-col gap-4 pt-2">
+                <div className="grid grid-cols-12 gap-3 items-end">
+                  {/* Left Column: Heartfelt Wish */}
+                  <div className="col-span-8 text-left">
+                    <p className="text-[10.5px] sm:text-xs text-white/90 leading-relaxed font-sans font-normal drop-shadow-sm">
+                      Wishing you all the happiness in the world today and always. May this new chapter
+                      bring you exciting opportunities, unforgettable milestones, and endless reasons to
+                      smile. You deserve all the good things life has to offer. Have a truly amazing birthday!
+                    </p>
+                  </div>
+
+                  {/* Right Column: Date Pill & Department */}
+                  <div className="col-span-4 flex flex-col items-end text-right">
+                    <div className="bg-white text-slate-900 px-3 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold shadow-md mb-1.5">
+                      {todayFormatted}
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-white leading-tight">
+                      {formattedDept}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer Tag with Red/Cyan Tag & Line */}
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="bg-[#ef4444] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-md tracking-wider">
+                    @osbic_om
+                  </div>
+                  <div className="flex-1 h-[2px] bg-red-500/80 rounded-full" />
+                </div>
               </div>
             </div>
-            {/* Crown / Celebration Badge */}
-            <div className="absolute -top-2 -right-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 p-2 rounded-full shadow-lg border border-yellow-200">
-              <Award size={18} className="fill-slate-950" />
-            </div>
           </div>
 
-          {/* Title & Greeting */}
-          <h2 className="text-2xl sm:text-3xl font-syne font-extrabold tracking-tight text-white mb-2">
-            {isRtl
-              ? `كل عام وأنتِ بألف خير!`
-              : `Happy Birthday, ${employeeName.split(' ')[0]}! 🎂`}
-          </h2>
-          <p className="text-sm font-semibold text-gold tracking-wide uppercase mb-4">
-            {isRtl
-              ? (isFemale ? `أختنا العزيزة ${employeeName}` : `أخينا العزيز ${employeeName}`)
-              : (isFemale ? `Dear Sister ${employeeName}` : `Dear Brother ${employeeName}`)}
-          </p>
-
-          {/* Heartfelt Personalized Message */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-300 text-sm leading-relaxed mb-6 space-y-2">
-            {isFemale ? (
-              <>
-                <p className="text-slate-200 font-medium">
-                  {isRtl
-                    ? 'نهنئكِ بحلول يوم ميلادكِ المبارك، متمنين لكِ عاماً زاخراً بالصحة والسعادة والنجاحات الباهرة.'
-                    : 'On behalf of the entire OSBIC leadership and family, we celebrate you today! Wishing you a year blessed with radiant health, joy, and extraordinary achievements.'}
-                </p>
-                <p className="text-xs text-muted-foreground/90">
-                  {isRtl
-                    ? 'فخورون بعطائكِ وتميزكِ المستمر في فريقنا، ونسأل الله لكِ دوام التوفيق والازدهار.'
-                    : 'Thank you for bringing your dedication, positive energy, and remarkable value to our team every day!'}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-slate-200 font-medium">
-                  {isRtl
-                    ? 'نهنئك بحلول يوم ميلادك المبارك، ونسأل الله لك عاماً حافلاً بالتوفيق والازدهار والهمة العالية.'
-                    : 'On behalf of the entire OSBIC leadership and family, we celebrate you today! Wishing you an inspiring year ahead full of victory, prosperity, and continuous growth.'}
-                </p>
-                <p className="text-xs text-muted-foreground/90">
-                  {isRtl
-                    ? 'فخورون بجهودك المخلصة وبصمتك المتميزة في نجاحاتنا المستمرة.'
-                    : 'Proud of your hard work, leadership, and outstanding dedication to our collective vision!'}
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={triggerCelebration}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sparkles size={14} className="text-gold" />
-              <span>{isRtl ? 'ألعاب نارية 🎉' : 'More Confetti 🎉'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-sm shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-            >
-              <Heart size={16} className="fill-slate-950" />
-              <span>{isRtl ? 'شكراً لكم! بدء يومي 🚀' : 'Thank You! Start My Day 🚀'}</span>
-            </button>
-          </div>
+          {/* Bottom Action: Done Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-4 px-8 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs tracking-wider uppercase backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-lg active:scale-95 flex items-center gap-2"
+          >
+            <Heart size={14} className="fill-red-500 text-red-500" />
+            <span>Thank You! Start My Day 🚀</span>
+          </button>
         </motion.div>
       </div>
     </AnimatePresence>
