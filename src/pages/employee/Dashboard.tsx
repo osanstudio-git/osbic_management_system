@@ -15,6 +15,7 @@ import { useNotifications } from '../../hooks/shared/useNotifications';
 import { Clock } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import BranchOverviewDashboard from '../../components/employee/BranchOverviewDashboard';
+import TeamBirthdayBanner from '../../components/employee/TeamBirthdayBanner';
 
 const weeklyData = [
   { day: 'Mon', tasks: 3 },
@@ -149,6 +150,8 @@ const EmployeeDashboard = () => {
 
   return (
     <div className="space-y-12 pb-20 p-4 sm:p-8 max-w-6xl mx-auto">
+      {/* Team Birthday Celebrations */}
+      <TeamBirthdayBanner />
       
       {/* ── Branch Manager View Switcher (for managers) ── */}
       {isManager && (

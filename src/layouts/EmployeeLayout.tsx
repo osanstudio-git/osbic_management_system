@@ -40,6 +40,7 @@ import { twMerge } from 'tailwind-merge';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { useBranch } from '../contexts/BranchContext';
+import { BirthdayCelebrationModal } from '../components/employee/BirthdayCelebrationModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -78,6 +79,44 @@ const EmployeeLayout: React.FC = () => {
     } catch (err) {
       toast.error(isRtl ? 'فشل تحديث الحالة' : 'Failed to update status');
       setAvailability(availability);
+    }
+  };
+
+  // Birthday Detection & Morning Celebration
+  const [showBirthdayModal, setShowBirthdayModal] = useState(false);
+
+  React.useEffect(() => {
+    const rawDob = (profile as any)?.date_of_birth;
+    if (!profile?.id || !rawDob) return;
+
+    try {
+      const today = new Date();
+      const currentMonth = today.getMonth() + 1; // 1 - 12
+      const currentDay = today.getDate(); // 1 - 31
+      const currentYear = today.getFullYear();
+
+      const parts = rawDob.split('-');
+      if (parts.length >= 3) {
+        const bMonth = parseInt(parts[1], 10);
+        const bDay = parseInt(parts[2], 10);
+
+        if (bMonth === currentMonth && bDay === currentDay) {
+          const storageKey = `osbic_bday_seen_${profile.id}_${currentYear}`;
+          if (!localStorage.getItem(storageKey)) {
+            setShowBirthdayModal(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Could not parse birthday date:', err);
+    }
+  }, [profile]);
+
+  const handleDismissBirthday = () => {
+    setShowBirthdayModal(false);
+    if (profile?.id) {
+      const currentYear = new Date().getFullYear();
+      localStorage.setItem(`osbic_bday_seen_${profile.id}_${currentYear}`, 'true');
     }
   };
 
@@ -362,6 +401,15 @@ const EmployeeLayout: React.FC = () => {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Birthday Celebration Modal */}
+      <BirthdayCelebrationModal
+        isOpen={showBirthdayModal}
+        onClose={handleDismissBirthday}
+        employeeName={profile?.full_name || 'Team Member'}
+        avatarUrl={profile?.avatar_url}
+        gender={(profile as any)?.gender || 'male'}
+      />
     </div>
   );
 };
