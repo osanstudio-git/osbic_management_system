@@ -24,6 +24,13 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
   const showKycProof = invoice.metadata?.showKycProof ?? false;
   const showDocuments = invoice.metadata?.showDocuments !== false;
   const hideTotal = !!invoice.metadata?.hideTotal || !!invoice.metadata?.hideTotalValue;
+  const showActivities = invoice.metadata?.showActivities ?? (
+    !!invoice.metadata?.activities && (
+      Array.isArray(invoice.metadata.activities)
+        ? invoice.metadata.activities.length > 0
+        : typeof invoice.metadata.activities === 'string' && invoice.metadata.activities.trim().length > 0
+    )
+  );
 
   // Currency config — reads from invoice, defaults to OMR
   const currencyCfg = getCurrencyConfig(invoice.currency || 'OMR');
@@ -238,6 +245,35 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
                    <span className="font-bold" style={{ color: themeColor }}>{item.days}</span>
                  </div>
                ));
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Activities Section (Placed After Timeline) */}
+      {showActivities && (
+        <div className="mb-6">
+          <div className="py-1 px-3 mb-2 font-bold text-white uppercase tracking-widest text-[10px]" style={{ backgroundColor: themeColor }}>
+            Activities
+          </div>
+          <div className="space-y-1.5 px-2 text-[10px]">
+            {(() => {
+              let activities = invoice.metadata?.activities;
+              let items: string[] = [];
+              if (Array.isArray(activities)) {
+                items = activities.map((a: any) => typeof a === 'string' ? a.trim() : (a?.name || a?.title || '')).filter(Boolean);
+              } else if (typeof activities === 'string') {
+                items = activities.split('\n').map((s: string) => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
+              }
+
+              if (!items || items.length === 0) return <p className="text-gray-400 italic">No activities specified.</p>;
+
+              return items.map((activity: string, idx: number) => (
+                <div key={idx} className="flex gap-2 text-gray-900 leading-snug">
+                  <span className="font-bold shrink-0" style={{ color: themeColor }}>{idx + 1}.</span>
+                  <span className="font-medium">{activity}</span>
+                </div>
+              ));
             })()}
           </div>
         </div>

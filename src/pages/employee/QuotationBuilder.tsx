@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-  ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, 
+  ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, Briefcase, 
   CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
   Camera, Layers, Settings2, Sliders, UserCheck, User, 
   Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle 
@@ -99,6 +99,29 @@ export const parseDocumentsHelper = (docsVal: any): string[] => {
   return STANDARD_DOCUMENT_ITEMS;
 };
 
+export const COMMON_ACTIVITY_SUGGESTIONS = [
+  'Import and Export Offices',
+  'SPORT CENTER',
+  'General Trading',
+  'Commercial Brokerage',
+  'Management Consultancy',
+  'Information Technology & Software',
+  'E-Commerce & Online Portal',
+  'Real Estate Brokerage',
+  'Construction & Contracting',
+  'Restaurants & Cafes'
+];
+
+export const parseActivitiesHelper = (activitiesVal: any): string[] => {
+  if (Array.isArray(activitiesVal)) {
+    return activitiesVal.map(a => typeof a === 'string' ? a.trim() : (a?.name || a?.title || '')).filter(Boolean);
+  }
+  if (typeof activitiesVal === 'string') {
+    return activitiesVal.split('\n').map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
+  }
+  return [];
+};
+
 const QuotationBuilder = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -137,6 +160,9 @@ const QuotationBuilder = () => {
 
   const [documentsTab, setDocumentsTab] = useState<'checklist' | 'raw'>('checklist');
   const [customDocName, setCustomDocName] = useState('');
+
+  const [activitiesTab, setActivitiesTab] = useState<'list' | 'raw'>('list');
+  const [customActivityInput, setCustomActivityInput] = useState('');
 
   // Auto-Save & Draft Persistence states
   type AutoSaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'offline';
@@ -181,7 +207,9 @@ const QuotationBuilder = () => {
       showTimeline: true,
       showDocuments: true,
       showKycProof: false,
-      hideTotal: false
+      hideTotal: false,
+      showActivities: false,
+      activities: []
     }
   });
 
@@ -760,6 +788,49 @@ const QuotationBuilder = () => {
     }));
     setCustomDocName('');
     toast.success('Added required document');
+  };
+
+  // Activities helper handlers
+  const currentActivitiesList = parseActivitiesHelper(formData.metadata?.activities);
+
+  const addCustomActivity = () => {
+    if (!customActivityInput.trim()) return;
+    const clean = customActivityInput.trim().replace(/^\d+[\.\)]\s*/, '');
+    const updated = [...currentActivitiesList, clean];
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, activities: updated, showActivities: true }
+    }));
+    setCustomActivityInput('');
+  };
+
+  const removeActivity = (index: number) => {
+    const updated = currentActivitiesList.filter((_, idx) => idx !== index);
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, activities: updated }
+    }));
+  };
+
+  const toggleActivitySuggestion = (name: string) => {
+    const exists = currentActivitiesList.includes(name);
+    let updated: string[];
+    if (exists) {
+      updated = currentActivitiesList.filter(a => a !== name);
+    } else {
+      updated = [...currentActivitiesList, name];
+    }
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, activities: updated, showActivities: true }
+    }));
+  };
+
+  const clearAllActivities = () => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, activities: [] }
+    }));
   };
 
   // Auto-Save Effect (Local Storage Cache + Debounced Cloud Sync for Existing Quotations)
@@ -1512,7 +1583,7 @@ const QuotationBuilder = () => {
                 <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                   <Sliders size={14} className="text-primary" /> Document Settings & Toggles
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                   {/* Show Quantity Toggle */}
                   <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
                     <input
@@ -1526,7 +1597,7 @@ const QuotationBuilder = () => {
                     />
                     <div>
                       <span className="text-xs font-bold text-foreground block">Show Quantity</span>
-                      <span className="text-[9px] text-muted-foreground block">Display Qty column on quote</span>
+                      <span className="text-[9px] text-muted-foreground block">Display Qty column</span>
                     </div>
                   </label>
 
@@ -1542,9 +1613,9 @@ const QuotationBuilder = () => {
                       className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
                     />
                     <div>
-                      <span className="text-xs font-bold text-foreground block">Hide Total Value</span>
+                      <span className="text-xs font-bold text-foreground block">Hide Total</span>
                       <span className="text-[9px] text-muted-foreground block">
-                        {formData.metadata?.hideTotal ? 'Hidden from document' : 'Default: Visible on quote'}
+                        {formData.metadata?.hideTotal ? 'Hidden on quote' : 'Default: Visible'}
                       </span>
                     </div>
                   </label>
@@ -1569,8 +1640,27 @@ const QuotationBuilder = () => {
                       className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
                     />
                     <div>
-                      <span className="text-xs font-bold text-foreground block">KYC Photo Proof</span>
-                      <span className="text-[9px] text-muted-foreground block">Include selfie guide on Page 2</span>
+                      <span className="text-xs font-bold text-foreground block">KYC Proof</span>
+                      <span className="text-[9px] text-muted-foreground block">Selfie guide</span>
+                    </div>
+                  </label>
+
+                  {/* Show Activities Toggle */}
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 bg-background/50 hover:bg-muted/30 cursor-pointer transition-all">
+                    <input
+                      type="checkbox"
+                      checked={!!formData.metadata?.showActivities}
+                      onChange={e => setFormData({
+                        ...formData,
+                        metadata: { ...formData.metadata, showActivities: e.target.checked }
+                      })}
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Activities</span>
+                      <span className="text-[9px] text-muted-foreground block">
+                        {formData.metadata?.showActivities ? 'Shown after timeline' : 'Hidden from quote'}
+                      </span>
                     </div>
                   </label>
                 </div>
@@ -1965,6 +2055,155 @@ const QuotationBuilder = () => {
                           rows={6}
                           value={typeof formData.metadata?.timeline === 'string' ? formData.metadata.timeline : (formData.metadata?.timeline?.map((t: any) => `${t.task}:${t.days}`).join('\n') || '')}
                           onChange={e => setFormData({ ...formData, metadata: { ...formData.metadata, timeline: e.target.value } })}
+                          className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* INTERACTIVE ACTIVITIES SECTION (PLACED DIRECTLY AFTER TIMELINE) */}
+                <div className="space-y-4 border-t border-border pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Briefcase size={16} className="text-primary" />
+                      <h3 className="text-sm font-bold text-foreground">Commercial Activities</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.metadata?.showActivities}
+                          onChange={e => setFormData({
+                            ...formData,
+                            metadata: { ...formData.metadata, showActivities: e.target.checked }
+                          })}
+                          className="w-3.5 h-3.5 rounded text-primary border-border focus:ring-primary"
+                        />
+                        <span>Include on Quotation</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setActivitiesTab(activitiesTab === 'list' ? 'raw' : 'list')}
+                        className="text-[10px] font-bold text-primary hover:underline"
+                      >
+                        {activitiesTab === 'list' ? 'Edit Raw Text' : 'List View'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {formData.metadata?.showActivities && (
+                    activitiesTab === 'list' ? (
+                      <div className="space-y-3 bg-muted/10 p-4 rounded-xl border border-border/40">
+                        <div className="flex justify-between items-center pb-2 border-b border-border/40">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Activities List ({currentActivitiesList.length} items)
+                          </span>
+                          {currentActivitiesList.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={clearAllActivities}
+                              className="text-[9px] font-bold text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-background border border-border/50"
+                            >
+                              Clear All
+                            </button>
+                          )}
+                        </div>
+
+                        {currentActivitiesList.length > 0 ? (
+                          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                            {currentActivitiesList.map((activity, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-background p-2 rounded-lg border border-border text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-primary text-[11px]">{idx + 1}.</span>
+                                  <span className="font-medium text-foreground">{activity}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeActivity(idx)}
+                                  className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
+                                  title="Remove Activity"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic py-1">
+                            No activities added yet. Add an activity below or choose from quick suggestions.
+                          </p>
+                        )}
+
+                        {/* Quick Suggestions */}
+                        <div className="pt-2 border-t border-border/40">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                            Quick Suggestions:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {COMMON_ACTIVITY_SUGGESTIONS.map((sug, idx) => {
+                              const isAdded = currentActivitiesList.includes(sug);
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => toggleActivitySuggestion(sug)}
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                                    isAdded 
+                                      ? 'bg-primary/15 text-primary border-primary/30 font-bold' 
+                                      : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                                  }`}
+                                >
+                                  {isAdded ? '✓ ' : '+ '} {sug}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Add Custom Activity */}
+                        <div className="grid grid-cols-12 gap-2 pt-2 border-t border-border/40">
+                          <input
+                            type="text"
+                            placeholder="Enter activity (e.g. Import and Export Offices)..."
+                            value={customActivityInput}
+                            onChange={e => setCustomActivityInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addCustomActivity();
+                              }
+                            }}
+                            className="col-span-10 bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={addCustomActivity}
+                            className="col-span-2 px-3 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 shadow-xs hover:bg-primary/90"
+                          >
+                            <Plus size={14} /> Add
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
+                          Activities (One per line)
+                        </label>
+                        <textarea
+                          rows={5}
+                          value={typeof formData.metadata?.activities === 'string' ? formData.metadata.activities : (currentActivitiesList.join('\n') || '')}
+                          onChange={e => {
+                            const lines = e.target.value.split('\n').map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
+                            setFormData({ 
+                              ...formData, 
+                              metadata: { 
+                                ...formData.metadata, 
+                                activities: lines 
+                              } 
+                            });
+                          }}
+                          placeholder="1. Import and Export Offices.&#10;2. SPORT CENTER"
                           className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all font-mono"
                         />
                       </div>
