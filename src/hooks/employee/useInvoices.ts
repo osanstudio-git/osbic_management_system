@@ -193,17 +193,23 @@ export const useSaveInvoice = () => {
       if (!invoiceData.issue_date) delete invoiceData.issue_date;
 
       let invoiceId = invoice.id;
+      if (invoiceId === 'new') invoiceId = undefined;
 
       if (!invoiceId) {
-        // Create new
+        // Create new: generate UUID so id is never null or undefined in the insert payload
+        const generatedId = crypto.randomUUID();
+        invoiceId = generatedId;
+        invoiceData.id = generatedId;
+
         const { data, error } = await (supabase.from('invoices') as any)
           .insert([invoiceData])
           .select('id')
           .single();
         if (error) throw error;
-        invoiceId = data.id;
+        invoiceId = data?.id || generatedId;
       } else {
-        // Update existing
+        // Update existing: strip id from updates to avoid modifying primary key
+        delete invoiceData.id;
         const { error } = await (supabase.from('invoices') as any)
           .update(invoiceData)
           .eq('id', invoiceId);

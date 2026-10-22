@@ -25,7 +25,8 @@ import {
    Building2,
    ShieldCheck,
    Megaphone,
-   Handshake
+   Handshake,
+   ShoppingBag
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -134,6 +135,8 @@ const EmployeeLayout: React.FC = () => {
     { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
     // Ops queue — shown if employee can do ops work
     ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
+    // Daily Sales — shown for ops employees
+    ...(profile?.can_do_ops ? [{ key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
     // PRO queue — shown for PRO agents
     ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },

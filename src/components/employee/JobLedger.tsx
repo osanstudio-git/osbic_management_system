@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Receipt, DollarSign, CheckCircle2, AlertCircle, X, CreditCard, Banknote, Landmark, Upload, Paperclip, Download, Eye, Loader2, AlertTriangle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Receipt, DollarSign, CheckCircle2, AlertCircle, X, CreditCard, Banknote, Landmark, Upload, Paperclip, Download, Eye, Loader2, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Lock, LockOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -379,6 +379,23 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
       toast.success(!currentVal ? 'Service Unlocked!' : 'Service Locked');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update allocation');
+    }
+  };
+
+  const handleUnlockAllServices = async () => {
+    try {
+      const lockedIds = jobServices.filter(s => !isFundedHelper(s)).map(s => s.id);
+      if (lockedIds.length === 0) return;
+      const { error } = await supabase
+        .from('job_services')
+        .update({ is_funded: true })
+        .in('id', lockedIds);
+      if (error) throw error;
+      setJobServices(jobServices.map(s => lockedIds.includes(s.id) ? { ...s, is_funded: true } : s));
+      toast.success(`All ${lockedIds.length} service(s) unlocked!`);
+      onPaymentReceived();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to unlock services');
     }
   };
 
@@ -866,10 +883,21 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                           <span className="font-bold text-foreground ml-1">Total Paid: {totalPaid.toFixed(3)} OMR</span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1 rounded-full text-[9px] font-mono uppercase tracking-wider select-none whitespace-nowrap">
-                        <span className="text-emerald-500 font-extrabold">{fundedCount} Unlocked</span>
-                        <span className="text-muted-foreground/30">•</span>
-                        <span className="text-amber-500 font-extrabold">{lockedCount} Locked</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1 rounded-full text-[9px] font-mono uppercase tracking-wider select-none whitespace-nowrap">
+                          <span className="text-emerald-500 font-extrabold">{fundedCount} Unlocked</span>
+                          <span className="text-muted-foreground/30">•</span>
+                          <span className="text-amber-500 font-extrabold">{lockedCount} Locked</span>
+                        </div>
+                        {(isAdmin || isManager || canDoAccounts) && lockedCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleUnlockAllServices}
+                            className="flex items-center gap-1 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <LockOpen size={11} /> Unlock All
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -902,9 +930,37 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                               {isFree ? (
                                 <span className="text-[10px] font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20 uppercase tracking-widest font-mono">Free</span>
                               ) : (isAutoUnlocked || service.is_funded) ? (
-                                <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 uppercase tracking-widest font-mono">Funded</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 uppercase tracking-widest font-mono">
+                                    {service.is_funded && !isAutoUnlocked ? '⚡ Admin Override' : 'Funded'}
+                                  </span>
+                                  {(isAdmin || isManager || canDoAccounts) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleFund(service.id, true)}
+                                      title="Admin: Click to re-lock this service"
+                                      className="text-[9px] font-bold text-muted-foreground hover:text-destructive bg-muted/30 hover:bg-destructive/10 border border-border hover:border-destructive/30 px-2 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                                    >
+                                      <Lock size={10} /> Re-lock
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
-                                <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-xl border border-rose-500/20 uppercase tracking-widest font-mono">Locked</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-xl border border-rose-500/20 uppercase tracking-widest font-mono">
+                                    Locked
+                                  </span>
+                                  {(isAdmin || isManager || canDoAccounts) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleFund(service.id, false)}
+                                      title="Admin: Click to force unlock this service"
+                                      className="text-[10px] font-bold text-emerald-500 hover:text-white bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
+                                    >
+                                      <LockOpen size={11} /> Unlock
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           );

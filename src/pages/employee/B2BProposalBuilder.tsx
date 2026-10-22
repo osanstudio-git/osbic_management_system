@@ -354,7 +354,7 @@ export default function B2BProposalBuilder() {
     try {
       const totalAmount = Number(proposalData.pkgExistingCr || 13000);
       const payload: Invoice = {
-        id: isNew ? undefined : id,
+        ...(isNew ? {} : { id }),
         type: 'quotation',
         status: proposalData.status || 'draft',
         currency: proposalData.currency || 'SAR',

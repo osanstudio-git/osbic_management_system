@@ -71,6 +71,7 @@ import ProQueue from './pages/employee/ProQueue';
 import AccountsDashboard from './pages/employee/AccountsDashboard';
 import BranchTeam from './pages/employee/BranchTeam';
 import BranchApprovals from './pages/employee/BranchApprovals';
+import WalkinSales from './pages/employee/WalkinSales';
 
 
 
@@ -518,6 +519,7 @@ function App() {
               <Route path="b2b/proposals/:id" element={<B2BProposalBuilder />} />
               <Route path="b2b-proposals/new" element={<B2BProposalBuilder />} />
               <Route path="b2b-proposals/:id" element={<B2BProposalBuilder />} />
+              <Route path="daily-sales" element={<WalkinSales />} />
             </Route>
 
             {/* Client Portal */}

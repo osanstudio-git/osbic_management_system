@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, Plus, Calendar, MessageSquare, 
   CheckCircle2, AlertCircle, Clock, User, X, Coins,
   Upload, FileText, Eye, Download, Loader2, Layers,
-  Shield, Phone, Activity, ChevronRight, Trash2
+  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JobLedger } from './JobLedger';
@@ -101,6 +101,23 @@ const ApplicantCard = ({
     || clientPaysMinistryFee 
     || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
   const isLocked = !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
+  const isManagerOrAdmin = profile?.role === 'admin' || profile?.is_manager;
+
+  const handleToggleLock = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const newFunded = !js.is_funded;
+    try {
+      const { error } = await supabase
+        .from('job_services')
+        .update({ is_funded: newFunded })
+        .eq('id', js.id);
+      if (error) throw error;
+      toast.success(newFunded ? 'Service unlocked (Admin Override)' : 'Service re-locked');
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update service lock status');
+    }
+  };
 
 
   const documentsList = js.documents || [];
@@ -363,10 +380,40 @@ const ApplicantCard = ({
               {js.government_ref && (
                 <span className="text-[9px] text-cyan-400 whitespace-nowrap">· Ref: {js.government_ref}</span>
               )}
-              {isLocked && (
-                <span className="text-[9px] font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20 flex items-center gap-1 whitespace-nowrap shrink-0">
-                  🔒 LOCKED (FUNDS REQUIRED)
-                </span>
+              {isLocked ? (
+                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                  <span className="text-[9px] font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20 flex items-center gap-1 whitespace-nowrap">
+                    🔒 LOCKED (FUNDS REQUIRED)
+                  </span>
+                  {isManagerOrAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleToggleLock}
+                      title="Admin Override: Unlock this service"
+                      className="text-[9px] font-bold text-emerald-500 hover:text-white bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
+                    >
+                      <LockOpen size={10} /> Unlock
+                    </button>
+                  )}
+                </div>
+              ) : (
+                js.is_funded && (
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                    <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1 whitespace-nowrap">
+                      ⚡ UNLOCKED (ADMIN OVERRIDE)
+                    </span>
+                    {isManagerOrAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleToggleLock}
+                        title="Re-lock this service"
+                        className="text-[9px] font-bold text-muted-foreground hover:text-destructive bg-muted/30 hover:bg-destructive/10 border border-border hover:border-destructive/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Lock size={10} /> Re-lock
+                      </button>
+                    )}
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -386,16 +433,29 @@ const ApplicantCard = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className={`border-t border-border px-5 py-5 bg-card/50 space-y-5 relative ${isLocked ? 'opacity-70 pointer-events-none' : ''}`}
+            className="border-t border-border px-5 py-5 bg-card/50 space-y-5 relative"
           >
             {isLocked && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/50 backdrop-blur-[1px]">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/85 backdrop-blur-[2px] p-6 text-center">
                 <div className="bg-destructive/10 text-destructive border border-destructive/20 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
                   🔒 Locked Awaiting Sales Allocation
                 </div>
+                {isManagerOrAdmin ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleLock}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/20 cursor-pointer pointer-events-auto"
+                  >
+                    <LockOpen size={14} /> Force Unlock (Admin Override)
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground max-w-xs">
+                    This service is waiting for funds to be allocated. Please contact Sales or an Admin to unlock it.
+                  </p>
+                )}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isLocked ? 'opacity-40 pointer-events-none select-none' : ''}`}>
               {/* Left Side: Steps Checklist */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
@@ -1641,6 +1701,34 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
     grouped[key].push(js);
   });
 
+  const isClientTrusted = job?.client?.is_trusted === true;
+  const clientPaysMinistryFee = job?.client_pays_ministry_fee === true;
+  const lockedServices = filteredServices.filter((js) => {
+    const currentMinistryAllocated = js.ministry_fee_allocated || 0;
+    const reqMinistryFee = js.ministry_fee || 0;
+    const isAutoUnlocked = isClientTrusted 
+      || clientPaysMinistryFee 
+      || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
+    return !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
+  });
+
+  const handleUnlockAllServices = async () => {
+    try {
+      const ids = lockedServices.map(s => s.id);
+      if (ids.length === 0) return;
+      const { error } = await supabase
+        .from('job_services')
+        .update({ is_funded: true })
+        .in('id', ids);
+      if (error) throw error;
+      toast.success(`All ${ids.length} service(s) unlocked by Admin!`);
+      refetch();
+      onDataRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to unlock services');
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center text-muted-foreground py-12 animate-pulse text-sm">{isRtl ? 'جاري تحميل العمليات...' : 'Loading operations...'}</div>;
   }
@@ -1657,6 +1745,30 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
 
   return (
     <div className="space-y-6">
+      {isManagerOrAdmin && lockedServices.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+              <Lock size={18} />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider font-syne flex items-center gap-2">
+                <span>{lockedServices.length} Service{lockedServices.length > 1 ? 's' : ''} Locked Awaiting Funds</span>
+                <span className="text-[9px] bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full font-mono">Operations Halted</span>
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Staff cannot progress workflow checklists while locked. As Admin/Manager, you can authorize and unlock all services at once.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleUnlockAllServices}
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95 cursor-pointer shrink-0"
+          >
+            <LockOpen size={13} /> Unlock All Services
+          </button>
+        </div>
+      )}
       {Object.entries(grouped).map(([key, items]) => {
         const firstItem = items[0];
         const allDone = items.every(i => i.status === 'completed' || i.status === 'cancelled');
