@@ -5,10 +5,10 @@ import {
   Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, X, Upload,
   Eye, Trash2, Edit2, Users, FileText, Calendar, Phone, Banknote,
   CreditCard, Landmark, BarChart3, ArrowUpRight, ArrowDownRight,
-  Printer, RefreshCw, ShoppingBag
+  Printer, RefreshCw, ShoppingBag, MessageSquare, Zap, Send, Sparkles, ExternalLink
 } from 'lucide-react';
-import { useWalkinSales, calcProfit } from '../../hooks/employee/useWalkinSales';
-import type { WalkinSale, WalkinSaleFormData, WalkinStatus, PaymentMode } from '../../hooks/employee/useWalkinSales';
+import { useWalkinSales, useWalkinEnquiries, calcProfit } from '../../hooks/employee/useWalkinSales';
+import type { WalkinSale, WalkinSaleFormData, WalkinStatus, PaymentMode, WalkinEnquiry, WalkinEnquiryFormData } from '../../hooks/employee/useWalkinSales';
 import { useAuth } from '../../contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
 
@@ -25,6 +25,13 @@ const STATUS_CONFIG: Record<WalkinStatus, { label: string; color: string; icon: 
   in_progress: { label: 'In Progress', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',     icon: RefreshCw,     dot: 'bg-blue-400' },
   completed:   { label: 'Completed',   color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
   cancelled:   { label: 'Cancelled',   color: 'text-rose-400 bg-rose-400/10 border-rose-400/20',     icon: XCircle,       dot: 'bg-rose-400' },
+};
+
+const ENQUIRY_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+  new:       { label: 'New Enquiry', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',   dot: 'bg-amber-400' },
+  contacted: { label: 'Contacted',   color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',     dot: 'bg-blue-400' },
+  converted: { label: 'Converted',   color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', dot: 'bg-emerald-400' },
+  lost:      { label: 'Lost',        color: 'text-rose-400 bg-rose-400/10 border-rose-400/20',     dot: 'bg-rose-400' },
 };
 
 const PAYMENT_CONFIG: Record<PaymentMode, { label: string; icon: React.FC<any> }> = {
@@ -74,24 +81,25 @@ const ReceiptUploadField: React.FC<{
           className="hidden"
           onChange={e => onChange(e.target.files?.[0] ?? null)}
         />
-        {preview && !isPdf ? (
-          <img src={preview} alt="receipt" className="w-10 h-10 rounded-lg object-cover border border-border" />
-        ) : preview && isPdf ? (
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <FileText size={18} className="text-primary" />
+        {preview ? (
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {isPdf ? (
+              <FileText size={28} className="text-primary shrink-0" />
+            ) : (
+              <img src={preview} alt="preview" className="w-10 h-10 object-cover rounded-lg border border-border shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">{file?.name || 'Uploaded receipt'}</p>
+              <p className="text-[10px] text-muted-foreground">Click to replace</p>
+            </div>
           </div>
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-            <Upload size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+          <div className="flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
+            <Upload size={16} />
+            <span className="text-xs">Upload receipt (JPG, PNG, PDF)</span>
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">
-            {file ? file.name : preview ? 'Receipt uploaded' : 'Click to upload'}
-          </p>
-          <p className="text-xs text-muted-foreground">JPG, PNG, PDF — max 5MB</p>
-        </div>
-        {(file || preview) && (
+        {file && (
           <button
             type="button"
             onClick={e => { e.stopPropagation(); onChange(null); }}
@@ -105,20 +113,32 @@ const ReceiptUploadField: React.FC<{
   );
 };
 
-// ─── Sale Form Modal ─────────────────────────────────────────────────────────
+// ─── Sale & Enquiry Unified Modal ──────────────────────────────────────────
 
 const SaleFormModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   editSale?: WalkinSale | null;
-}> = ({ isOpen, onClose, editSale }) => {
+  initialMode?: 'sale' | 'enquiry';
+  convertedEnquiry?: WalkinEnquiry | null;
+  onSaleSaved?: () => void;
+}> = ({ isOpen, onClose, editSale, initialMode = 'sale', convertedEnquiry, onSaleSaved }) => {
   const { createSale, updateSale, getReceiptUrl } = useWalkinSales();
+  const { createEnquiry, updateEnquiryStatus } = useWalkinEnquiries();
+  const [modalMode, setModalMode] = useState<'sale' | 'enquiry'>(initialMode);
   const [form, setForm] = useState<WalkinSaleFormData>(emptyForm);
   const [customWorkType, setCustomWorkType] = useState('');
+  const [enquiryForm, setEnquiryForm] = useState<WalkinEnquiryFormData>({
+    client_name: '',
+    client_phone: '',
+    interested_service: WORK_TYPES[0],
+    notes: '',
+  });
 
   React.useEffect(() => {
     if (isOpen) {
       if (editSale) {
+        setModalMode('sale');
         setForm({
           date: editSale.date,
           client_name: editSale.client_name,
@@ -133,18 +153,34 @@ const SaleFormModal: React.FC<{
           client_receipt_file: null,
           gov_fee_receipt_file: null,
         });
+      } else if (convertedEnquiry) {
+        setModalMode('sale');
+        setForm({
+          ...emptyForm(),
+          client_name: convertedEnquiry.client_name,
+          client_phone: convertedEnquiry.client_phone || '',
+          work_type: convertedEnquiry.interested_service || WORK_TYPES[0],
+          notes: convertedEnquiry.notes ? `Converted from Walk-in Enquiry: ${convertedEnquiry.notes}` : 'Converted from Walk-in Enquiry',
+        });
       } else {
+        setModalMode(initialMode);
         setForm(emptyForm());
+        setEnquiryForm({
+          client_name: '',
+          client_phone: '',
+          interested_service: WORK_TYPES[0],
+          notes: '',
+        });
       }
     }
-  }, [isOpen, editSale]);
+  }, [isOpen, editSale, convertedEnquiry, initialMode]);
 
   const set = <K extends keyof WalkinSaleFormData>(key: K, value: WalkinSaleFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
   const liveProfit = calcProfit(Number(form.total_amount) || 0, Number(form.government_fee) || 0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalWorkType = form.work_type === 'Other' ? customWorkType : form.work_type;
     const payload = { ...form, work_type: finalWorkType };
@@ -153,11 +189,22 @@ const SaleFormModal: React.FC<{
       await updateSale.mutateAsync({ id: editSale.id, formData: payload });
     } else {
       await createSale.mutateAsync(payload);
+      if (convertedEnquiry) {
+        await updateEnquiryStatus.mutateAsync({ id: convertedEnquiry.id, status: 'converted' });
+      }
     }
+    if (onSaleSaved) onSaleSaved();
     onClose();
   };
 
-  const isPending = createSale.isPending || updateSale.isPending;
+  const handleSubmitEnquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createEnquiry.mutateAsync(enquiryForm);
+    if (onSaleSaved) onSaleSaved();
+    onClose();
+  };
+
+  const isPending = createSale.isPending || updateSale.isPending || createEnquiry.isPending;
 
   return (
     <AnimatePresence>
@@ -180,139 +227,280 @@ const SaleFormModal: React.FC<{
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-foreground">{editSale ? 'Edit Sale Entry' : 'Add Walk-in Sale'}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Record a walk-in client transaction</p>
+                <h2 className="text-xl font-bold text-foreground">
+                  {editSale ? 'Edit Sale Entry' : convertedEnquiry ? 'Convert Enquiry to Sale' : modalMode === 'enquiry' ? 'Record Walk-in Enquiry' : 'Add Walk-in Sale'}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {modalMode === 'enquiry' ? 'Log a potential client enquiry in 5 seconds (no payment required)' : 'Record a walk-in client transaction & payment'}
+                </p>
               </div>
               <button onClick={onClose} className="p-2 rounded-xl hover:bg-muted/50 text-muted-foreground transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Row 1: Date + Status */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Date</label>
-                  <input type="date" value={form.date} onChange={e => set('date', e.target.value)} required
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Status</label>
-                  <select value={form.status} onChange={e => set('status', e.target.value as WalkinStatus)}
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm">
-                    {(Object.keys(STATUS_CONFIG) as WalkinStatus[]).map(s => (
-                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 2: Client Name + Phone */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Name</label>
-                  <input type="text" value={form.client_name} onChange={e => set('client_name', e.target.value)} required placeholder="Full name"
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Phone <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                  <input type="tel" value={form.client_phone} onChange={e => set('client_phone', e.target.value)} placeholder="+971..."
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+            {/* Mode Switcher (only for new records, not edits or conversions) */}
+            {!editSale && !convertedEnquiry && (
+              <div className="px-6 pt-5 pb-0 shrink-0">
+                <div className="flex p-1 bg-muted/60 rounded-xl border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setModalMode('sale')}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
+                      modalMode === 'sale'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Receipt size={14} /> 💰 Paid Sale / Work
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalMode('enquiry')}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
+                      modalMode === 'enquiry'
+                        ? 'bg-amber-500 text-black shadow-sm font-extrabold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <MessageSquare size={14} /> 💬 Quick Walk-in Enquiry
+                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Work Type */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Work Type</label>
-                <select value={form.work_type} onChange={e => set('work_type', e.target.value)}
-                  className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm">
-                  {WORK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                {form.work_type === 'Other' && (
-                  <input type="text" value={customWorkType} onChange={e => setCustomWorkType(e.target.value)} placeholder="Specify work type..."
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
-                )}
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Work Description <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                <textarea value={form.work_description} onChange={e => set('work_description', e.target.value)} rows={2} placeholder="Brief description..."
-                  className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm resize-none" />
-              </div>
-
-              {/* Payment Mode */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Payment Mode</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(Object.keys(PAYMENT_CONFIG) as PaymentMode[]).map(pm => {
-                    const cfg = PAYMENT_CONFIG[pm];
-                    const Icon = cfg.icon;
-                    return (
-                      <button key={pm} type="button" onClick={() => set('payment_mode', pm)}
-                        className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${form.payment_mode === pm ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-border/60 hover:text-foreground'}`}>
-                        <Icon size={16} /> {cfg.label}
-                      </button>
-                    );
-                  })}
+            {/* Converting Banner */}
+            {convertedEnquiry && (
+              <div className="px-6 pt-5 shrink-0">
+                <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-center gap-2.5 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 size={16} className="shrink-0" />
+                  <span>Converting enquiry for <strong>{convertedEnquiry.client_name}</strong> into an active sale. Enter payment details below.</span>
                 </div>
               </div>
+            )}
 
-              {/* Financials */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Amount (AED)</label>
-                  <input type="number" min="0" step="0.01" value={form.total_amount || ''} onChange={e => set('total_amount', parseFloat(e.target.value) || 0)} required placeholder="0.00"
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Gov. Fee (AED)</label>
-                  <input type="number" min="0" step="0.01" value={form.government_fee || ''} onChange={e => set('government_fee', parseFloat(e.target.value) || 0)} placeholder="0.00"
-                    className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Profit (Auto)</label>
-                  <div className={`w-full p-3 rounded-xl border text-sm font-bold ${liveProfit > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-muted/50 border-border text-muted-foreground'}`}>
-                    {liveProfit.toFixed(2)} AED
+            {/* ── MODE 1: WALK-IN ENQUIRY (5-Second Fast Entry) ────────────────── */}
+            {modalMode === 'enquiry' ? (
+              <>
+                <form onSubmit={handleSubmitEnquiry} className="flex-1 overflow-y-auto p-6 space-y-5">
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                      <Zap size={18} />
+                    </div>
+                    <div className="text-xs">
+                      <p className="font-bold text-foreground">5-Second Fast Enquiry Logging</p>
+                      <p className="text-muted-foreground">Capture visitor contact details. Follow up via WhatsApp or convert to a sale anytime.</p>
+                    </div>
                   </div>
+
+                  {/* Client Name & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={enquiryForm.client_name}
+                        onChange={e => setEnquiryForm(prev => ({ ...prev, client_name: e.target.value }))}
+                        placeholder="e.g. Mohammed Salem"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Phone / WhatsApp *</label>
+                      <input
+                        type="tel"
+                        required
+                        value={enquiryForm.client_phone}
+                        onChange={e => setEnquiryForm(prev => ({ ...prev, client_phone: e.target.value }))}
+                        placeholder="+971 50 ... / +968 9..."
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Interested Service with Quick Chips */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Interested Service</label>
+                      <span className="text-[10px] text-muted-foreground">1-Tap Select</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WORK_TYPES.map(wt => (
+                        <button
+                          key={wt}
+                          type="button"
+                          onClick={() => setEnquiryForm(prev => ({ ...prev, interested_service: wt }))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                            enquiryForm.interested_service === wt
+                              ? 'bg-amber-500/15 border-amber-500 text-amber-400 font-bold'
+                              : 'border-border bg-muted/30 text-muted-foreground hover:border-border/80 hover:text-foreground'
+                          }`}
+                        >
+                          {wt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Notes & Quoted Price */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      Price Quoted / Discussion Notes <span className="font-normal normal-case text-muted-foreground">(optional)</span>
+                    </label>
+                    <textarea
+                      value={enquiryForm.notes}
+                      onChange={e => setEnquiryForm(prev => ({ ...prev, notes: e.target.value }))}
+                      rows={3}
+                      placeholder="e.g. Quoted 250 AED for 2-year partner visa renewal, will consult business partner and return."
+                      className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm resize-none"
+                    />
+                  </div>
+                </form>
+
+                {/* Footer for Enquiry */}
+                <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-muted/20 shrink-0">
+                  <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all text-sm font-medium">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitEnquiry as any}
+                    disabled={isPending || !enquiryForm.client_name.trim() || !enquiryForm.client_phone.trim()}
+                    className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  >
+                    {isPending ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : <><CheckCircle2 size={16} /> Save Walk-in Enquiry</>}
+                  </button>
                 </div>
-              </div>
+              </>
+            ) : (
+              /* ── MODE 2: FINANCIAL WALK-IN SALE ───────────────────────────────── */
+              <>
+                <form onSubmit={handleSubmitSale} className="flex-1 overflow-y-auto p-6 space-y-5">
+                  {/* Row 1: Date + Status */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Date</label>
+                      <input type="date" value={form.date} onChange={e => set('date', e.target.value)} required
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Status</label>
+                      <select value={form.status} onChange={e => set('status', e.target.value as WalkinStatus)}
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm">
+                        {(Object.keys(STATUS_CONFIG) as WalkinStatus[]).map(s => (
+                          <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-              {/* Receipt Uploads */}
-              <div className="grid grid-cols-2 gap-4">
-                <ReceiptUploadField
-                  label="Client Payment Receipt"
-                  file={form.client_receipt_file ?? null}
-                  existingUrl={editSale ? getReceiptUrl(editSale.client_receipt_url) : null}
-                  onChange={f => set('client_receipt_file', f)}
-                />
-                <ReceiptUploadField
-                  label="Gov. Fee Receipt"
-                  file={form.gov_fee_receipt_file ?? null}
-                  existingUrl={editSale ? getReceiptUrl(editSale.gov_fee_receipt_url) : null}
-                  onChange={f => set('gov_fee_receipt_file', f)}
-                />
-              </div>
+                  {/* Row 2: Client Name + Phone */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Name</label>
+                      <input type="text" value={form.client_name} onChange={e => set('client_name', e.target.value)} required placeholder="Full name"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Phone <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
+                      <input type="tel" value={form.client_phone} onChange={e => set('client_phone', e.target.value)} placeholder="+971..."
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    </div>
+                  </div>
 
-              {/* Notes */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Notes <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} placeholder="Any additional notes..."
-                  className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm resize-none" />
-              </div>
-            </form>
+                  {/* Row 3: Work Type */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Work Type</label>
+                    <select value={form.work_type} onChange={e => set('work_type', e.target.value)}
+                      className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm">
+                      {WORK_TYPES.map(wt => <option key={wt} value={wt}>{wt}</option>)}
+                    </select>
+                    {form.work_type === 'Other' && (
+                      <input type="text" value={customWorkType} onChange={e => setCustomWorkType(e.target.value)} placeholder="Specify custom work type..." required
+                        className="w-full mt-2 bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    )}
+                  </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-muted/20 shrink-0">
-              <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all text-sm font-medium">
-                Cancel
-              </button>
-              <button onClick={handleSubmit as any} disabled={isPending}
-                className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2">
-                {isPending ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : <><CheckCircle2 size={16} /> {editSale ? 'Update Sale' : 'Add Sale'}</>}
-              </button>
-            </div>
+                  {/* Work Description */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Work Description <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
+                    <input type="text" value={form.work_description} onChange={e => set('work_description', e.target.value)} placeholder="e.g. 2-year partner visa renewal with medical"
+                      className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Payment Mode</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(Object.keys(PAYMENT_CONFIG) as PaymentMode[]).map(pm => {
+                        const cfg = PAYMENT_CONFIG[pm];
+                        const Icon = cfg.icon;
+                        return (
+                          <button key={pm} type="button" onClick={() => set('payment_mode', pm)}
+                            className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${form.payment_mode === pm ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-border/60 hover:text-foreground'}`}>
+                            <Icon size={16} /> {cfg.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Financials */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Amount (AED)</label>
+                      <input type="number" min="0" step="0.01" value={form.total_amount || ''} onChange={e => set('total_amount', parseFloat(e.target.value) || 0)} required placeholder="0.00"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Gov. Fee (AED)</label>
+                      <input type="number" min="0" step="0.01" value={form.government_fee || ''} onChange={e => set('government_fee', parseFloat(e.target.value) || 0)} placeholder="0.00"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Profit (Auto)</label>
+                      <div className={`w-full p-3 rounded-xl border text-sm font-bold ${liveProfit > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-muted/50 border-border text-muted-foreground'}`}>
+                        {liveProfit.toFixed(2)} AED
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Receipt Uploads */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <ReceiptUploadField
+                      label="Client Payment Receipt"
+                      file={form.client_receipt_file ?? null}
+                      existingUrl={editSale ? getReceiptUrl(editSale.client_receipt_url) : null}
+                      onChange={f => set('client_receipt_file', f)}
+                    />
+                    <ReceiptUploadField
+                      label="Gov. Fee Receipt"
+                      file={form.gov_fee_receipt_file ?? null}
+                      existingUrl={editSale ? getReceiptUrl(editSale.gov_fee_receipt_url) : null}
+                      onChange={f => set('gov_fee_receipt_file', f)}
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Notes <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
+                    <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} placeholder="Any additional notes..."
+                      className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm resize-none" />
+                  </div>
+                </form>
+
+                {/* Footer for Sale */}
+                <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-muted/20 shrink-0">
+                  <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all text-sm font-medium">
+                    Cancel
+                  </button>
+                  <button onClick={handleSubmitSale as any} disabled={isPending}
+                    className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2">
+                    {isPending ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : <><CheckCircle2 size={16} /> {editSale ? 'Update Sale' : convertedEnquiry ? 'Complete & Convert' : 'Add Sale'}</>}
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       )}
@@ -363,6 +551,46 @@ const StatusDropdown: React.FC<{ sale: WalkinSale }> = ({ sale }) => {
   );
 };
 
+const EnquiryStatusDropdown: React.FC<{ enquiry: WalkinEnquiry }> = ({ enquiry }) => {
+  const { updateEnquiryStatus } = useWalkinEnquiries();
+  const [open, setOpen] = useState(false);
+  const cfg = ENQUIRY_STATUS_CONFIG[enquiry.status] || ENQUIRY_STATUS_CONFIG.new;
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${cfg.color}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+        {cfg.label} <ChevronDown size={10} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.97 }}
+              className="absolute left-0 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-2xl z-20 overflow-hidden"
+            >
+              {(Object.keys(ENQUIRY_STATUS_CONFIG) as ('new' | 'contacted' | 'converted' | 'lost')[]).map(s => {
+                const sc = ENQUIRY_STATUS_CONFIG[s];
+                return (
+                  <button key={s} onClick={() => { updateEnquiryStatus.mutate({ id: enquiry.id, status: s }); setOpen(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/50 ${enquiry.status === s ? 'text-primary font-bold' : 'text-foreground'}`}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${sc.dot}`} />
+                    {sc.label}
+                  </button>
+                );
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // ─── Stats Card ──────────────────────────────────────────────────────────────
 
 const StatCard: React.FC<{ label: string; value: string; sub?: string; icon: React.FC<any>; color: string }> = ({ label, value, sub, icon: Icon, color }) => (
@@ -383,16 +611,26 @@ const StatCard: React.FC<{ label: string; value: string; sub?: string; icon: Rea
 const WalkinSales: React.FC = () => {
   const { profile } = useAuth();
   const { sales, isLoading, deleteSale, getReceiptUrl } = useWalkinSales();
-  const [activeTab, setActiveTab] = useState<'sales' | 'active' | 'reports'>('sales');
+  const { enquiries, isLoading: loadingEnquiries, deleteEnquiry, updateEnquiryStatus } = useWalkinEnquiries();
+  
+  const [activeTab, setActiveTab] = useState<'sales' | 'enquiries' | 'active' | 'reports'>('sales');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WalkinStatus | 'all'>('all');
+  
+  // Enquiry specific filters
+  const [enquirySearch, setEnquirySearch] = useState('');
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<'all' | 'new' | 'contacted' | 'converted' | 'lost'>('all');
+
   const [reportPeriod, setReportPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'sale' | 'enquiry'>('sale');
   const [editSale, setEditSale] = useState<WalkinSale | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [viewReceipt, setViewReceipt] = useState<string | null>(null);
+  const [convertedEnquiry, setConvertedEnquiry] = useState<WalkinEnquiry | null>(null);
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
+  const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
+  const [deleteEnquiryId, setDeleteEnquiryId] = useState<string | null>(null);
+
+  // ── Filtering Sales ─────────────────────────────────────────────────────────
 
   const filtered = sales.filter(s => {
     const matchSearch =
@@ -404,6 +642,20 @@ const WalkinSales: React.FC = () => {
   });
 
   const activeSales = sales.filter(s => s.status === 'in_progress');
+
+  // ── Filtering Enquiries ─────────────────────────────────────────────────────
+
+  const filteredEnquiries = enquiries.filter(e => {
+    const matchSearch =
+      e.client_name.toLowerCase().includes(enquirySearch.toLowerCase()) ||
+      (e.client_phone || '').includes(enquirySearch) ||
+      (e.interested_service || '').toLowerCase().includes(enquirySearch.toLowerCase()) ||
+      (e.notes || '').toLowerCase().includes(enquirySearch.toLowerCase());
+    const matchStatus = enquiryStatusFilter === 'all' || e.status === enquiryStatusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const newEnquiriesCount = enquiries.filter(e => e.status === 'new').length;
 
   // ── Report Aggregation ────────────────────────────────────────────────────
 
@@ -447,26 +699,74 @@ const WalkinSales: React.FC = () => {
 
   const report = getReportData();
 
-  const handleEdit = (sale: WalkinSale) => { setEditSale(sale); setModalOpen(true); };
-  const handleAdd = () => { setEditSale(null); setModalOpen(true); };
+  const handleEditSale = (sale: WalkinSale) => {
+    setEditSale(sale);
+    setConvertedEnquiry(null);
+    setModalMode('sale');
+    setModalOpen(true);
+  };
+
+  const handleAddSale = () => {
+    setEditSale(null);
+    setConvertedEnquiry(null);
+    setModalMode('sale');
+    setModalOpen(true);
+  };
+
+  const handleAddEnquiry = () => {
+    setEditSale(null);
+    setConvertedEnquiry(null);
+    setModalMode('enquiry');
+    setModalOpen(true);
+  };
+
+  const handleConvertToSale = (enquiry: WalkinEnquiry) => {
+    setConvertedEnquiry(enquiry);
+    setEditSale(null);
+    setModalMode('sale');
+    setModalOpen(true);
+  };
+
+  const handleWhatsApp = (enquiry: WalkinEnquiry) => {
+    let phone = (enquiry.client_phone || '').replace(/[^0-9]/g, '');
+    if (!phone) return;
+    if (phone.startsWith('0')) phone = '971' + phone.slice(1);
+    const text = encodeURIComponent(
+      `Hello ${enquiry.client_name}, thank you for visiting OSBIC regarding ${enquiry.interested_service || 'our services'}. Please let us know if you have any questions or when you would like to proceed!`
+    );
+    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    if (enquiry.status === 'new') {
+      updateEnquiryStatus.mutate({ id: enquiry.id, status: 'contacted' });
+    }
+  };
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <ShoppingBag size={22} className="text-primary" />
             </div>
-            Daily Sales
+            Daily Sales & Enquiries
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Walk-in client transactions & daily work log</p>
+          <p className="text-muted-foreground text-sm mt-1">Walk-in client transactions, potential leads & daily work log</p>
         </div>
-        <button onClick={handleAdd}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20">
-          <Plus size={18} /> Add New Sale
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleAddEnquiry}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm"
+          >
+            <MessageSquare size={16} /> + Quick Enquiry
+          </button>
+          <button
+            onClick={handleAddSale}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+          >
+            <Plus size={18} /> + Add New Sale
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -482,24 +782,31 @@ const WalkinSales: React.FC = () => {
           sub="In progress now" />
         <StatCard label="Total Records" icon={Receipt} color="bg-purple-500/10 text-purple-400"
           value={`${sales.length}`}
-          sub="All time entries" />
+          sub="All time transactions" />
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-xl border border-border w-fit">
+      <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-xl border border-border w-fit overflow-x-auto hide-scrollbar">
         {[
-          { key: 'sales', label: 'My Sales', icon: Receipt },
+          { key: 'sales', label: 'My Sales', icon: Receipt, count: sales.length },
+          { key: 'enquiries', label: 'Walk-in Enquiries', icon: MessageSquare, count: enquiries.length, badge: newEnquiriesCount },
           { key: 'active', label: `Active Works (${activeSales.length})`, icon: RefreshCw },
           { key: 'reports', label: 'Reports', icon: BarChart3 },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
-            <tab.icon size={15} /> {tab.label}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+            <tab.icon size={15} /> 
+            <span>{tab.label}</span>
+            {tab.badge ? (
+              <span className="px-1.5 py-0.5 bg-amber-500 text-black text-[10px] font-extrabold rounded-full leading-none">
+                {tab.badge}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
 
-      {/* ── TAB: MY SALES ─────────────────────────────────────────────────────── */}
+      {/* ── TAB 1: MY SALES ───────────────────────────────────────────────────── */}
       {activeTab === 'sales' && (
         <div className="space-y-4">
           {/* Filters */}
@@ -509,7 +816,7 @@ const WalkinSales: React.FC = () => {
               <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client, work type..."
                 className="bg-transparent border-none outline-none text-sm text-foreground w-full placeholder:text-muted-foreground" />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {(['all', ...Object.keys(STATUS_CONFIG)] as (WalkinStatus | 'all')[]).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${statusFilter === s ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
@@ -531,7 +838,7 @@ const WalkinSales: React.FC = () => {
               <p className="text-xs mt-1">Click "Add New Sale" to record a walk-in transaction</p>
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -595,11 +902,11 @@ const WalkinSales: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => handleEdit(sale)}
+                              <button onClick={() => handleEditSale(sale)}
                                 className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
                                 <Edit2 size={14} />
                               </button>
-                              <button onClick={() => setDeleteId(sale.id)}
+                              <button onClick={() => setDeleteSaleId(sale.id)}
                                 className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                                 <Trash2 size={14} />
                               </button>
@@ -616,7 +923,156 @@ const WalkinSales: React.FC = () => {
         </div>
       )}
 
-      {/* ── TAB: ACTIVE WORKS ─────────────────────────────────────────────────── */}
+      {/* ── TAB 2: WALK-IN ENQUIRIES ───────────────────────────────────────────── */}
+      {activeTab === 'enquiries' && (
+        <div className="space-y-4">
+          {/* Filters & Actions */}
+          <div className="flex items-center gap-3 flex-wrap justify-between">
+            <div className="flex items-center gap-2 bg-muted/30 border border-border px-4 py-2 rounded-xl flex-1 min-w-[220px]">
+              <Search size={16} className="text-muted-foreground" />
+              <input
+                type="text"
+                value={enquirySearch}
+                onChange={e => setEnquirySearch(e.target.value)}
+                placeholder="Search visitor, phone, or interested service..."
+                className="bg-transparent border-none outline-none text-sm text-foreground w-full placeholder:text-muted-foreground"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(['all', 'new', 'contacted', 'converted', 'lost'] as const).map(s => {
+                const count = s === 'all' ? enquiries.length : enquiries.filter(e => e.status === s).length;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setEnquiryStatusFilter(s)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                      enquiryStatusFilter === s
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-400 font-bold'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span className="capitalize">{s}</span>
+                    <span className="text-[10px] opacity-70">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Enquiries Grid / List */}
+          {loadingEnquiries ? (
+            <div className="flex items-center justify-center h-40">
+              <RefreshCw size={24} className="animate-spin text-amber-400" />
+            </div>
+          ) : filteredEnquiries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border border-dashed border-border rounded-2xl bg-muted/10 p-6 text-center">
+              <MessageSquare size={40} className="mb-3 opacity-30 text-amber-500" />
+              <p className="font-bold text-foreground">No walk-in enquiries found</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                When visitors ask about prices or services, click <strong>"+ Quick Enquiry"</strong> to capture their phone number in 5 seconds without recording any payments.
+              </p>
+              <button
+                onClick={handleAddEnquiry}
+                className="mt-4 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Log First Walk-in Enquiry
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEnquiries.map((enquiry, i) => {
+                return (
+                  <motion.div
+                    key={enquiry.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="bg-card border border-border rounded-2xl p-5 space-y-4 hover:border-amber-500/30 transition-all shadow-sm flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Top Row: Client Info + Status Dropdown */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-bold text-foreground text-base leading-tight">{enquiry.client_name}</h3>
+                          {enquiry.client_phone ? (
+                            <a
+                              href={`tel:${enquiry.client_phone}`}
+                              className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 mt-1 font-medium"
+                            >
+                              <Phone size={11} className="text-primary" /> {enquiry.client_phone}
+                            </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-1">No phone logged</p>
+                          )}
+                        </div>
+                        <EnquiryStatusDropdown enquiry={enquiry} />
+                      </div>
+
+                      {/* Service Tag */}
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          {enquiry.interested_service || 'General Enquiry'}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {format(parseISO(enquiry.created_at), 'dd MMM, hh:mm a')}
+                        </span>
+                      </div>
+
+                      {/* Notes / Price Quoted */}
+                      {enquiry.notes && (
+                        <div className="mt-3 bg-muted/30 border border-border rounded-xl p-2.5 text-xs text-muted-foreground">
+                          <p className="line-clamp-3">{enquiry.notes}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Actions Row */}
+                    <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {enquiry.client_phone && (
+                          <button
+                            type="button"
+                            onClick={() => handleWhatsApp(enquiry)}
+                            title="Chat on WhatsApp"
+                            className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all flex items-center gap-1 text-xs font-bold"
+                          >
+                            <Send size={13} />
+                            <span className="hidden sm:inline">WhatsApp</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteEnquiryId(enquiry.id)}
+                          title="Delete Enquiry"
+                          className="p-2 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {enquiry.status !== 'converted' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleConvertToSale(enquiry)}
+                          className="px-3.5 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                        >
+                          <Sparkles size={13} /> Convert to Sale
+                        </button>
+                      ) : (
+                        <div className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 flex items-center gap-1">
+                          <CheckCircle2 size={12} /> Converted
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB 3: ACTIVE WORKS ───────────────────────────────────────────────── */}
       {activeTab === 'active' && (
         <div className="space-y-4">
           {activeSales.length === 0 ? (
@@ -666,7 +1122,7 @@ const WalkinSales: React.FC = () => {
         </div>
       )}
 
-      {/* ── TAB: REPORTS ──────────────────────────────────────────────────────── */}
+      {/* ── TAB 4: REPORTS ────────────────────────────────────────────────────── */}
       {activeTab === 'reports' && (
         <div className="space-y-6">
           {/* Period Selector */}
@@ -680,7 +1136,7 @@ const WalkinSales: React.FC = () => {
               ))}
             </div>
             <button onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
               <Printer size={16} /> Print Report
             </button>
           </div>
@@ -770,19 +1226,25 @@ const WalkinSales: React.FC = () => {
         </div>
       )}
 
-      {/* ── Sale Form Modal ───────────────────────────────────────────────────── */}
+      {/* ── Sale / Enquiry Modal ───────────────────────────────────────────────── */}
       <SaleFormModal
         isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setEditSale(null); }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditSale(null);
+          setConvertedEnquiry(null);
+        }}
         editSale={editSale}
+        initialMode={modalMode}
+        convertedEnquiry={convertedEnquiry}
       />
 
-      {/* ── Delete Confirm ────────────────────────────────────────────────────── */}
+      {/* ── Delete Sale Confirm ────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {deleteId && (
+        {deleteSaleId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setDeleteId(null)} className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+              onClick={() => setDeleteSaleId(null)} className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
               className="relative bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
@@ -795,10 +1257,41 @@ const WalkinSales: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
+                <button onClick={() => setDeleteSaleId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
                   Cancel
                 </button>
-                <button onClick={() => { deleteSale.mutate(deleteId); setDeleteId(null); }}
+                <button onClick={() => { deleteSale.mutate(deleteSaleId); setDeleteSaleId(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-bold hover:bg-destructive/90 active:scale-95 transition-all">
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete Enquiry Confirm ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {deleteEnquiryId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setDeleteEnquiryId(null)} className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+              className="relative bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <Trash2 size={18} className="text-destructive" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Delete Walk-in Enquiry</h3>
+                  <p className="text-xs text-muted-foreground">Are you sure you want to remove this lead?</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteEnquiryId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
+                  Cancel
+                </button>
+                <button onClick={() => { deleteEnquiry.mutate(deleteEnquiryId); setDeleteEnquiryId(null); }}
                   className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-bold hover:bg-destructive/90 active:scale-95 transition-all">
                   Delete
                 </button>

@@ -1888,6 +1888,53 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
 
   const { profile } = useAuth();
   const canViewFinancials = profile?.role === 'admin' || profile?.id === job?.sales_employee_id;
+  const isManagerOrAdmin = profile?.role === 'admin' || (profile as any)?.is_manager === true;
+  const canEditClient = isManagerOrAdmin || profile?.id === job?.sales_employee_id || profile?.id === job?.employee_id;
+  const [isReassignClientOpen, setIsReassignClientOpen] = useState(false);
+  const [clientOptions, setClientOptions] = useState<any[]>([]);
+  const [selectedNewClientId, setSelectedNewClientId] = useState('');
+  const [isSavingClient, setIsSavingClient] = useState(false);
+
+  const handleOpenReassignModal = async () => {
+    setSelectedNewClientId(job?.client_id || '');
+    setIsReassignClientOpen(true);
+    const { data: clis } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone, client_code, email')
+      .eq('role', 'client')
+      .order('full_name');
+    if (clis) setClientOptions(clis);
+  };
+
+  const handleSaveReassignedClient = async () => {
+    if (!selectedNewClientId || selectedNewClientId === job?.client_id) {
+      setIsReassignClientOpen(false);
+      return;
+    }
+    setIsSavingClient(true);
+    try {
+      const { error: jobErr } = await supabase
+        .from('jobs')
+        .update({ client_id: selectedNewClientId })
+        .eq('id', job.id);
+      if (jobErr) throw jobErr;
+
+      // Also sync invoices for this job
+      await supabase
+        .from('invoices')
+        .update({ client_id: selectedNewClientId })
+        .eq('job_id', job.id);
+
+      toast.success('Client updated successfully for this task!');
+      setIsReassignClientOpen(false);
+      if (onUpdated) onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update client');
+    } finally {
+      setIsSavingClient(false);
+    }
+  };
+
   const unreadCount = messages ? messages.filter((m: any) => m.sender_id !== profile?.id && !m.is_read).length : 0;
   const [totalMinistryFee, setTotalMinistryFee] = useState<number>(0);
   const [jobDocuments, setJobDocuments] = useState<any[]>([]);
@@ -2322,6 +2369,25 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
                  </div>
                </div>
 
+               {/* Client Info & Reassign */}
+               <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
+                 <div className="flex items-center gap-2">
+                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client</span>
+                   {canEditClient && (
+                     <button 
+                       onClick={handleOpenReassignModal}
+                       className="text-[9px] font-bold text-primary hover:underline uppercase tracking-wider"
+                     >
+                       Change
+                     </button>
+                   )}
+                 </div>
+                 <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
+                   <User size={13} className="text-primary shrink-0" />
+                   <span className="truncate max-w-[180px]">{job?.client?.full_name || job?.client_name || 'Client Not Assigned'}</span>
+                 </div>
+               </div>
+
                {/* Invoice actions */}
                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0 self-end sm:self-center">
                  {canViewFinancials && (
@@ -2486,6 +2552,69 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
                       Confirm Payment
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Reassign Client Modal */}
+        <AnimatePresence>
+          {isReassignClientOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsReassignClientOpen(false)}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4"
+              >
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="font-syne font-bold text-lg text-foreground">Reassign Task Client</h3>
+                  <button onClick={() => setIsReassignClientOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Client</label>
+                  <select
+                    value={selectedNewClientId}
+                    onChange={(e) => setSelectedNewClientId(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl py-3 px-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">-- Choose Client --</option>
+                    {clientOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name} {c.phone ? `(${c.phone})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted-foreground">Only registered clients (role: client) are listed. Staff accounts are strictly excluded.</p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsReassignClientOpen(false)}
+                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveReassignedClient}
+                    disabled={isSavingClient || !selectedNewClientId}
+                    className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
+                  >
+                    {isSavingClient ? 'Saving...' : 'Update Client'}
+                  </button>
                 </div>
               </motion.div>
             </div>

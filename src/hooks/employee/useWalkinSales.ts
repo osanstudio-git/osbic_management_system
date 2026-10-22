@@ -203,3 +203,130 @@ export const useWalkinSales = () => {
 
   return { sales, isLoading, createSale, updateSale, updateStatus, deleteSale, getReceiptUrl, calcProfit };
 };
+
+// ─── Walk-in Enquiries (Leads without immediate payment) ─────────────────────
+
+export interface WalkinEnquiry {
+  id: string;
+  created_at: string;
+  client_name: string;
+  client_phone: string | null;
+  interested_service: string | null;
+  notes: string | null;
+  status: 'new' | 'contacted' | 'converted' | 'lost';
+  assigned_to?: string;
+  branch_id?: string | null;
+}
+
+export interface WalkinEnquiryFormData {
+  client_name: string;
+  client_phone: string;
+  interested_service: string;
+  notes: string;
+}
+
+export const useWalkinEnquiries = () => {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  const { data: enquiries = [], isLoading } = useQuery<WalkinEnquiry[]>({
+    queryKey: ['walkin_enquiries', profile?.id, profile?.branch_id],
+    queryFn: async () => {
+      let q = supabase
+        .from('leads')
+        .select('*')
+        .eq('referral_name', 'Walk-in')
+        .order('created_at', { ascending: false });
+
+      if (profile?.role !== 'admin' && !profile?.is_manager) {
+        q = q.eq('assigned_to', profile?.id as string);
+      } else if (profile?.is_manager && profile?.branch_id && profile?.role !== 'admin') {
+        q = q.eq('branch_id', profile.branch_id);
+      }
+
+      const { data, error } = await q;
+      if (error) {
+        console.error('Error fetching walkin enquiries:', error);
+        return [];
+      }
+      return (data || []).map((l: any) => ({
+        id: l.id,
+        created_at: l.created_at,
+        client_name: l.contact_name,
+        client_phone: l.contact_phone || l.contact_whatsapp,
+        interested_service: l.interested_services?.[0] || (l.notes?.match(/\[Service:\s*(.*?)\]/)?.[1] || null),
+        notes: l.notes ? l.notes.replace(/\[Service:\s*.*?\]\s*/, '') : null,
+        status: (l.status === 'converted' ? 'converted' : l.status === 'contacted' ? 'contacted' : l.status === 'lost' ? 'lost' : 'new') as any,
+        assigned_to: l.assigned_to,
+        branch_id: l.branch_id
+      }));
+    },
+    enabled: !!profile?.id,
+  });
+
+  const createEnquiry = useMutation({
+    mutationFn: async (formData: WalkinEnquiryFormData) => {
+      const cleanService = formData.interested_service.trim();
+      const serviceTag = cleanService ? `[Service: ${cleanService}]` : '';
+      const fullNotes = [serviceTag, formData.notes?.trim()].filter(Boolean).join(' ');
+
+      const { data: inserted, error } = await supabase
+        .from('leads')
+        .insert({
+          contact_name: formData.client_name.trim(),
+          contact_phone: formData.client_phone.trim() || null,
+          contact_whatsapp: formData.client_phone.trim() || null,
+          referral_name: 'Walk-in',
+          status: 'new',
+          notes: fullNotes || null,
+          interested_services: cleanService ? [cleanService] : [],
+          branch_id: profile?.branch_id || null,
+          assigned_to: profile?.id,
+          assigned_by: profile?.id,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return inserted;
+    },
+    onSuccess: () => {
+      toast.success('Walk-in enquiry saved!');
+      queryClient.invalidateQueries({ queryKey: ['walkin_enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to save enquiry'),
+  });
+
+  const updateEnquiryStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'new' | 'contacted' | 'converted' | 'lost' }) => {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['walkin_enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to update status'),
+  });
+
+  const deleteEnquiry = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('leads').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Enquiry deleted');
+      queryClient.invalidateQueries({ queryKey: ['walkin_enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to delete enquiry'),
+  });
+
+  return { enquiries, isLoading, createEnquiry, updateEnquiryStatus, deleteEnquiry };
+};
+

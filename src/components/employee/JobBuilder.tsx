@@ -1121,6 +1121,15 @@ export const JobBuilder = ({
               if (data) setClients(data);
             });
           }}
+          onClientCreated={(created) => {
+            setSelectedClient(created);
+            setStep(2);
+            setIsCreateClientOpen(false);
+            // Re-fetch clients list
+            supabase.from('profiles').select('id, full_name, phone').eq('role', 'client').then(({data}) => {
+              if (data) setClients(data);
+            });
+          }}
         />
       )}
     </div>

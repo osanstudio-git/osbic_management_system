@@ -95,6 +95,12 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Guard against browser autofill or employee typing their own employee email
+      if (profile?.email && formData.email.trim().toLowerCase() === profile.email.trim().toLowerCase()) {
+        toast.error("You cannot register your own staff/employee email as a client. Please enter the client's email address.");
+        return;
+      }
+
       const finalCountryCode = formData.countryCode === 'Other' ? (formData.customCountryCode || '+') : formData.countryCode;
       const formattedPhone = formData.phone ? `${finalCountryCode} ${formData.phone}` : undefined;
 
@@ -178,15 +184,17 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
 
             <div className="p-8">
               {!createdClient ? (
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
                   {/* Full Name */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Full Name</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Client Full Name</label>
                     <div className="relative">
                       <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
                         required
                         type="text"
+                        autoComplete="off"
+                        spellCheck={false}
                         value={formData.full_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                         placeholder="e.g. Abdullah Ahmed"
@@ -198,7 +206,7 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                   {/* Email */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Username / Email</label>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client Email / Username</label>
                       {isEditing && (
                         <span className="text-[10px] text-primary font-medium">Editable</span>
                       )}
@@ -208,12 +216,15 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                       <input
                         required
                         type="email"
+                        autoComplete="off"
+                        spellCheck={false}
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         placeholder="client@example.com"
                         className="w-full bg-background border border-border rounded-xl py-3 pl-12 pr-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50"
                       />
                     </div>
+                    <p className="text-[10px] text-muted-foreground/70 ml-1">Must be client's email (do not use staff / employee emails).</p>
                     {/* Quick Domain Helpers */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] text-muted-foreground/70 font-medium">Quick:</span>
@@ -352,6 +363,7 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                         <input
                           required
                           type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
                           value={formData.password}
                           onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                           placeholder="Secure Portal Password"

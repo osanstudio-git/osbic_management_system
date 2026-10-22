@@ -216,7 +216,21 @@ export const useCreateClient = () => {
       password: string;
       created_by?: string;
       branch_id?: string;
-    }) => {
+      // Step 0: Ensure the email does not belong to an internal staff member (employee, admin, manager, accountant)
+      const cleanEmail = newClient.email.trim();
+      const { data: staffMatch } = await db
+        .from('profiles')
+        .select('id, full_name, role, email')
+        .ilike('email', cleanEmail)
+        .in('role', ['employee', 'admin', 'manager', 'accountant'])
+        .maybeSingle();
+
+      if (staffMatch) {
+        throw new Error(
+          `This email (${cleanEmail}) belongs to staff member "${staffMatch.full_name}" (${staffMatch.role}). Staff accounts cannot be linked or registered as clients. Please use the client's own email address.`
+        );
+      }
+
       // Step A: Create a temporary Supabase client that DOES NOT save to localStorage.
       const { createClient } = await import('@supabase/supabase-js');
       const authClient = createClient(
@@ -233,7 +247,7 @@ export const useCreateClient = () => {
 
       // Step B: Create the auth user
       const { data: authData, error: authError } = await authClient.auth.signUp({
-        email: newClient.email,
+        email: cleanEmail,
         password: newClient.password,
         options: {
           data: { 
@@ -256,10 +270,15 @@ export const useCreateClient = () => {
           const { data: existingProfile } = await db
             .from('profiles')
             .select('*')
-            .ilike('email', newClient.email.trim())
+            .ilike('email', cleanEmail)
             .maybeSingle();
 
           if (existingProfile) {
+            if (existingProfile.role && existingProfile.role !== 'client') {
+              throw new Error(
+                `This email belongs to staff member "${existingProfile.full_name}" (${existingProfile.role}). Staff members cannot be registered or linked as clients.`
+              );
+            }
             const updates: any = {};
             if (newClient.phone && !existingProfile.phone) updates.phone = newClient.phone;
             if (newClient.whatsapp && !existingProfile.whatsapp) updates.whatsapp = newClient.whatsapp;
@@ -282,10 +301,15 @@ export const useCreateClient = () => {
         const { data: existingProfile } = await db
           .from('profiles')
           .select('*')
-          .ilike('email', newClient.email.trim())
+          .ilike('email', cleanEmail)
           .maybeSingle();
 
         if (existingProfile) {
+          if (existingProfile.role && existingProfile.role !== 'client') {
+            throw new Error(
+              `This email belongs to staff member "${existingProfile.full_name}" (${existingProfile.role}). Staff members cannot be registered or linked as clients.`
+            );
+          }
           return {
             ...existingProfile,
             _isExisting: true
