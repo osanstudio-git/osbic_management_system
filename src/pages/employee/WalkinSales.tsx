@@ -741,15 +741,18 @@ const WalkinSales: React.FC = () => {
   const handleWhatsApp = (enquiry: WalkinEnquiry) => {
     let phone = (enquiry.client_phone || '').replace(/[^0-9]/g, '');
     if (!phone) return;
-    if (phone.length === 8 && (phone.startsWith('9') || phone.startsWith('7'))) {
+    if (phone.startsWith('00')) {
+      phone = phone.slice(2);
+    }
+    if (phone.length === 8) {
       phone = '968' + phone;
-    } else if (phone.startsWith('0')) {
+    } else if (phone.startsWith('0') && phone.length === 9) {
       phone = '968' + phone.slice(1);
     }
     const text = encodeURIComponent(
       `Hello ${enquiry.client_name}, greeting from OSBIC regarding your enquiry for ${enquiry.interested_service || 'our services'}. Please let us know if you have any questions or when you would like to proceed!`
     );
-    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank', 'noopener,noreferrer');
     if (enquiry.status === 'new') {
       updateEnquiryStatus.mutate({ id: enquiry.id, status: 'contacted' });
     }

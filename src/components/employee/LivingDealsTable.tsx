@@ -117,9 +117,23 @@ export const LivingDealsTable: React.FC<Props> = ({
       toast.error('No phone number available');
       return;
     }
-    const cleanPhone = phone.replace(/\D/g, '');
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      toast.error('Invalid phone number');
+      return;
+    }
+    // Handle international prefixes and 8-digit Oman phone numbers
+    if (cleanPhone.startsWith('00')) {
+      cleanPhone = cleanPhone.slice(2);
+    }
+    if (cleanPhone.length === 8) {
+      // Standard 8-digit Oman mobile & landline (e.g. 96240443, 7xxxxxxx, 2xxxxxxx)
+      cleanPhone = '968' + cleanPhone;
+    } else if (cleanPhone.length === 9 && cleanPhone.startsWith('0')) {
+      cleanPhone = '968' + cleanPhone.slice(1);
+    }
     const message = encodeURIComponent(`Hello ${name || 'Sir/Madam'}, greeting from OSBIC Business Solutions. How can we assist you today?`);
-    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${message}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -288,19 +302,19 @@ export const LivingDealsTable: React.FC<Props> = ({
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-muted-foreground text-[11px]">
-                          {lead.contact_phone || '—'}
+                          {lead.contact_phone || lead.contact_whatsapp || '—'}
                         </span>
-                        {lead.contact_phone && (
+                        {(lead.contact_phone || lead.contact_whatsapp) && (
                           <>
                             <button
-                              onClick={() => openWhatsApp(lead.contact_phone, lead.contact_name)}
+                              onClick={() => openWhatsApp(lead.contact_whatsapp || lead.contact_phone, lead.contact_name)}
                               className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                               title="1-Click WhatsApp"
                             >
                               <MessageSquare size={12} />
                             </button>
                             <a
-                              href={`tel:${lead.contact_phone}`}
+                              href={`tel:${lead.contact_phone || lead.contact_whatsapp}`}
                               className="p-1 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
                               title="Call Phone"
                             >
