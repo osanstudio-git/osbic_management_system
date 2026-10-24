@@ -216,6 +216,7 @@ export const useCreateClient = () => {
       password: string;
       created_by?: string;
       branch_id?: string;
+    }) => {
       // Step 0: Ensure the email does not belong to an internal staff member (employee, admin, manager, accountant)
       const cleanEmail = newClient.email.trim();
       const { data: staffMatch } = await db
