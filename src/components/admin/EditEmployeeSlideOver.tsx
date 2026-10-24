@@ -25,6 +25,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     can_do_ops: false,
     can_do_accounts: false,
     is_pro: false,
+    is_sales_head: false,
+    can_assign_leads: false,
     avatarUrl: '',
     branch_id: '' as string,
     gender: 'male' as 'male' | 'female',
@@ -46,6 +48,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         notes: employee.notes || '',
         is_manager: employee.is_manager || false,
         can_do_sales: employee.can_do_sales || false,
+        is_sales_head: (employee as any).is_sales_head || false,
+        can_assign_leads: (employee as any).can_assign_leads || false,
         can_do_marketing: (employee as any).can_do_marketing || false,
         can_do_ops: employee.can_do_ops || false,
         can_do_accounts: employee.can_do_accounts || false,
@@ -111,6 +115,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         department: formData.department,
         is_manager: formData.is_manager,
         can_do_sales: formData.can_do_sales,
+        is_sales_head: formData.is_sales_head,
+        can_assign_leads: formData.can_assign_leads,
         can_do_marketing: formData.can_do_marketing,
         can_do_ops: formData.can_do_ops,
         can_do_accounts: formData.can_do_accounts,
@@ -363,6 +369,44 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_do_sales ? 'bg-primary' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_sales ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Sales Head Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                      <div>
+                        <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                          👑 Sales Head / Team Lead
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Full team visibility: see all sales reps' metrics, switch views, and manage pipeline.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, is_sales_head: !formData.is_sales_head, can_do_sales: true })}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_sales_head ? 'bg-amber-500' : 'bg-white/10'}`}
+                      >
+                        <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_sales_head ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Lead Coordinator / Allocator Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                      <div>
+                        <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                          🎯 Lead Coordinator / Lead Allocator
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Enables Lead Reassignment columns to assign and transfer leads among team members.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, can_assign_leads: !formData.can_assign_leads, can_do_sales: true })}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_assign_leads ? 'bg-indigo-500' : 'bg-white/10'}`}
+                      >
+                        <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_assign_leads ? 'translate-x-5' : ''}`} />
                       </button>
                     </div>
 

@@ -171,7 +171,9 @@ const EmployeeDetail = () => {
                   <p className="text-muted-foreground font-mono tracking-widest text-xs uppercase bg-muted/50 px-2 py-1 rounded inline-block">{emp.employee_code}</p>
 
                   {emp.is_manager && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">Manager</span>}
-                  {emp.can_do_sales && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">Sales</span>}
+                  {emp.is_sales_head && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">👑 Sales Head</span>}
+                  {emp.can_assign_leads && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">🎯 Lead Coordinator</span>}
+                  {emp.can_do_sales && !emp.is_sales_head && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">Sales</span>}
                   {emp.can_do_marketing && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-pink-500/10 text-pink-400 border border-pink-500/20">Marketing</span>}
                   {emp.can_do_ops && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Operations</span>}
                   {emp.can_do_accounts && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Accounts</span>}

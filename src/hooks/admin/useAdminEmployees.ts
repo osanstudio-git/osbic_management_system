@@ -52,6 +52,8 @@ export interface Employee {
   date_of_birth?: string | null;
   gender?: 'male' | 'female' | null;
   show_birthday_to_team?: boolean | null;
+  is_sales_head?: boolean;
+  can_assign_leads?: boolean;
 }
 
 // ─── List All Employees (with optional branch filter) ─────────────────────────
@@ -240,6 +242,8 @@ export const useCreateEmployee = () => {
       date_of_birth?: string | null;
       gender?: 'male' | 'female' | null;
       show_birthday_to_team?: boolean;
+      is_sales_head?: boolean;
+      can_assign_leads?: boolean;
     }) => {
       let avatarUrl = null;
 
@@ -387,6 +391,8 @@ export const useUpdateEmployee = () => {
         if (updates.date_of_birth !== undefined) extraUpdateFields.date_of_birth = updates.date_of_birth || null;
         if (updates.gender !== undefined) extraUpdateFields.gender = updates.gender || null;
         if (updates.show_birthday_to_team !== undefined) extraUpdateFields.show_birthday_to_team = updates.show_birthday_to_team;
+        if (updates.is_sales_head !== undefined) extraUpdateFields.is_sales_head = updates.is_sales_head;
+        if (updates.can_assign_leads !== undefined) extraUpdateFields.can_assign_leads = updates.can_assign_leads;
 
         if (Object.keys(extraUpdateFields).length > 0) {
           try {

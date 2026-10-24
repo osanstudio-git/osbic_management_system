@@ -95,6 +95,8 @@ export interface Database {
         date_of_birth: string | null
         gender: 'male' | 'female' | null
         show_birthday_to_team: boolean | null
+        is_sales_head: boolean | null
+        can_assign_leads: boolean | null
       }, never, 'role'>
 
 

@@ -34,6 +34,8 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     companyName: '',
     is_manager: false,
     can_do_sales: false,
+    is_sales_head: false,
+    can_assign_leads: false,
     can_do_marketing: false,
     can_do_ops: true,
     can_do_accounts: false,
@@ -79,6 +81,8 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         company_name: formData.companyName || null,
         is_manager: formData.is_manager,
         can_do_sales: formData.can_do_sales,
+        is_sales_head: formData.is_sales_head,
+        can_assign_leads: formData.can_assign_leads,
         can_do_marketing: formData.can_do_marketing,
         can_do_ops: formData.can_do_ops,
         can_do_accounts: formData.can_do_accounts,
@@ -319,6 +323,44 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                               className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_do_sales ? 'bg-primary' : 'bg-white/10'}`}
                             >
                               <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_do_sales ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Sales Head Toggle */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <div>
+                              <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                                👑 Sales Head / Team Lead
+                              </span>
+                              <span className="text-[9px] text-muted-foreground block">
+                                Full team visibility: see all reps' leads, switch views, and manage pipeline
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, is_sales_head: !formData.is_sales_head, can_do_sales: true })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.is_sales_head ? 'bg-amber-500' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_sales_head ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* Lead Coordinator Toggle */}
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                            <div>
+                              <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                                🎯 Lead Coordinator / Allocator
+                              </span>
+                              <span className="text-[9px] text-muted-foreground block">
+                                Enables Lead Reassignment columns to assign and transfer leads among team members
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, can_assign_leads: !formData.can_assign_leads, can_do_sales: true })}
+                              className={`w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${formData.can_assign_leads ? 'bg-indigo-500' : 'bg-white/10'}`}
+                            >
+                              <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_assign_leads ? 'translate-x-5' : ''}`} />
                             </button>
                           </div>
 

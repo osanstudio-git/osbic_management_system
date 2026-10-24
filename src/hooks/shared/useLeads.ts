@@ -54,6 +54,30 @@ export interface Lead {
     avatar_url?: string;
     branch_id?: string;
   } | null;
+  // Living Deal Row fields
+  service_required?: string | null;
+  call_status?: string | null;
+  first_call_notes?: string | null;
+  second_followup_status?: string | null;
+  note_2nd?: string | null;
+  final_notes?: string | null;
+  quote_date?: string | null;
+  quoted_amount?: number | null;
+  expected_govt_fee?: number | null;
+  expected_profit?: number | null;
+  expected_close_date?: string | null;
+  conversion_date?: string | null;
+  payment_mode?: string | null;
+  total_amount?: number | null;
+  govt_fee?: number | null;
+  profit?: number | null;
+  is_reassigned?: boolean | null;
+  reassigned_from_id?: string | null;
+  date_reassigned?: string | null;
+  reassigned_from_profile?: {
+    full_name: string;
+    avatar_url?: string;
+  } | null;
 }
 
 export interface LeadInteraction {
@@ -70,23 +94,42 @@ export interface LeadInteraction {
   created_at: string;
 }
 
-export const useLeads = (employeeId?: string) => {
+export const useLeads = (employeeId?: string, isAll?: boolean) => {
   const useLeadsList = () => {
     return useQuery({
-      queryKey: ['leads', employeeId],
-      enabled: !!employeeId,
+      queryKey: ['leads', employeeId, isAll],
+      enabled: isAll || !!employeeId,
       queryFn: async (): Promise<Lead[]> => {
-        const { data, error } = await supabase
+        let query = supabase
           .from('leads')
-          .select('*, lead_sources:source_id(name)')
-          .eq('assigned_to', employeeId!)
+          .select(`
+            *,
+            lead_sources:source_id(name),
+            assigned_to_profile:profiles!leads_assigned_to_fkey(full_name, avatar_url, branch_id),
+            reassigned_from_profile:profiles!leads_reassigned_from_id_fkey(full_name, avatar_url)
+          `)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        return (data || []).map((l: any) => ({
-          ...l,
-          lead_sources: l.lead_sources
-        })) as Lead[];
+        if (!isAll && employeeId && employeeId !== 'all') {
+          query = query.eq('assigned_to', employeeId);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          // If foreign key join fails (e.g. before migration), gracefully fallback to basic select
+          const fallbackQuery = supabase
+            .from('leads')
+            .select('*, lead_sources:source_id(name)')
+            .order('created_at', { ascending: false });
+          
+          if (!isAll && employeeId && employeeId !== 'all') {
+            fallbackQuery.eq('assigned_to', employeeId);
+          }
+          const { data: fbData, error: fbErr } = await fallbackQuery;
+          if (fbErr) throw fbErr;
+          return (fbData || []) as Lead[];
+        }
+        return (data || []) as Lead[];
       }
     });
   };
