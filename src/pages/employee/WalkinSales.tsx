@@ -15,9 +15,20 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInter
 // ─── Constants ─────────────────────────────────────────────────────────────
 
 const WORK_TYPES = [
-  'Visa Typing', 'Emirates ID', 'Trade License', 'PRO Services',
-  'Document Attestation', 'Translation', 'Notarization', 'Medical Insurance',
-  'Labour Card', 'Tenancy Contract', 'Power of Attorney', 'Other',
+  'Commercial Registration (CR)',
+  'ROP Visa & Residency',
+  'Civil ID / Resident Card',
+  'Ministry of Labour / Work Permit',
+  'Sanad Services',
+  'PRO Services',
+  'Municipality & Tenancy Contract',
+  'Chamber of Commerce (OCCI)',
+  'Tax Authority & VAT',
+  'Document & Embassy Attestation',
+  'Legal Translation',
+  'Medical Fitness',
+  'Power of Attorney / Notary',
+  'Other',
 ];
 
 const STATUS_CONFIG: Record<WalkinStatus, { label: string; color: string; icon: React.FC<any>; dot: string }> = {
@@ -313,7 +324,7 @@ const SaleFormModal: React.FC<{
                         required
                         value={enquiryForm.client_phone}
                         onChange={e => setEnquiryForm(prev => ({ ...prev, client_phone: e.target.value }))}
-                        placeholder="+971 50 ... / +968 9..."
+                        placeholder="+968 9... / +968 7..."
                         className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm"
                       />
                     </div>
@@ -403,7 +414,7 @@ const SaleFormModal: React.FC<{
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Client Phone <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                      <input type="tel" value={form.client_phone} onChange={e => set('client_phone', e.target.value)} placeholder="+971..."
+                      <input type="tel" value={form.client_phone} onChange={e => set('client_phone', e.target.value)} placeholder="+968 9... / +968 7..."
                         className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
                     </div>
                   </div>
@@ -424,7 +435,7 @@ const SaleFormModal: React.FC<{
                   {/* Work Description */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Work Description <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                    <input type="text" value={form.work_description} onChange={e => set('work_description', e.target.value)} placeholder="e.g. 2-year partner visa renewal with medical"
+                    <input type="text" value={form.work_description} onChange={e => set('work_description', e.target.value)} placeholder="e.g. CR registration, ROP visa renewal, or Sanad transaction"
                       className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
                   </div>
 
