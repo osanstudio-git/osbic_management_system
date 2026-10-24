@@ -352,7 +352,7 @@ const SaleFormModal: React.FC<{
                       value={enquiryForm.notes}
                       onChange={e => setEnquiryForm(prev => ({ ...prev, notes: e.target.value }))}
                       rows={3}
-                      placeholder="e.g. Quoted 250 AED for 2-year partner visa renewal, will consult business partner and return."
+                      placeholder="e.g. Quoted 25.000 OMR for 2-year partner visa renewal, will consult business partner and return."
                       className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm resize-none"
                     />
                   </div>
@@ -448,19 +448,19 @@ const SaleFormModal: React.FC<{
                   {/* Financials */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Amount (AED)</label>
-                      <input type="number" min="0" step="0.01" value={form.total_amount || ''} onChange={e => set('total_amount', parseFloat(e.target.value) || 0)} required placeholder="0.00"
-                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Amount (OMR)</label>
+                      <input type="number" min="0" step="0.001" value={form.total_amount || ''} onChange={e => set('total_amount', parseFloat(e.target.value) || 0)} required placeholder="0.000"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm font-mono" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Gov. Fee (AED)</label>
-                      <input type="number" min="0" step="0.01" value={form.government_fee || ''} onChange={e => set('government_fee', parseFloat(e.target.value) || 0)} placeholder="0.00"
-                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm" />
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Gov. Fee (OMR)</label>
+                      <input type="number" min="0" step="0.001" value={form.government_fee || ''} onChange={e => set('government_fee', parseFloat(e.target.value) || 0)} placeholder="0.000"
+                        className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-primary transition-all text-sm font-mono" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Profit (Auto)</label>
-                      <div className={`w-full p-3 rounded-xl border text-sm font-bold ${liveProfit > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-muted/50 border-border text-muted-foreground'}`}>
-                        {liveProfit.toFixed(2)} AED
+                      <div className={`w-full p-3 rounded-xl border text-sm font-bold font-mono ${liveProfit > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-muted/50 border-border text-muted-foreground'}`}>
+                        {liveProfit.toFixed(3)} OMR
                       </div>
                     </div>
                   </div>
@@ -730,9 +730,13 @@ const WalkinSales: React.FC = () => {
   const handleWhatsApp = (enquiry: WalkinEnquiry) => {
     let phone = (enquiry.client_phone || '').replace(/[^0-9]/g, '');
     if (!phone) return;
-    if (phone.startsWith('0')) phone = '971' + phone.slice(1);
+    if (phone.length === 8 && (phone.startsWith('9') || phone.startsWith('7'))) {
+      phone = '968' + phone;
+    } else if (phone.startsWith('0')) {
+      phone = '968' + phone.slice(1);
+    }
     const text = encodeURIComponent(
-      `Hello ${enquiry.client_name}, thank you for visiting OSBIC regarding ${enquiry.interested_service || 'our services'}. Please let us know if you have any questions or when you would like to proceed!`
+      `Hello ${enquiry.client_name}, greeting from OSBIC regarding your enquiry for ${enquiry.interested_service || 'our services'}. Please let us know if you have any questions or when you would like to proceed!`
     );
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
     if (enquiry.status === 'new') {
@@ -770,16 +774,19 @@ const WalkinSales: React.FC = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard label="Today's Revenue" icon={DollarSign} color="bg-emerald-500/10 text-emerald-400"
-          value={`${sales.filter(s => s.date === format(new Date(), 'yyyy-MM-dd')).reduce((a, s) => a + s.total_amount, 0).toFixed(0)} AED`}
+          value={`${sales.filter(s => s.date === format(new Date(), 'yyyy-MM-dd')).reduce((a, s) => a + s.total_amount, 0).toFixed(3)} OMR`}
           sub="Total collected today" />
         <StatCard label="Today's Profit" icon={TrendingUp} color="bg-blue-500/10 text-blue-400"
-          value={`${sales.filter(s => s.date === format(new Date(), 'yyyy-MM-dd')).reduce((a, s) => a + s.profit, 0).toFixed(0)} AED`}
+          value={`${sales.filter(s => s.date === format(new Date(), 'yyyy-MM-dd')).reduce((a, s) => a + s.profit, 0).toFixed(3)} OMR`}
           sub="After gov. fees" />
-        <StatCard label="Active Works" icon={RefreshCw} color="bg-amber-500/10 text-amber-400"
+        <StatCard label="Active Works" icon={RefreshCw} color="bg-cyan-500/10 text-cyan-400"
           value={`${activeSales.length}`}
           sub="In progress now" />
+        <StatCard label="Walk-in Enquiries" icon={MessageSquare} color="bg-amber-500/10 text-amber-400"
+          value={`${enquiries.length}`}
+          sub={`${newEnquiriesCount} new to follow up`} />
         <StatCard label="Total Records" icon={Receipt} color="bg-purple-500/10 text-purple-400"
           value={`${sales.length}`}
           sub="All time transactions" />
@@ -1104,7 +1111,7 @@ const WalkinSales: React.FC = () => {
                     <div className="flex items-center justify-between pt-2 border-t border-border">
                       <div>
                         <p className="text-xs text-muted-foreground">Profit</p>
-                        <p className="text-sm font-bold text-emerald-400">{sale.profit.toFixed(2)} AED</p>
+                        <p className="text-sm font-bold text-emerald-400 font-mono">{sale.profit.toFixed(3)} OMR</p>
                       </div>
                       {sale.employee && (
                         <div className="text-right">
@@ -1151,18 +1158,18 @@ const WalkinSales: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-card border border-emerald-500/20 rounded-2xl p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Revenue</p>
-              <p className="text-3xl font-bold text-emerald-400 mt-1">{report.totalRevenue.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-1">AED collected from clients</p>
+              <p className="text-3xl font-bold text-emerald-400 mt-1 font-mono">{report.totalRevenue.toFixed(3)}</p>
+              <p className="text-xs text-muted-foreground mt-1">OMR collected from clients</p>
             </div>
             <div className="bg-card border border-rose-500/20 rounded-2xl p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Gov. Fees Paid</p>
-              <p className="text-3xl font-bold text-rose-400 mt-1">{report.totalGovFee.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-1">AED paid to government</p>
+              <p className="text-3xl font-bold text-rose-400 mt-1 font-mono">{report.totalGovFee.toFixed(3)}</p>
+              <p className="text-xs text-muted-foreground mt-1">OMR paid to government</p>
             </div>
             <div className="bg-card border border-blue-500/20 rounded-2xl p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Net Profit</p>
-              <p className="text-3xl font-bold text-blue-400 mt-1">{report.totalProfit.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-1">AED OSBIC profit</p>
+              <p className="text-3xl font-bold text-blue-400 mt-1 font-mono">{report.totalProfit.toFixed(3)}</p>
+              <p className="text-xs text-muted-foreground mt-1">OMR OSBIC profit</p>
             </div>
           </div>
 
@@ -1198,8 +1205,8 @@ const WalkinSales: React.FC = () => {
                     <tr className="border-b border-border bg-muted/20">
                       <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Work Type</th>
                       <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Count</th>
-                      <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Revenue (AED)</th>
-                      <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Profit (AED)</th>
+                      <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Revenue (OMR)</th>
+                      <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-5 py-3">Profit (OMR)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1207,8 +1214,8 @@ const WalkinSales: React.FC = () => {
                       <tr key={wt} className="hover:bg-muted/20 transition-colors">
                         <td className="px-5 py-3 text-sm font-semibold text-foreground">{wt}</td>
                         <td className="px-5 py-3 text-sm text-foreground">{data.count}</td>
-                        <td className="px-5 py-3 text-sm font-bold text-foreground">{data.revenue.toFixed(2)}</td>
-                        <td className="px-5 py-3 text-sm font-bold text-emerald-400">{data.profit.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-sm font-bold text-foreground font-mono">{data.revenue.toFixed(3)}</td>
+                        <td className="px-5 py-3 text-sm font-bold text-emerald-400 font-mono">{data.profit.toFixed(3)}</td>
                       </tr>
                     ))}
                   </tbody>

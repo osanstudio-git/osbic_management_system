@@ -520,6 +520,7 @@ function App() {
               <Route path="b2b-proposals/new" element={<B2BProposalBuilder />} />
               <Route path="b2b-proposals/:id" element={<B2BProposalBuilder />} />
               <Route path="daily-sales" element={<WalkinSales />} />
+              <Route path="daily_sales" element={<WalkinSales />} />
             </Route>
 
             {/* Client Portal */}
