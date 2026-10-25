@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { useAdminSettings } from '../../hooks/admin/useAdminSettings';
 
 interface BirthdayCelebrationModalProps {
   isOpen: boolean;
@@ -56,6 +57,8 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
 }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
+  const { logo } = useAdminSettings();
+  const effectiveLogo = logo || '/logo-192.png';
   const [isMuted, setIsMuted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
@@ -244,9 +247,14 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
               {/* ── TOP SECTION: LOGOS BADGE & HEADLINE ── */}
               <div className="flex flex-col items-center">
                 {/* 1. Official Logos Pill */}
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-md border border-slate-200 mb-5">
-                  <div className="w-5 h-5 rounded-full bg-[#0088cc] flex items-center justify-center text-white font-bold text-[10px]">
-                    OS
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-md border border-slate-200 mb-5">
+                  <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-[#0088cc] shadow-sm shrink-0">
+                    <img 
+                      src={effectiveLogo} 
+                      alt="OSBIC" 
+                      crossOrigin="anonymous"
+                      className="w-full h-full object-cover" 
+                    />
                   </div>
                   <span className="text-[10px] font-extrabold tracking-widest text-slate-800 uppercase font-sans">
                     OSBIC INTERNATIONAL
