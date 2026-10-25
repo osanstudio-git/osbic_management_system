@@ -249,11 +249,7 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
                     OS
                   </div>
                   <span className="text-[10px] font-extrabold tracking-widest text-slate-800 uppercase font-sans">
-                    OSBIC CORPORATE
-                  </span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-                    OMAN
+                    OSBIC INTERNATIONAL
                   </span>
                 </div>
 
@@ -337,26 +333,26 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
                   </div>
                 </div>
 
-                {/* Double Paper Stickers for Name (Bottom-Left) */}
+                {/* Double Paper Stickers for Name & Position (Bottom-Left) */}
                 <div className="absolute left-3 sm:left-6 bottom-4 z-20 flex flex-col gap-1.5 pointer-events-none">
-                  {/* First Name Sticker */}
+                  {/* Name Sticker */}
                   <div
                     className="bg-[#fbf7ed] text-[#0f172a] px-3.5 py-1 text-sm sm:text-base font-extrabold uppercase font-sans tracking-wide shadow-md transform -rotate-3"
                     style={{
                       boxShadow: '2px 4px 10px rgba(0,0,0,0.3)',
                     }}
                   >
-                    {firstName}
+                    {employeeName.trim()}
                   </div>
 
-                  {/* Last Name Sticker */}
+                  {/* Position Sticker (Small text) */}
                   <div
-                    className="bg-[#fbf7ed] text-[#0f172a] px-3.5 py-1 text-sm sm:text-base font-extrabold uppercase font-sans tracking-wide shadow-md transform rotate-2 -mt-1 ml-2"
+                    className="bg-[#fbf7ed] text-[#0f172a] px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase font-sans tracking-wider shadow-md transform rotate-2 -mt-1 ml-2"
                     style={{
                       boxShadow: '2px 4px 10px rgba(0,0,0,0.3)',
                     }}
                   >
-                    {lastName}
+                    Business Consultant
                   </div>
                 </div>
               </div>
@@ -373,21 +369,18 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
                     </p>
                   </div>
 
-                  {/* Right Column: Date Pill & Department */}
-                  <div className="col-span-4 flex flex-col items-end text-right">
-                    <div className="bg-white text-slate-900 px-3 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold shadow-md mb-1.5">
-                      {todayFormatted}
+                  {/* Right Column: OSBIC Family */}
+                  <div className="col-span-4 flex flex-col items-end justify-end text-right">
+                    <div className="bg-white text-slate-900 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md">
+                      OSBIC FAMILY
                     </div>
-                    <p className="text-xs sm:text-sm font-bold text-white leading-tight">
-                      {formattedDept}
-                    </p>
                   </div>
                 </div>
 
-                {/* Footer Tag with Red/Cyan Tag & Line */}
+                {/* Footer Tag with Website & Line */}
                 <div className="flex items-center gap-3 pt-1">
-                  <div className="bg-[#ef4444] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-md tracking-wider">
-                    @osbic_om
+                  <div className="bg-[#ef4444] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-md tracking-wider lowercase">
+                    www.osbic.net
                   </div>
                   <div className="flex-1 h-[2px] bg-red-500/80 rounded-full" />
                 </div>
