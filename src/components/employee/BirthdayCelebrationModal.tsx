@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Volume2, VolumeX, X, Download, Heart } from 'lucide-react';
+import { Volume2, VolumeX, X, Heart } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import html2canvas from 'html2canvas';
-import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAdminSettings } from '../../hooks/admin/useAdminSettings';
 
@@ -17,33 +15,111 @@ interface BirthdayCelebrationModalProps {
   role?: string | null;
 }
 
-// Gentle celebration harmonic melody using Web Audio API
-const playCelebrationChime = () => {
+let currentAudioCtx: AudioContext | null = null;
+
+// Classic Happy Birthday musical chime tune using Web Audio API
+const playHappyBirthdayTune = () => {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
+    
+    if (currentAudioCtx && currentAudioCtx.state !== 'closed') {
+      currentAudioCtx.close().catch(() => {});
+    }
+    
     const ctx = new AudioContextClass();
+    currentAudioCtx = ctx;
 
-    const notes = [261.63, 329.63, 392.00, 493.88, 523.25, 659.25];
-    notes.forEach((freq, idx) => {
+    const C4 = 261.63, D4 = 293.66, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00, Bb4 = 466.16, C5 = 523.25;
+    
+    const melody = [
+      // "Happy Birthday to you"
+      { note: C4, duration: 0.28 },
+      { note: C4, duration: 0.16 },
+      { note: D4, duration: 0.42 },
+      { note: C4, duration: 0.42 },
+      { note: F4, duration: 0.42 },
+      { note: E4, duration: 0.82 },
+
+      // "Happy Birthday to you"
+      { note: C4, duration: 0.28 },
+      { note: C4, duration: 0.16 },
+      { note: D4, duration: 0.42 },
+      { note: C4, duration: 0.42 },
+      { note: G4, duration: 0.42 },
+      { note: F4, duration: 0.82 },
+
+      // "Happy Birthday dear [Name]"
+      { note: C4, duration: 0.28 },
+      { note: C4, duration: 0.16 },
+      { note: C5, duration: 0.42 },
+      { note: A4, duration: 0.42 },
+      { note: F4, duration: 0.38 },
+      { note: E4, duration: 0.38 },
+      { note: D4, duration: 0.75 },
+
+      // "Happy Birthday to you"
+      { note: Bb4, duration: 0.28 },
+      { note: Bb4, duration: 0.16 },
+      { note: A4, duration: 0.42 },
+      { note: F4, duration: 0.42 },
+      { note: G4, duration: 0.42 },
+      { note: F4, duration: 1.10 },
+    ];
+
+    let startTime = ctx.currentTime + 0.05;
+
+    melody.forEach(({ note, duration }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+      osc.frequency.setValueAtTime(note, startTime);
 
-      gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
-      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + idx * 0.12 + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.8);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.18, startTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.start(ctx.currentTime + idx * 0.12);
-      osc.stop(ctx.currentTime + idx * 0.12 + 0.85);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
+
+      startTime += duration + 0.02;
     });
   } catch (err) {
     console.warn('Audio playback unavailable:', err);
+  }
+};
+
+// Spoken personalized greeting: "Happy Birthday, [Name]!"
+const speakHappyBirthday = (employeeName: string) => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const cleanName = employeeName.trim().split(' ')[0] || employeeName.trim();
+    const text = `Happy Birthday, ${cleanName}! Wishing you a wonderful birthday from the OSBIC Family!`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.1;
+    utterance.volume = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('David') || v.name.includes('Zira'))
+    ) || voices.find(v => v.lang.startsWith('en'));
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    // Greet voice right as the music begins
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 900);
+  } catch (e) {
+    console.warn('Speech synthesis error:', e);
   }
 };
 
@@ -60,88 +136,74 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
   const { logo } = useAdminSettings();
   const effectiveLogo = logo || '/logo-192.png';
   const [isMuted, setIsMuted] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
-  // Split name for double paper stickers
-  const nameParts = employeeName.trim().split(' ');
-  const firstName = nameParts[0] || 'Valued';
-  const lastName = nameParts.slice(1).join(' ') || 'Colleague';
-
-  // Format today's date for poster badge (e.g. "October 20th")
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-  });
-
-  // Department display title
-  const formattedDept = department
-    ? department.charAt(0).toUpperCase() + department.slice(1) + ' Department'
-    : 'OSBIC Team';
-
-  // Confetti trigger
+  // Confetti trigger (high zIndex ensures it renders in front of the modal)
   const triggerConfetti = () => {
     try {
       confetti({
-        particleCount: 90,
-        spread: 90,
-        origin: { y: 0.5 },
-        colors: ['#0088cc', '#eab308', '#ef4444', '#10b981', '#ffffff'],
+        particleCount: 110,
+        spread: 100,
+        origin: { y: 0.45 },
+        zIndex: 100000,
+        colors: ['#0088cc', '#eab308', '#ef4444', '#10b981', '#ffffff', '#38bdf8'],
       });
 
       setTimeout(() => {
         confetti({
-          particleCount: 45,
+          particleCount: 50,
           angle: 60,
-          spread: 60,
-          origin: { x: 0 },
-          colors: ['#0088cc', '#eab308', '#38bdf8'],
+          spread: 65,
+          origin: { x: 0.1, y: 0.5 },
+          zIndex: 100000,
+          colors: ['#0088cc', '#eab308', '#38bdf8', '#ffffff'],
         });
         confetti({
-          particleCount: 45,
+          particleCount: 50,
           angle: 120,
-          spread: 60,
-          origin: { x: 1 },
-          colors: ['#eab308', '#ef4444', '#f59e0b'],
+          spread: 65,
+          origin: { x: 0.9, y: 0.5 },
+          zIndex: 100000,
+          colors: ['#eab308', '#ef4444', '#f59e0b', '#ffffff'],
         });
-      }, 300);
+      }, 250);
     } catch (e) {
       // ignore
     }
   };
 
+  const handleClose = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (currentAudioCtx && currentAudioCtx.state !== 'closed') {
+      currentAudioCtx.close().catch(() => {});
+    }
+    onClose();
+  };
+
   useEffect(() => {
     if (isOpen) {
-      triggerConfetti();
+      const timer = setTimeout(() => {
+        triggerConfetti();
+      }, 150);
+
       if (!isMuted) {
-        playCelebrationChime();
+        playHappyBirthdayTune();
+        speakHappyBirthday(employeeName);
       }
+
+      return () => {
+        clearTimeout(timer);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        if (currentAudioCtx && currentAudioCtx.state !== 'closed') {
+          currentAudioCtx.close().catch(() => {});
+        }
+      };
     }
   }, [isOpen]);
-
-  const handleDownloadPoster = async () => {
-    if (!posterRef.current) return;
-    setIsDownloading(true);
-    const toastId = toast.loading('Generating high-res birthday poster...');
-    try {
-      const canvas = await html2canvas(posterRef.current, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#070f26',
-      });
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `OSBIC_Birthday_${firstName}_${lastName}.png`;
-      link.href = dataUrl;
-      link.click();
-      toast.success('Birthday poster downloaded successfully! 🎉', { id: toastId });
-    } catch (err: any) {
-      toast.error('Could not download image', { id: toastId });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -153,7 +215,7 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleClose}
           className="fixed inset-0 bg-black/85 backdrop-blur-md"
         />
 
@@ -171,40 +233,33 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
               <button
                 type="button"
                 onClick={() => {
-                  setIsMuted(!isMuted);
-                  if (isMuted) playCelebrationChime();
+                  if (isMuted) {
+                    setIsMuted(false);
+                    playHappyBirthdayTune();
+                    speakHappyBirthday(employeeName);
+                  } else {
+                    setIsMuted(true);
+                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                      window.speechSynthesis.cancel();
+                    }
+                    if (currentAudioCtx && currentAudioCtx.state !== 'closed') {
+                      currentAudioCtx.close().catch(() => {});
+                    }
+                  }
                 }}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-lg"
+                className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-lg active:scale-95"
               >
                 {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} className="text-amber-400" />}
                 <span className="text-[11px]">{isMuted ? 'Muted' : 'Sound'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={triggerConfetti}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-lg"
-              >
-                <Sparkles size={14} className="text-amber-400" />
-                <span className="text-[11px]">Confetti 🎉</span>
               </button>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDownloadPoster}
-                disabled={isDownloading}
-                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer active:scale-95"
-              >
-                <Download size={14} />
-                <span>{isDownloading ? 'Saving...' : 'Download Poster 📥'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg"
+                onClick={handleClose}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg active:scale-95"
+                title="Close"
               >
                 <X size={18} />
               </button>
@@ -399,7 +454,7 @@ export const BirthdayCelebrationModal: React.FC<BirthdayCelebrationModalProps> =
           {/* Bottom Action: Done Button */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="mt-4 px-8 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs tracking-wider uppercase backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-lg active:scale-95 flex items-center gap-2"
           >
             <Heart size={14} className="fill-red-500 text-red-500" />
