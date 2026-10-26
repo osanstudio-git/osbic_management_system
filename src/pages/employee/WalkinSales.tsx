@@ -32,23 +32,23 @@ const WORK_TYPES = [
 ];
 
 const STATUS_CONFIG: Record<WalkinStatus, { label: string; color: string; icon: React.FC<any>; dot: string }> = {
-  pending:     { label: 'Pending',     color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',   icon: Clock,         dot: 'bg-amber-400' },
-  in_progress: { label: 'In Progress', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',     icon: RefreshCw,     dot: 'bg-blue-400' },
-  completed:   { label: 'Completed',   color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
-  cancelled:   { label: 'Cancelled',   color: 'text-rose-400 bg-rose-400/10 border-rose-400/20',     icon: XCircle,       dot: 'bg-rose-400' },
+  pending: { label: 'Pending', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20', icon: Clock, dot: 'bg-amber-400' },
+  in_progress: { label: 'In Progress', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20', icon: RefreshCw, dot: 'bg-blue-400' },
+  completed: { label: 'Completed', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
+  cancelled: { label: 'Cancelled', color: 'text-rose-400 bg-rose-400/10 border-rose-400/20', icon: XCircle, dot: 'bg-rose-400' },
 };
 
 const ENQUIRY_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  new:       { label: 'New Enquiry', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',   dot: 'bg-amber-400' },
-  contacted: { label: 'Contacted',   color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',     dot: 'bg-blue-400' },
-  converted: { label: 'Converted',   color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', dot: 'bg-emerald-400' },
-  lost:      { label: 'Lost',        color: 'text-rose-400 bg-rose-400/10 border-rose-400/20',     dot: 'bg-rose-400' },
+  new: { label: 'New Enquiry', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20', dot: 'bg-amber-400' },
+  contacted: { label: 'Contacted', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20', dot: 'bg-blue-400' },
+  converted: { label: 'Converted', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', dot: 'bg-emerald-400' },
+  lost: { label: 'Lost', color: 'text-rose-400 bg-rose-400/10 border-rose-400/20', dot: 'bg-rose-400' },
 };
 
 const PAYMENT_CONFIG: Record<PaymentMode, { label: string; icon: React.FC<any> }> = {
-  cash:          { label: 'Cash',          icon: Banknote   },
-  card:          { label: 'Card',          icon: CreditCard },
-  bank_transfer: { label: 'Bank Transfer', icon: Landmark   },
+  cash: { label: 'Cash', icon: Banknote },
+  card: { label: 'Card', icon: CreditCard },
+  bank_transfer: { label: 'Bank Transfer', icon: Landmark },
 };
 
 const emptyForm = (): WalkinSaleFormData => ({
@@ -257,22 +257,20 @@ const SaleFormModal: React.FC<{
                   <button
                     type="button"
                     onClick={() => setModalMode('sale')}
-                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
-                      modalMode === 'sale'
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${modalMode === 'sale'
                         ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     <Receipt size={14} /> 💰 Paid Sale / Work
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalMode('enquiry')}
-                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
-                      modalMode === 'enquiry'
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${modalMode === 'enquiry'
                         ? 'bg-amber-500 text-black shadow-sm font-extrabold'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     <MessageSquare size={14} /> 💬 Quick Walk-in Enquiry
                   </button>
@@ -342,11 +340,10 @@ const SaleFormModal: React.FC<{
                           key={wt}
                           type="button"
                           onClick={() => setEnquiryForm(prev => ({ ...prev, interested_service: wt }))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                            enquiryForm.interested_service === wt
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${enquiryForm.interested_service === wt
                               ? 'bg-amber-500/15 border-amber-500 text-amber-400 font-bold'
                               : 'border-border bg-muted/30 text-muted-foreground hover:border-border/80 hover:text-foreground'
-                          }`}
+                            }`}
                         >
                           {wt}
                         </button>
@@ -623,11 +620,11 @@ const WalkinSales: React.FC = () => {
   const { profile } = useAuth();
   const { sales, isLoading, deleteSale, getReceiptUrl } = useWalkinSales();
   const { enquiries, isLoading: loadingEnquiries, deleteEnquiry, updateEnquiryStatus } = useWalkinEnquiries();
-  
+
   const [activeTab, setActiveTab] = useState<'sales' | 'enquiries' | 'active' | 'reports'>('sales');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WalkinStatus | 'all'>('all');
-  
+
   // Enquiry specific filters
   const [enquirySearch, setEnquirySearch] = useState('');
   const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<'all' | 'new' | 'contacted' | 'converted' | 'lost'>('all');
@@ -689,8 +686,8 @@ const WalkinSales: React.FC = () => {
     });
 
     const totalRevenue = inRange.reduce((a, s) => a + (s.total_amount || 0), 0);
-    const totalGovFee  = inRange.reduce((a, s) => a + (s.government_fee || 0), 0);
-    const totalProfit  = inRange.reduce((a, s) => a + (s.profit || 0), 0);
+    const totalGovFee = inRange.reduce((a, s) => a + (s.government_fee || 0), 0);
+    const totalProfit = inRange.reduce((a, s) => a + (s.profit || 0), 0);
     const countByStatus = Object.keys(STATUS_CONFIG).reduce((acc, k) => {
       acc[k as WalkinStatus] = inRange.filter(s => s.status === k).length;
       return acc;
@@ -816,7 +813,7 @@ const WalkinSales: React.FC = () => {
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
-            <tab.icon size={15} /> 
+            <tab.icon size={15} />
             <span>{tab.label}</span>
             {tab.badge ? (
               <span className="px-1.5 py-0.5 bg-amber-500 text-black text-[10px] font-extrabold rounded-full leading-none">
@@ -966,11 +963,10 @@ const WalkinSales: React.FC = () => {
                   <button
                     key={s}
                     onClick={() => setEnquiryStatusFilter(s)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                      enquiryStatusFilter === s
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${enquiryStatusFilter === s
                         ? 'bg-amber-500/15 border-amber-500 text-amber-400 font-bold'
                         : 'border-border text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     <span className="capitalize">{s}</span>
                     <span className="text-[10px] opacity-70">({count})</span>
@@ -1224,7 +1220,7 @@ const WalkinSales: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {Object.entries(report.byWorkType).sort(([,a],[,b]) => b.revenue - a.revenue).map(([wt, data]) => (
+                    {Object.entries(report.byWorkType).sort(([, a], [, b]) => b.revenue - a.revenue).map(([wt, data]) => (
                       <tr key={wt} className="hover:bg-muted/20 transition-colors">
                         <td className="px-5 py-3 text-sm font-semibold text-foreground">{wt}</td>
                         <td className="px-5 py-3 text-sm text-foreground">{data.count}</td>
