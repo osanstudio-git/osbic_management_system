@@ -151,6 +151,9 @@ export const useSalesTeamReports = (
           summary: {
             totalReps: 0,
             totalLeads: 0,
+            totalAssignedLeads: 0,
+            totalUnassignedLeads: 0,
+            salesHeadAssignedCount: 0,
             totalNewLeads: 0,
             totalQuotedLeads: 0,
             totalWonLeads: 0,
@@ -204,8 +207,8 @@ export const useSalesTeamReports = (
       // 4. Query Walk-in Sales (if applicable)
       let walkinQuery = supabase
         .from('walkin_sales')
-        .select('id, client_name, client_phone, work_type, total_amount, government_fee, profit, status, date, created_by, created_at')
-        .in('created_by', salesEmpIds);
+        .select('id, client_name, client_phone, work_type, total_amount, government_fee, profit, status, date, employee_id, created_at')
+        .in('employee_id', salesEmpIds);
 
       if (dateRange.startIso && dateRange.endIso) {
         const startDay = dateRange.startIso.split('T')[0];
@@ -237,7 +240,7 @@ export const useSalesTeamReports = (
         const selfAddedCount = empLeads.filter(l => l.isSelfAdded).length;
         const assignedToMeCount = empLeads.filter(l => !l.isSelfAdded).length;
         const empInvoices = invoicesData.filter(inv => inv.employee_id === emp.id);
-        const empWalkin = walkinData.filter(ws => ws.created_by === emp.id);
+        const empWalkin = walkinData.filter(ws => ws.employee_id === emp.id);
 
         // Separate quotations vs invoices
         const empQuotes = empInvoices.filter(i => i.type === 'quotation');
@@ -351,9 +354,9 @@ export const useSalesTeamReports = (
 
         return {
           employeeId: emp.id,
-          fullName: emp.full_name,
+          fullName: emp.full_name || 'Unnamed Employee',
           employeeCode: emp.employee_code,
-          email: emp.email,
+          email: emp.email || '',
           phone: emp.phone,
           avatarUrl: emp.avatar_url,
           isSalesHead: Boolean(emp.is_sales_head),

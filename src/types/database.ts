@@ -417,6 +417,25 @@ export interface Database {
         landing_page_url: string | null
         form_id: string | null
         ip_country: string | null
+        service_required: string | null
+        call_status: string | null
+        first_call_notes: string | null
+        second_followup_status: string | null
+        note_2nd: string | null
+        final_notes: string | null
+        quote_date: string | null
+        quoted_amount: number | null
+        expected_govt_fee: number | null
+        expected_profit: number | null
+        expected_close_date: string | null
+        conversion_date: string | null
+        payment_mode: string | null
+        total_amount: number | null
+        govt_fee: number | null
+        profit: number | null
+        is_reassigned: boolean | null
+        reassigned_from_id: string | null
+        date_reassigned: string | null
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at', 'status'>
@@ -731,6 +750,27 @@ export interface Database {
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at'>
+
+      walkin_sales: TableDef<{
+        id: string
+        employee_id: string
+        branch_id: string | null
+        date: string
+        client_name: string
+        client_phone: string | null
+        work_type: string
+        work_description: string | null
+        payment_mode: 'cash' | 'card' | 'bank_transfer'
+        total_amount: number
+        government_fee: number
+        profit: number
+        status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+        notes: string | null
+        client_receipt_url: string | null
+        gov_fee_receipt_url: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'date' | 'payment_mode' | 'total_amount' | 'government_fee' | 'profit' | 'status'>
     }
     Views: {
       [_ in never]: never
