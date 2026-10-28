@@ -41,6 +41,10 @@ export interface OpsMemberPerformance {
   // Financials
   govtFeesTotal: number;
   totalServiceRevenue: number;
+  // Sales employee attribution
+  salesAssignedJobsCount: number;
+  directOpsJobsCount: number;
+  topSalesAssigner: string | null;
   // Delegated out to other PROs/specialists
   distributedCount: number;
   // Workload capacity
@@ -61,6 +65,7 @@ export interface OpsTeamSummary {
   totalPendingSteps: number;
   totalGovtFees: number;
   totalRevenue: number;
+  totalSalesAssignedJobs: number;
   overallCompletionRate: number;
   opsHeadDelegatedCount: number;
   busiestMember: OpsMemberPerformance | null;
@@ -188,17 +193,18 @@ export const useOpsTeamReports = (
       let jobsQuery = supabase
         .from('jobs')
         .select(`
-          id, job_code, custom_name, employee_id, ops_employee_id, assigned_by, status,
-          priority, start_date, due_date, actual_gov_fee, total_amount, created_at, updated_at,
+          id, job_code, custom_name, employee_id, ops_employee_id, sales_employee_id, assigned_by, status,
+          total_fee, created_at, updated_at,
           client:profiles!client_id(full_name, company_name, phone),
+          sales_rep:profiles!sales_employee_id(full_name, email, phone),
+          assigned_by_user:profiles!assigned_by(full_name, email, phone),
           service:services!service_id(name_en, name_ar),
-          branches:branch_id(name)
+          branches:branch_id(name),
+          job_steps(id, custom_name, status, actual_gov_fee, assigned_to, deadline)
         `);
 
       if (dateRange.startIso && dateRange.endIso) {
-        jobsQuery = jobsQuery
-          .gte('created_at', dateRange.startIso)
-          .lte('created_at', dateRange.endIso);
+        jobsQuery = jobsQuery.or(`and(created_at.gte.${dateRange.startIso},created_at.lte.${dateRange.endIso}),status.in.(pending,in_progress,review,blocked)`);
       }
 
       // 3. Fetch Job Steps (Workflow & PRO tasks)
@@ -206,17 +212,21 @@ export const useOpsTeamReports = (
         .from('job_steps')
         .select(`
           id, job_id, custom_name, assigned_to, assigned_by, status,
-          deadline, started_at, completed_at, notes, rejection_reason, created_at,
-          job:jobs!job_id(job_code, custom_name, status, client:profiles!client_id(full_name, company_name, phone))
+          deadline, started_at, completed_at, notes, rejection_reason, created_at, actual_gov_fee,
+          job:jobs!job_id(job_code, custom_name, status, sales_employee_id, client:profiles!client_id(full_name, company_name, phone), sales_rep:profiles!sales_employee_id(full_name))
         `);
 
       if (dateRange.startIso && dateRange.endIso) {
-        stepsQuery = stepsQuery
-          .gte('created_at', dateRange.startIso)
-          .lte('created_at', dateRange.endIso);
+        stepsQuery = stepsQuery.or(`and(created_at.gte.${dateRange.startIso},created_at.lte.${dateRange.endIso}),status.in.(pending,in_progress)`);
       }
 
       const [jobsRes, stepsRes] = await Promise.all([jobsQuery, stepsQuery]);
+      if (jobsRes.error) {
+        console.error('OpsTeamReports jobsQuery error:', jobsRes.error);
+      }
+      if (stepsRes.error) {
+        console.error('OpsTeamReports stepsQuery error:', stepsRes.error);
+      }
       const allJobs = jobsRes.data || [];
       const allSteps = stepsRes.data || [];
 
@@ -225,10 +235,40 @@ export const useOpsTeamReports = (
       // 4. Map metrics per operations specialist
       const members: OpsMemberPerformance[] = opsEmployees.map(emp => {
         // Jobs assigned to this specialist (as main assignee or ops specialist)
-        const empJobs = allJobs.filter(j => j.employee_id === emp.id || j.ops_employee_id === emp.id);
+        const rawEmpJobs = allJobs.filter(j => j.employee_id === emp.id || j.ops_employee_id === emp.id);
+        const empJobs = rawEmpJobs.map(j => {
+          const salesRepName = j.sales_rep?.full_name || (j.assigned_by_user && j.assigned_by !== j.employee_id ? j.assigned_by_user.full_name : null);
+          const isSalesAssigned = Boolean(j.sales_employee_id || (salesRepName && salesRepName !== 'Direct'));
+          const govFee = (j.job_steps || []).reduce((sum: number, s: any) => sum + (Number(s.actual_gov_fee) || 0), 0);
+          const serviceFee = Number(j.total_fee) || 0;
+
+          return {
+            ...j,
+            salesRepName: salesRepName || 'Direct / Walk-in',
+            isSalesAssigned,
+            govFee,
+            serviceFee,
+          };
+        });
 
         // Steps assigned to this specialist (e.g. PRO tasks)
         const empSteps = allSteps.filter(s => s.assigned_to === emp.id);
+
+        // Sales assigners breakdown
+        const salesJobs = empJobs.filter(j => j.isSalesAssigned);
+        const salesAssignedJobsCount = salesJobs.length;
+        const directOpsJobsCount = empJobs.length - salesAssignedJobsCount;
+
+        // Find top sales assigner for this specialist
+        const assignerCounts: Record<string, number> = {};
+        salesJobs.forEach(j => {
+          const name = j.salesRepName;
+          if (name && name !== 'Direct / Walk-in') {
+            assignerCounts[name] = (assignerCounts[name] || 0) + 1;
+          }
+        });
+        const sortedAssigners = Object.entries(assignerCounts).sort((a, b) => b[1] - a[1]);
+        const topSalesAssigner = sortedAssigners.length > 0 ? `${sortedAssigners[0][0]} (${sortedAssigners[0][1]} works)` : null;
 
         // Distributed out to OTHER team members by this employee/lead
         const empDistributedRaw = allJobs.filter(
@@ -253,9 +293,11 @@ export const useOpsTeamReports = (
         // Overdue jobs
         const overdueJobs = empJobs.filter(j => {
           if (['completed', 'cancelled'].includes(j.status)) return false;
-          if (!j.due_date) return false;
+          // Check step deadlines or if active > 14 days
+          const overdueStep = (j.job_steps || []).some((st: any) => st.deadline && isBefore(parseISO(st.deadline), now) && st.status !== 'completed');
+          if (overdueStep) return true;
           try {
-            return isBefore(parseISO(j.due_date), now);
+            return isBefore(parseISO(j.created_at), new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
           } catch {
             return false;
           }
@@ -271,10 +313,10 @@ export const useOpsTeamReports = (
 
         // Financial totals
         const govtFeesTotal = Number(
-          empJobs.reduce((sum, j) => sum + (Number(j.actual_gov_fee) || 0), 0).toFixed(3)
+          empJobs.reduce((sum, j) => sum + (Number(j.govFee) || 0), 0).toFixed(3)
         );
         const totalServiceRevenue = Number(
-          empJobs.reduce((sum, j) => sum + (Number(j.total_amount) || 0), 0).toFixed(3)
+          empJobs.reduce((sum, j) => sum + (Number(j.serviceFee) || 0), 0).toFixed(3)
         );
 
         // Capacity status
@@ -307,6 +349,9 @@ export const useOpsTeamReports = (
           stepCompletionRate,
           govtFeesTotal,
           totalServiceRevenue,
+          salesAssignedJobsCount,
+          directOpsJobsCount,
+          topSalesAssigner,
           distributedCount: empDistributedJobs.length,
           capacityStatus,
           jobs: empJobs,
@@ -328,6 +373,7 @@ export const useOpsTeamReports = (
       const totalPendingSteps = members.reduce((sum, m) => sum + m.pendingSteps, 0);
       const totalGovtFees = Number(members.reduce((sum, m) => sum + m.govtFeesTotal, 0).toFixed(3));
       const totalRevenue = Number(members.reduce((sum, m) => sum + m.totalServiceRevenue, 0).toFixed(3));
+      const totalSalesAssignedJobs = members.reduce((sum, m) => sum + m.salesAssignedJobsCount, 0);
       const overallCompletionRate = totalJobs > 0 ? Number(((totalCompletedJobs / totalJobs) * 100).toFixed(1)) : 0;
       const opsHeadDelegatedCount = allJobs.filter(j => {
         const assigner = opsEmployees.find(e => e.id === j.assigned_by);
@@ -353,6 +399,7 @@ export const useOpsTeamReports = (
           totalPendingSteps,
           totalGovtFees,
           totalRevenue,
+          totalSalesAssignedJobs,
           overallCompletionRate,
           opsHeadDelegatedCount,
           busiestMember,

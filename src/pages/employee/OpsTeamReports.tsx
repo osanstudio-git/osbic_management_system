@@ -357,20 +357,20 @@ export default function OpsTeamReports() {
           </div>
         </div>
 
-        {/* Overdue / Bottlenecks */}
+        {/* Works Assigned by Sales */}
         <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Overdue Alerts</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
-              <AlertTriangle size={18} />
+            <span className="text-[11px] font-bold uppercase tracking-wider">From Sales Team</span>
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <Layers size={18} />
             </div>
           </div>
           <div>
-            <span className="text-2xl sm:text-3xl font-black text-rose-400">
-              {summary?.totalOverdueJobs || 0}
+            <span className="text-2xl sm:text-3xl font-black text-purple-400">
+              {summary?.totalSalesAssignedJobs || 0}
             </span>
             <span className="text-xs text-muted-foreground block mt-0.5">
-              past due deadline
+              deals handed off by sales
             </span>
           </div>
         </div>
@@ -422,6 +422,7 @@ export default function OpsTeamReports() {
               <tr>
                 <th className="py-3.5 px-4">Specialist / PRO</th>
                 <th className="py-3.5 px-4 text-center">Active Workload Pipeline</th>
+                <th className="py-3.5 px-4 text-center">Assigned from Sales</th>
                 <th className="py-3.5 px-4 text-center">Completion Rate</th>
                 <th className="py-3.5 px-4 text-center">PRO Steps</th>
                 <th className="py-3.5 px-4 text-right">Govt Fees Disbursed</th>
@@ -432,14 +433,14 @@ export default function OpsTeamReports() {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     <RefreshCw size={24} className="animate-spin text-primary mx-auto mb-2" />
                     <span>Analyzing operations team workload...</span>
                   </td>
                 </tr>
               ) : filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     No operations team records found for this period.
                   </td>
                 </tr>
@@ -515,6 +516,24 @@ export default function OpsTeamReports() {
                               <span className="text-muted-foreground/40">|</span>
                               <span className="font-bold text-rose-400 animate-pulse">{m.overdueJobs} overdue</span>
                             </>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Assigned by Sales Reps */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="font-extrabold text-xs px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            🎯 {m.salesAssignedJobsCount} works
+                          </span>
+                          {m.topSalesAssigner ? (
+                            <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[130px] truncate" title={`Top sales assigner: ${m.topSalesAssigner}`}>
+                              {m.topSalesAssigner}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/50 mt-0.5">
+                              Direct / Ops
+                            </span>
                           )}
                         </div>
                       </td>
@@ -821,18 +840,29 @@ export default function OpsTeamReports() {
                                 {j.status}
                               </span>
                             </div>
-                            <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
                               <span>Client: <strong className="text-foreground">{j.client?.full_name || 'Walk-in'}</strong></span>
                               <span>•</span>
                               <span>{format(parseISO(j.created_at), 'dd MMM yyyy')}</span>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold">
+                                <span>👤 Sales:</span>
+                                <strong className="text-foreground">{j.salesRepName || 'Direct / Ops'}</strong>
+                              </span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                            {Number(j.actual_gov_fee) > 0 && (
+                            {Number(j.govFee || j.actual_gov_fee) > 0 && (
                               <div className="text-right mr-1">
                                 <span className="text-[10px] text-muted-foreground block">Gov Fee</span>
-                                <span className="font-bold text-foreground">{Number(j.actual_gov_fee).toFixed(3)} OMR</span>
+                                <span className="font-bold text-foreground">{Number(j.govFee || j.actual_gov_fee).toFixed(3)} OMR</span>
+                              </div>
+                            )}
+                            {Number(j.serviceFee || j.total_fee) > 0 && (
+                              <div className="text-right mr-1">
+                                <span className="text-[10px] text-muted-foreground block">Service Fee</span>
+                                <span className="font-bold text-emerald-400">{Number(j.serviceFee || j.total_fee).toFixed(3)} OMR</span>
                               </div>
                             )}
                             {j.client?.phone && (
@@ -948,9 +978,14 @@ export default function OpsTeamReports() {
                         >
                           <div>
                             <span className="font-bold text-foreground">{j.custom_name || j.service?.name_en || j.job_code}</span>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
-                              Client: {j.client?.full_name || 'Client'}
-                            </p>
+                            <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                              <span>Client: <strong className="text-foreground">{j.client?.full_name || 'Client'}</strong></span>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-1 text-purple-400 font-semibold">
+                                <span>👤 Sales:</span>
+                                <strong className="text-foreground">{j.salesRepName || 'Direct / Ops'}</strong>
+                              </span>
+                            </div>
                           </div>
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                             Completed
