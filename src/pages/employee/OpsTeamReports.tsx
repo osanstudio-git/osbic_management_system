@@ -30,7 +30,6 @@ export default function OpsTeamReports() {
   const { profile, role } = useAuth();
   const isOpsHead = Boolean(
     (profile as any)?.is_ops_head ||
-    (profile as any)?.can_assign_jobs ||
     profile?.is_manager ||
     profile?.role === 'admin' ||
     role === 'admin'

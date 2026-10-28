@@ -137,7 +137,6 @@ const EmployeeLayout: React.FC = () => {
     (profile as any)?.is_ops_head === true ||
     (profile as any)?.is_ops_head === 'true' ||
     (profile as any)?.is_ops_head === 1 ||
-    (profile as any)?.can_assign_jobs === true ||
     profile?.is_manager ||
     profile?.role === 'admin' ||
     role === 'admin'

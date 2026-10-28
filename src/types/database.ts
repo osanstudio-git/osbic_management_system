@@ -98,7 +98,6 @@ export interface Database {
         is_sales_head: boolean | null
         can_assign_leads: boolean | null
         is_ops_head: boolean | null
-        can_assign_jobs: boolean | null
       }, never, 'role'>
 
 

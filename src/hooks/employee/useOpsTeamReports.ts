@@ -25,7 +25,6 @@ export interface OpsMemberPerformance {
   avatarUrl?: string | null;
   isOpsHead: boolean;
   isPro: boolean;
-  canAssignJobs: boolean;
   branchName: string;
   // Job metrics
   totalJobs: number;
@@ -128,18 +127,32 @@ export const useOpsTeamReports = (
     queryKey: ['ops-team-reports', timeframe, customStart, customEnd, branchIdFilter, profile?.branch_id],
     queryFn: async (): Promise<{ members: OpsMemberPerformance[]; summary: OpsTeamSummary; dateLabel: string }> => {
       // 1. Fetch Operations Team Members (PROs, document coordinators, ops specialists, ops leads)
+      const targetBranchId = branchIdFilter || profile?.branch_id;
       let empQuery = supabase
         .from('profiles')
-        .select('id, full_name, employee_code, email, phone, avatar_url, role, department, can_do_ops, is_pro, is_ops_head, can_assign_jobs, is_manager, is_active, branch_id, branches:branch_id(name)')
+        .select('id, full_name, employee_code, email, phone, avatar_url, role, department, can_do_ops, is_pro, is_ops_head, is_manager, is_active, branch_id, branches:branch_id(name)')
         .eq('role', 'employee')
         .eq('is_active', true);
 
-      const targetBranchId = branchIdFilter || profile?.branch_id;
       if (targetBranchId && targetBranchId !== 'all') {
         empQuery = empQuery.eq('branch_id', targetBranchId);
       }
 
-      const { data: rawEmployees, error: empError } = await empQuery;
+      let { data: rawEmployees, error: empError } = await empQuery;
+      // Resilient fallback if is_ops_head column not yet created in Supabase
+      if (empError && (empError.message?.includes('is_ops_head') || empError.code === '42703')) {
+        let fallbackQuery = supabase
+          .from('profiles')
+          .select('id, full_name, employee_code, email, phone, avatar_url, role, department, can_do_ops, is_pro, is_manager, is_active, branch_id, branches:branch_id(name)')
+          .eq('role', 'employee')
+          .eq('is_active', true);
+        if (targetBranchId && targetBranchId !== 'all') {
+          fallbackQuery = fallbackQuery.eq('branch_id', targetBranchId);
+        }
+        const fallbackRes = await fallbackQuery;
+        rawEmployees = fallbackRes.data;
+        empError = fallbackRes.error;
+      }
       if (empError) throw empError;
 
       // Filter employees who do ops work or lead ops
@@ -281,7 +294,6 @@ export const useOpsTeamReports = (
           avatarUrl: emp.avatar_url,
           isOpsHead: Boolean((emp as any).is_ops_head),
           isPro: Boolean(emp.is_pro),
-          canAssignJobs: Boolean((emp as any).can_assign_jobs),
           branchName: (emp.branches as any)?.name || 'Head Office',
           totalJobs,
           activeJobs,

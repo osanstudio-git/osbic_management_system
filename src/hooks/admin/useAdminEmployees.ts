@@ -55,7 +55,6 @@ export interface Employee {
   is_sales_head?: boolean;
   can_assign_leads?: boolean;
   is_ops_head?: boolean;
-  can_assign_jobs?: boolean;
 }
 
 // ─── List All Employees (with optional branch filter) ─────────────────────────
@@ -247,7 +246,6 @@ export const useCreateEmployee = () => {
       is_sales_head?: boolean;
       can_assign_leads?: boolean;
       is_ops_head?: boolean;
-      can_assign_jobs?: boolean;
     }) => {
       let avatarUrl = null;
 
@@ -322,7 +320,6 @@ export const useCreateEmployee = () => {
         if (newEmployee.is_sales_head !== undefined) extraProfileUpdates.is_sales_head = newEmployee.is_sales_head;
         if (newEmployee.can_assign_leads !== undefined) extraProfileUpdates.can_assign_leads = newEmployee.can_assign_leads;
         if (newEmployee.is_ops_head !== undefined) extraProfileUpdates.is_ops_head = newEmployee.is_ops_head;
-        if (newEmployee.can_assign_jobs !== undefined) extraProfileUpdates.can_assign_jobs = newEmployee.can_assign_jobs;
         
         if (Object.keys(extraProfileUpdates).length > 0) {
           try {
@@ -402,7 +399,6 @@ export const useUpdateEmployee = () => {
         if (updates.is_sales_head !== undefined) extraUpdateFields.is_sales_head = updates.is_sales_head;
         if (updates.can_assign_leads !== undefined) extraUpdateFields.can_assign_leads = updates.can_assign_leads;
         if (updates.is_ops_head !== undefined) extraUpdateFields.is_ops_head = updates.is_ops_head;
-        if (updates.can_assign_jobs !== undefined) extraUpdateFields.can_assign_jobs = updates.can_assign_jobs;
 
         if (Object.keys(extraUpdateFields).length > 0) {
           try {
@@ -423,12 +419,32 @@ export const useUpdateEmployee = () => {
 
       // 3. Fallback to direct profiles update if RPC not executed
       if (!updatedData) {
-        const { data, error } = await db
+        const payload: Record<string, any> = { ...updates, updated_at: new Date().toISOString() };
+        delete (payload as any).can_assign_jobs;
+
+        let { data, error } = await db
           .from('profiles')
-          .update({ ...updates, updated_at: new Date().toISOString() })
+          .update(payload)
           .eq('id', id)
           .select()
           .single();
+
+        // If error is due to is_ops_head not existing in Supabase schema cache yet
+        if (error && (error.message?.includes('is_ops_head') || error.code === '42703')) {
+          console.warn('is_ops_head column does not exist on profiles yet. Retrying update without it...');
+          delete payload.is_ops_head;
+          const retryRes = await db
+            .from('profiles')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single();
+          data = retryRes.data;
+          error = retryRes.error;
+          if (!error) {
+            toast('Employee saved! (Note: Run the Ops Lead SQL migration in Supabase to persist Ops Lead status).', { icon: '⚠️' });
+          }
+        }
 
         if (error) throw error;
         updatedData = data;
