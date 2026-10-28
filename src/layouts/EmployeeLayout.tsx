@@ -122,15 +122,20 @@ const EmployeeLayout: React.FC = () => {
     }
   };
 
+  const isSalesHead = Boolean(
+    (profile as any)?.is_sales_head === true ||
+    (profile as any)?.is_sales_head === 'true' ||
+    (profile as any)?.is_sales_head === 1 ||
+    (profile as any)?.can_assign_leads === true ||
+    profile?.is_manager ||
+    role === 'admin'
+  );
+
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
-    ...(profile?.is_saudi_rep || profile?.is_manager ? [
-      { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' }
-    ] : []),
-    ...(profile?.is_manager ? [
-      { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
-      { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
-      { key: 'pipeline', label: isRtl ? 'مخطط العمليات' : 'Workflow Pipeline', icon: Globe, path: '/employee/pipeline' },
+    ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
+    ...(isSalesHead ? [
+      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : '👑 Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
     ] : []),
     { key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
     { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
@@ -138,19 +143,24 @@ const EmployeeLayout: React.FC = () => {
     ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
     // Daily Sales — shown for ops employees
     ...(profile?.can_do_ops ? [{ key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
+    // Invoices & Quotes
+    { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
     // PRO queue — shown for PRO agents
     ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
-    { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
     { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
-    { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
-    ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
-    ...(profile?.is_sales_head || profile?.is_manager ? [
-      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Analytics', icon: BarChart3, path: '/employee/sales-team-reports' }
-    ] : []),
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
+    ...(profile?.is_manager ? [
+      { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
+      { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
+      { key: 'pipeline', label: isRtl ? 'مخطط العمليات' : 'Workflow Pipeline', icon: Globe, path: '/employee/pipeline' },
+    ] : []),
+    ...(profile?.is_saudi_rep || profile?.is_manager ? [
+      { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' }
+    ] : []),
+    { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
   ].filter(item => {
     // PRO agents: only home, pro queue, and profile
     if (profile?.is_pro) {

@@ -10,7 +10,7 @@ import {
   Compass, LayoutGrid, List, SlidersHorizontal, Download,
   FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles,
   Trash2, Table, Users, Crown, Target, TrendingUp, CheckCircle2, ChevronDown, Check,
-  Percent, AlertTriangle, Clock, X, BarChart3
+  Percent, AlertTriangle, Clock, X, BarChart3, ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay, isToday } from 'date-fns';
@@ -46,7 +46,14 @@ export default function EmployeeLeads() {
   }
 
   // Hierarchy & Dynamic Roles
-  const isSalesHead = Boolean(profile?.is_sales_head || profile?.is_manager || role === 'admin');
+  const isSalesHead = Boolean(
+    (profile as any)?.is_sales_head === true ||
+    (profile as any)?.is_sales_head === 'true' ||
+    (profile as any)?.is_sales_head === 1 ||
+    (profile as any)?.can_assign_leads === true ||
+    profile?.is_manager ||
+    role === 'admin'
+  );
   const canAssignLeads = Boolean(profile?.can_assign_leads || isSalesHead);
 
   // Sales rep selection for Sales Head view
@@ -462,6 +469,34 @@ export default function EmployeeLeads() {
         </div>
       </div>
 
+      {/* 👑 Sales Head Command Banner */}
+      {isSalesHead && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-foreground text-sm">Sales Head Analytics & Team Reporting</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400">Executive Hub</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Track each sales consultant's leads, quotation volume, won sales revenue, and profit margins.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/employee/sales-team-reports"
+            className="px-4 py-2.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs hover:bg-amber-400 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-amber-500/20 shrink-0"
+          >
+            <BarChart3 size={15} />
+            <span>Open Team Reports</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
       {/* METRICS REFERENCE (7 Live Business Metrics) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         {/* Metric 1: Leads Added */}
@@ -726,6 +761,18 @@ export default function EmployeeLeads() {
               <List size={14} />
             </button>
           </div>
+
+          {/* Quick Team Reports Button for Sales Head */}
+          {isSalesHead && (
+            <Link
+              to="/employee/sales-team-reports"
+              className="px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 active:scale-95 shrink-0 shadow-sm"
+              title="Open Sales Team Reports & Analytics"
+            >
+              <BarChart3 size={15} />
+              <span>👑 Team Reports</span>
+            </Link>
+          )}
         </div>
       </div>
 
