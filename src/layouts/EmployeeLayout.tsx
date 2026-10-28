@@ -53,7 +53,7 @@ const EmployeeLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, role, signOut } = useAuth();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
   const { branches, selectedBranchId, setSelectedBranchId, selectedBranch } = useBranch();
@@ -128,6 +128,7 @@ const EmployeeLayout: React.FC = () => {
     (profile as any)?.is_sales_head === 1 ||
     (profile as any)?.can_assign_leads === true ||
     profile?.is_manager ||
+    profile?.role === 'admin' ||
     role === 'admin'
   );
 
