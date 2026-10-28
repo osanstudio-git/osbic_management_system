@@ -26,7 +26,8 @@ import {
    ShieldCheck,
    Megaphone,
    Handshake,
-   ShoppingBag
+   ShoppingBag,
+   BarChart3
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -145,6 +146,9 @@ const EmployeeLayout: React.FC = () => {
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
     { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
     ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
+    ...(profile?.is_sales_head || profile?.is_manager ? [
+      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Analytics', icon: BarChart3, path: '/employee/sales-team-reports' }
+    ] : []),
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
   ].filter(item => {

@@ -139,6 +139,7 @@ const SaleFormModal: React.FC<{
   const [modalMode, setModalMode] = useState<'sale' | 'enquiry'>(initialMode);
   const [form, setForm] = useState<WalkinSaleFormData>(emptyForm);
   const [customWorkType, setCustomWorkType] = useState('');
+  const [customEnquiryService, setCustomEnquiryService] = useState('');
   const [enquiryForm, setEnquiryForm] = useState<WalkinEnquiryFormData>({
     client_name: '',
     client_phone: '',
@@ -148,6 +149,8 @@ const SaleFormModal: React.FC<{
 
   React.useEffect(() => {
     if (isOpen) {
+      setCustomWorkType('');
+      setCustomEnquiryService('');
       if (editSale) {
         setModalMode('sale');
         setForm({
@@ -210,7 +213,13 @@ const SaleFormModal: React.FC<{
 
   const handleSubmitEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createEnquiry.mutateAsync(enquiryForm);
+    const finalService = enquiryForm.interested_service === 'Other' && customEnquiryService.trim()
+      ? customEnquiryService.trim()
+      : enquiryForm.interested_service;
+    await createEnquiry.mutateAsync({
+      ...enquiryForm,
+      interested_service: finalService,
+    });
     if (onSaleSaved) onSaleSaved();
     onClose();
   };
@@ -242,7 +251,7 @@ const SaleFormModal: React.FC<{
                   {editSale ? 'Edit Sale Entry' : convertedEnquiry ? 'Convert Enquiry to Sale' : modalMode === 'enquiry' ? 'Record Walk-in Enquiry' : 'Add Walk-in Sale'}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {modalMode === 'enquiry' ? 'Log a potential client enquiry in 5 seconds (no payment required)' : 'Record a walk-in client transaction & payment'}
+                  {modalMode === 'enquiry' ? 'Log a potential client enquiry (no payment required)' : 'Record a walk-in client transaction & payment'}
                 </p>
               </div>
               <button onClick={onClose} className="p-2 rounded-xl hover:bg-muted/50 text-muted-foreground transition-colors">
@@ -262,7 +271,7 @@ const SaleFormModal: React.FC<{
                         : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
-                    <Receipt size={14} /> 💰 Paid Sale / Work
+                    <Receipt size={14} /> Paid Sale / Work
                   </button>
                   <button
                     type="button"
@@ -272,7 +281,7 @@ const SaleFormModal: React.FC<{
                         : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
-                    <MessageSquare size={14} /> 💬 Quick Walk-in Enquiry
+                    <MessageSquare size={14} /> Quick Walk-in Enquiry
                   </button>
                 </div>
               </div>
@@ -288,20 +297,10 @@ const SaleFormModal: React.FC<{
               </div>
             )}
 
-            {/* ── MODE 1: WALK-IN ENQUIRY (5-Second Fast Entry) ────────────────── */}
+            {/* ── MODE 1: WALK-IN ENQUIRY ──────────────────────────────────────── */}
             {modalMode === 'enquiry' ? (
               <>
                 <form onSubmit={handleSubmitEnquiry} className="flex-1 overflow-y-auto p-6 space-y-5">
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                      <Zap size={18} />
-                    </div>
-                    <div className="text-xs">
-                      <p className="font-bold text-foreground">5-Second Fast Enquiry Logging</p>
-                      <p className="text-muted-foreground">Capture visitor contact details. Follow up via WhatsApp or convert to a sale anytime.</p>
-                    </div>
-                  </div>
-
                   {/* Client Name & Phone */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -328,39 +327,40 @@ const SaleFormModal: React.FC<{
                     </div>
                   </div>
 
-                  {/* Interested Service with Quick Chips */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Interested Service</label>
-                      <span className="text-[10px] text-muted-foreground">1-Tap Select</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
+                  {/* Interested Service */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Interested Service</label>
+                    <select
+                      value={enquiryForm.interested_service}
+                      onChange={e => setEnquiryForm(prev => ({ ...prev, interested_service: e.target.value }))}
+                      className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm"
+                    >
                       {WORK_TYPES.map(wt => (
-                        <button
-                          key={wt}
-                          type="button"
-                          onClick={() => setEnquiryForm(prev => ({ ...prev, interested_service: wt }))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${enquiryForm.interested_service === wt
-                              ? 'bg-amber-500/15 border-amber-500 text-amber-400 font-bold'
-                              : 'border-border bg-muted/30 text-muted-foreground hover:border-border/80 hover:text-foreground'
-                            }`}
-                        >
-                          {wt}
-                        </button>
+                        <option key={wt} value={wt}>{wt}</option>
                       ))}
-                    </div>
+                    </select>
+                    {enquiryForm.interested_service === 'Other' && (
+                      <input
+                        type="text"
+                        value={customEnquiryService}
+                        onChange={e => setCustomEnquiryService(e.target.value)}
+                        placeholder="Specify custom service..."
+                        required
+                        className="w-full mt-2 bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm"
+                      />
+                    )}
                   </div>
 
-                  {/* Notes & Quoted Price */}
+                  {/* Discussion Notes */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                      Price Quoted / Discussion Notes <span className="font-normal normal-case text-muted-foreground">(optional)</span>
+                      Discussion Notes <span className="font-normal normal-case text-muted-foreground">(optional)</span>
                     </label>
                     <textarea
                       value={enquiryForm.notes}
                       onChange={e => setEnquiryForm(prev => ({ ...prev, notes: e.target.value }))}
                       rows={3}
-                      placeholder="e.g. Quoted 25.000 OMR for 2-year partner visa renewal, will consult business partner and return."
+                      placeholder="e.g. Client interested in 2-year partner visa renewal, will consult business partner and return."
                       className="w-full bg-muted/50 border border-border text-foreground p-3 rounded-xl outline-none focus:border-amber-500 transition-all text-sm resize-none"
                     />
                   </div>
@@ -1035,7 +1035,7 @@ const WalkinSales: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Notes / Price Quoted */}
+                      {/* Discussion Notes */}
                       {enquiry.notes && (
                         <div className="mt-3 bg-muted/30 border border-border rounded-xl p-2.5 text-xs text-muted-foreground">
                           <p className="line-clamp-3">{enquiry.notes}</p>

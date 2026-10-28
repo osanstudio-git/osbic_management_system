@@ -10,7 +10,7 @@ import {
   Compass, LayoutGrid, List, SlidersHorizontal, Download,
   FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles,
   Trash2, Table, Users, Crown, Target, TrendingUp, CheckCircle2, ChevronDown, Check,
-  Percent, AlertTriangle, Clock, X
+  Percent, AlertTriangle, Clock, X, BarChart3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay, isToday } from 'date-fns';
@@ -440,6 +440,17 @@ export default function EmployeeLeads() {
             <Download size={16} />
             <span>1-Click Export Center</span>
           </button>
+
+          {isSalesHead && (
+            <Link
+              to="/employee/sales-team-reports"
+              className="p-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-amber-500/10 active:scale-95"
+              title="Sales Team Performance & Reports"
+            >
+              <BarChart3 size={16} />
+              <span>Team Reports</span>
+            </Link>
+          )}
 
           <button
             onClick={() => setIsAddOpen(true)}
