@@ -909,14 +909,9 @@ export default function OpsTeamReports() {
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                             <div className="text-right mr-1">
                               <span className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider">Gov Fee</span>
-                              <span className="font-extrabold text-amber-400 text-sm">
-                                {Number(j.govFee || j.ministry_fee || j.actual_gov_fee || 0).toFixed(3)} OMR
+                              <span className="font-extrabold text-emerald-400 text-sm">
+                                {Number(j.govFee || j.ministry_fee || j.actual_gov_fee || j.total_fee || 0).toFixed(3)} OMR
                               </span>
-                              {Number(j.serviceFee || j.work_fee || j.total_fee) > 0 && (
-                                <span className="text-[9px] text-muted-foreground block">
-                                  Service: {Number(j.serviceFee || j.work_fee || j.total_fee).toFixed(3)} OMR
-                                </span>
-                              )}
                             </div>
                             {j.client?.phone && (
                               <a
@@ -1185,11 +1180,11 @@ export default function OpsTeamReports() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                            {Number(j.govFee || j.ministry_fee || 0) > 0 && (
+                            {Number(j.govFee || j.ministry_fee || j.actual_gov_fee || j.total_fee || 0) > 0 && (
                               <div className="text-right mr-1">
                                 <span className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider">Gov Fee</span>
-                                <span className="font-extrabold text-amber-400 text-sm">
-                                  {Number(j.govFee || j.ministry_fee || 0).toFixed(3)} OMR
+                                <span className="font-extrabold text-emerald-400 text-sm">
+                                  {Number(j.govFee || j.ministry_fee || j.actual_gov_fee || j.total_fee || 0).toFixed(3)} OMR
                                 </span>
                               </div>
                             )}
