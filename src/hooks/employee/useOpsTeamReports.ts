@@ -202,7 +202,7 @@ export const useOpsTeamReports = (
         .from('jobs')
         .select(`
           id, job_code, custom_name, employee_id, ops_employee_id, sales_employee_id, assigned_by, status,
-          total_fee, created_at, updated_at,
+          total_fee, work_fee, ministry_fee, created_at, updated_at,
           client:profiles!client_id(full_name, company_name, phone),
           sales_rep:profiles!sales_employee_id(full_name, email, phone),
           assigned_by_user:profiles!assigned_by(full_name, email, phone),
@@ -282,8 +282,9 @@ export const useOpsTeamReports = (
         const empJobs = rawEmpJobs.map(j => {
           const salesRepName = j.sales_rep?.full_name || (j.assigned_by_user && j.assigned_by !== j.employee_id ? j.assigned_by_user.full_name : null);
           const isSalesAssigned = Boolean(j.sales_employee_id || (salesRepName && salesRepName !== 'Direct'));
-          const govFee = (j.job_steps || []).reduce((sum: number, s: any) => sum + (Number(s.actual_gov_fee) || 0), 0);
-          const serviceFee = Number(j.total_fee) || 0;
+          const stepsGovFee = (j.job_steps || []).reduce((sum: number, s: any) => sum + (Number(s.actual_gov_fee) || 0), 0);
+          const govFee = Number(j.ministry_fee) || stepsGovFee || 0;
+          const serviceFee = Number(j.work_fee) || Number(j.total_fee) || 0;
 
           return {
             ...j,

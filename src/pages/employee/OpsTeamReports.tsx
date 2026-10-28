@@ -907,18 +907,17 @@ export default function OpsTeamReports() {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                            {Number(j.govFee || j.actual_gov_fee) > 0 && (
-                              <div className="text-right mr-1">
-                                <span className="text-[10px] text-muted-foreground block">Gov Fee</span>
-                                <span className="font-bold text-foreground">{Number(j.govFee || j.actual_gov_fee).toFixed(3)} OMR</span>
-                              </div>
-                            )}
-                            {Number(j.serviceFee || j.total_fee) > 0 && (
-                              <div className="text-right mr-1">
-                                <span className="text-[10px] text-muted-foreground block">Service Fee</span>
-                                <span className="font-bold text-emerald-400">{Number(j.serviceFee || j.total_fee).toFixed(3)} OMR</span>
-                              </div>
-                            )}
+                            <div className="text-right mr-1">
+                              <span className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider">Gov Fee</span>
+                              <span className="font-extrabold text-amber-400 text-sm">
+                                {Number(j.govFee || j.ministry_fee || j.actual_gov_fee || 0).toFixed(3)} OMR
+                              </span>
+                              {Number(j.serviceFee || j.work_fee || j.total_fee) > 0 && (
+                                <span className="text-[9px] text-muted-foreground block">
+                                  Service: {Number(j.serviceFee || j.work_fee || j.total_fee).toFixed(3)} OMR
+                                </span>
+                              )}
+                            </div>
                             {j.client?.phone && (
                               <a
                                 href={getWhatsAppUrl(j.client.phone, j.client.full_name)}
@@ -1185,9 +1184,19 @@ export default function OpsTeamReports() {
                               </span>
                             </div>
                           </div>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            Completed
-                          </span>
+                          <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                            {Number(j.govFee || j.ministry_fee || 0) > 0 && (
+                              <div className="text-right mr-1">
+                                <span className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider">Gov Fee</span>
+                                <span className="font-extrabold text-amber-400 text-sm">
+                                  {Number(j.govFee || j.ministry_fee || 0).toFixed(3)} OMR
+                                </span>
+                              </div>
+                            )}
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              Completed
+                            </span>
+                          </div>
                         </div>
                       ))
                     )}
