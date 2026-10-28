@@ -17,6 +17,8 @@ export interface RepPerformanceData {
   branchName: string;
   // Leads Metrics
   totalLeads: number;
+  assignedLeadsCount: number; // count of leads assigned to this consultant
+  assignedByMeCount: number; // count of leads assigned out to team by this consultant/sales head
   newLeads: number;
   inProgressLeads: number;
   quotedLeads: number;
@@ -43,6 +45,9 @@ export interface RepPerformanceData {
 export interface SalesTeamSummary {
   totalReps: number;
   totalLeads: number;
+  totalAssignedLeads: number;
+  totalUnassignedLeads: number;
+  salesHeadAssignedCount: number;
   totalNewLeads: number;
   totalQuotedLeads: number;
   totalWonLeads: number;
@@ -166,11 +171,10 @@ export const useSalesTeamReports = (
         .from('leads')
         .select(`
           id, lead_code, contact_name, contact_phone, company_name,
-          assigned_to, status, quoted_amount, expected_govt_fee, expected_profit,
+          assigned_to, assigned_by, status, quoted_amount, expected_govt_fee, expected_profit,
           total_amount, govt_fee, profit, conversion_date, created_at,
           lead_sources:source_id(name), call_status
-        `)
-        .in('assigned_to', salesEmpIds);
+        `);
 
       if (dateRange.startIso && dateRange.endIso) {
         leadsQuery = leadsQuery
@@ -330,6 +334,8 @@ export const useSalesTeamReports = (
           canAssignLeads: Boolean(emp.can_assign_leads),
           branchName: (emp.branches as any)?.name || 'Head Office',
           totalLeads,
+          assignedLeadsCount: totalLeads,
+          assignedByMeCount: leadsData.filter(l => l.assigned_by === emp.id).length,
           newLeads,
           inProgressLeads,
           quotedLeads,
@@ -357,6 +363,12 @@ export const useSalesTeamReports = (
       // 6. Summary metrics
       const totalReps = reps.length;
       const totalLeads = reps.reduce((sum, r) => sum + r.totalLeads, 0);
+      const totalAssignedLeads = totalLeads;
+      const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to).length;
+      const salesHeadAssignedCount = leadsData.filter(l => {
+        const assigner = salesEmployees.find(e => e.id === l.assigned_by);
+        return assigner?.is_sales_head || assigner?.can_assign_leads;
+      }).length;
       const totalNewLeads = reps.reduce((sum, r) => sum + r.newLeads, 0);
       const totalQuotedLeads = reps.reduce((sum, r) => sum + r.quotedLeads, 0);
       const totalWonLeads = reps.reduce((sum, r) => sum + r.wonLeads, 0);
@@ -380,6 +392,9 @@ export const useSalesTeamReports = (
         summary: {
           totalReps,
           totalLeads,
+          totalAssignedLeads,
+          totalUnassignedLeads,
+          salesHeadAssignedCount,
           totalNewLeads,
           totalQuotedLeads,
           totalWonLeads,

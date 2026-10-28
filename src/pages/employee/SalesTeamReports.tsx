@@ -279,7 +279,7 @@ export default function SalesTeamReports() {
         {/* Total Leads */}
         <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-amber-500/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Leads Handled</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Leads Assigned</span>
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
               <Users size={16} />
             </div>
@@ -288,10 +288,16 @@ export default function SalesTeamReports() {
             <div className="text-2xl sm:text-3xl font-black text-foreground">
               {isLoading ? '...' : (summary?.totalLeads || 0).toLocaleString()}
             </div>
-            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
               <span className="text-emerald-400 font-bold">{summary?.totalWonLeads || 0} won</span>
               <span>•</span>
               <span className="text-amber-400">{summary?.totalNewLeads || 0} new</span>
+              {summary?.salesHeadAssignedCount ? (
+                <>
+                  <span>•</span>
+                  <span className="text-primary font-bold">{summary.salesHeadAssignedCount} distributed by head</span>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -401,7 +407,7 @@ export default function SalesTeamReports() {
             <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider font-bold text-[10px] border-b border-border">
               <tr>
                 <th className="py-3.5 px-4">Sales Consultant</th>
-                <th className="py-3.5 px-4 text-center">Leads Pipeline</th>
+                <th className="py-3.5 px-4 text-center">Assigned Leads (Breakdown)</th>
                 <th className="py-3.5 px-4 text-center">Conversion</th>
                 <th className="py-3.5 px-4 text-right">Quotes Issued</th>
                 <th className="py-3.5 px-4 text-right">Won Revenue</th>
@@ -471,10 +477,18 @@ export default function SalesTeamReports() {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
                               <span>{rep.employeeCode || 'REP'}</span>
                               <span>•</span>
                               <span>{rep.branchName}</span>
+                              <span>•</span>
+                              <span className="font-bold text-foreground">{rep.assignedLeadsCount || rep.totalLeads} Assigned</span>
+                              {rep.assignedByMeCount > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-amber-400 font-semibold">{rep.assignedByMeCount} distributed</span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -483,8 +497,8 @@ export default function SalesTeamReports() {
                       {/* Leads Pipeline Breakdown */}
                       <td className="py-3.5 px-4 text-center">
                         <div className="inline-flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
-                          <span className="font-extrabold text-foreground">{rep.totalLeads}</span>
-                          <span className="text-[10px] text-muted-foreground">total</span>
+                          <span className="font-extrabold text-foreground">{rep.assignedLeadsCount || rep.totalLeads}</span>
+                          <span className="text-[10px] text-muted-foreground">assigned</span>
                           <span className="text-muted-foreground/40">|</span>
                           <span className="font-semibold text-emerald-400">{rep.wonLeads} won</span>
                           <span className="text-muted-foreground/40">|</span>
@@ -707,11 +721,22 @@ export default function SalesTeamReports() {
                 </div>
 
                 {/* Consultant KPI Pills */}
-                <div className="grid grid-cols-3 gap-2.5 mt-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
+                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Assigned</span>
+                    <p className="text-base font-extrabold text-foreground mt-0.5">
+                      {selectedRep.assignedLeadsCount || selectedRep.totalLeads}
+                    </p>
+                    {selectedRep.assignedByMeCount > 0 && (
+                      <span className="text-[9px] text-amber-400 block mt-0.5 font-bold">
+                        {selectedRep.assignedByMeCount} distributed
+                      </span>
+                    )}
+                  </div>
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Won</span>
                     <p className="text-base font-extrabold text-emerald-400 mt-0.5">
-                      {selectedRep.wonLeads} / {selectedRep.totalLeads} ({selectedRep.conversionRate}%)
+                      {selectedRep.wonLeads} ({selectedRep.conversionRate}%)
                     </p>
                   </div>
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
