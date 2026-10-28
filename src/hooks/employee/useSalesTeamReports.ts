@@ -17,8 +17,10 @@ export interface RepPerformanceData {
   branchName: string;
   // Leads Metrics
   totalLeads: number;
-  assignedLeadsCount: number; // count of leads assigned to this consultant
-  assignedByMeCount: number; // count of leads assigned out to team by this consultant/sales head
+  selfAddedCount: number; // added directly by this consultant from portal
+  assignedToMeCount: number; // assigned to this consultant by Sales Head / manager
+  assignedLeadsCount: number; // total leads handled
+  assignedByMeCount: number; // count of leads distributed out to team by this consultant/sales head
   newLeads: number;
   inProgressLeads: number;
   quotedLeads: number;
@@ -223,7 +225,17 @@ export const useSalesTeamReports = (
 
       // 5. Aggregate metrics per employee
       const reps: RepPerformanceData[] = salesEmployees.map(emp => {
-        const empLeads = leadsData.filter(l => l.assigned_to === emp.id);
+        const empLeads = leadsData.filter(l => l.assigned_to === emp.id).map(l => {
+          const isSelfAdded = !l.assigned_by || l.assigned_by === emp.id;
+          const assigner = !isSelfAdded ? rawEmployees?.find(e => e.id === l.assigned_by) : null;
+          return {
+            ...l,
+            isSelfAdded,
+            assignedByName: assigner?.full_name || null,
+          };
+        });
+        const selfAddedCount = empLeads.filter(l => l.isSelfAdded).length;
+        const assignedToMeCount = empLeads.filter(l => !l.isSelfAdded).length;
         const empInvoices = invoicesData.filter(inv => inv.employee_id === emp.id);
         const empWalkin = walkinData.filter(ws => ws.created_by === emp.id);
 
@@ -348,6 +360,8 @@ export const useSalesTeamReports = (
           canAssignLeads: Boolean(emp.can_assign_leads),
           branchName: (emp.branches as any)?.name || 'Head Office',
           totalLeads,
+          selfAddedCount,
+          assignedToMeCount,
           assignedLeadsCount: totalLeads,
           assignedByMeCount: empDistributedLeads.length,
           newLeads,

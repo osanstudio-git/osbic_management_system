@@ -467,7 +467,7 @@ export default function SalesTeamReports() {
             <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider font-bold text-[10px] border-b border-border">
               <tr>
                 <th className="py-3.5 px-4">Sales Consultant</th>
-                <th className="py-3.5 px-4 text-center">Assigned Leads (Breakdown)</th>
+                <th className="py-3.5 px-4 text-center">Total Leads Pipeline</th>
                 <th className="py-3.5 px-4 text-center">Conversion</th>
                 <th className="py-3.5 px-4 text-right">Quotes Issued</th>
                 <th className="py-3.5 px-4 text-right">Won Revenue</th>
@@ -562,8 +562,8 @@ export default function SalesTeamReports() {
                       {/* Leads Pipeline Breakdown */}
                       <td className="py-3.5 px-4 text-center">
                         <div className="inline-flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
-                          <span className="font-extrabold text-foreground">{rep.assignedLeadsCount || rep.totalLeads}</span>
-                          <span className="text-[10px] text-muted-foreground">assigned</span>
+                          <span className="font-extrabold text-foreground">{rep.totalLeads}</span>
+                          <span className="text-[10px] text-muted-foreground">leads</span>
                           <span className="text-muted-foreground/40">|</span>
                           <span className="font-semibold text-emerald-400">{rep.wonLeads} won</span>
                           <span className="text-muted-foreground/40">|</span>
@@ -794,12 +794,23 @@ export default function SalesTeamReports() {
                   <div
                     onClick={() => setActiveRepTab('leads')}
                     className="p-2.5 rounded-xl bg-muted/40 border border-border text-center cursor-pointer hover:border-primary/40 hover:bg-muted/60 transition-all"
-                    title="Click to view assigned leads"
+                    title="Click to view total leads"
                   >
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Assigned</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Total Leads</span>
                     <p className="text-base font-extrabold text-foreground mt-0.5">
-                      {currentSelectedRep ? (currentSelectedRep.assignedLeadsCount || currentSelectedRep.totalLeads) : 0}
+                      {currentSelectedRep ? currentSelectedRep.totalLeads : 0}
                     </p>
+                    {currentSelectedRep && (
+                      <div className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground mt-0.5">
+                        <span className="text-teal-400 font-semibold">{currentSelectedRep.selfAddedCount} self-added</span>
+                        {currentSelectedRep.assignedToMeCount > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedToMeCount} assigned</span>
+                          </>
+                        )}
+                      </div>
+                    )}
                     {currentSelectedRep && currentSelectedRep.assignedByMeCount > 0 && (
                       <button
                         type="button"
@@ -807,7 +818,7 @@ export default function SalesTeamReports() {
                           e.stopPropagation();
                           setActiveRepTab('distributed');
                         }}
-                        className="text-[9px] text-amber-400 hover:text-amber-300 block mt-0.5 font-bold hover:underline mx-auto"
+                        className="text-[9px] text-amber-400 hover:text-amber-300 block mt-1 font-bold hover:underline mx-auto"
                         title="Click to view distributed leads"
                       >
                         {currentSelectedRep.assignedByMeCount} distributed to team ↗
@@ -844,7 +855,7 @@ export default function SalesTeamReports() {
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Assigned Leads ({filteredAssignedLeads.length})
+                    Total Leads ({filteredAssignedLeads.length})
                   </button>
 
                   {currentSelectedRep && (currentSelectedRep.isSalesHead || currentSelectedRep.canAssignLeads || (currentSelectedRep.distributedLeads && currentSelectedRep.distributedLeads.length > 0)) && (
@@ -918,7 +929,7 @@ export default function SalesTeamReports() {
                   </div>
 
                   <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-                    {activeRepTab === 'leads' && `${filteredAssignedLeads.length} assigned`}
+                    {activeRepTab === 'leads' && `${filteredAssignedLeads.length} leads`}
                     {activeRepTab === 'distributed' && `${filteredDistributedLeads.length} distributed`}
                     {activeRepTab === 'quotes' && `${filteredQuotations.length} quote${filteredQuotations.length === 1 ? '' : 's'}`}
                     {activeRepTab === 'sales' && `${filteredSales.length} sale${filteredSales.length === 1 ? '' : 's'}`}
@@ -928,14 +939,14 @@ export default function SalesTeamReports() {
 
               {/* Drawer Body */}
               <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                {/* 1. Assigned Leads List */}
+                {/* 1. Total Leads List */}
                 {activeRepTab === 'leads' && (
                   <div className="space-y-3">
                     {filteredAssignedLeads.length === 0 ? (
                       <div className="text-center py-10 space-y-2">
                         <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No leads assigned to this consultant {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No leads found for this consultant {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (
@@ -965,6 +976,15 @@ export default function SalesTeamReports() {
                                 >
                                   {l.status}
                                 </span>
+                                {l.isSelfAdded ? (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                                    Self-Added
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20" title={`Assigned by ${l.assignedByName || 'Management'}`}>
+                                    Assigned
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[11px] text-muted-foreground flex items-center gap-2">
                                 <span>{l.lead_sources?.name || 'Direct'}</span>
