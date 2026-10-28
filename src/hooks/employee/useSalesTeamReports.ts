@@ -324,8 +324,8 @@ export const useSalesTeamReports = (
           })),
         ];
 
-        // Distributed leads (leads assigned out to team by this employee/sales head)
-        const empDistributedRaw = leadsData.filter(l => l.assigned_by === emp.id);
+        // Distributed leads (leads assigned out to OTHER team members by this employee/sales head)
+        const empDistributedRaw = leadsData.filter(l => l.assigned_by === emp.id && l.assigned_to && l.assigned_to !== emp.id);
         const empDistributedLeads = empDistributedRaw.map(l => {
           const assignee = rawEmployees?.find(e => e.id === l.assigned_to);
           return {
@@ -382,7 +382,7 @@ export const useSalesTeamReports = (
       const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to).length;
       const salesHeadAssignedCount = leadsData.filter(l => {
         const assigner = salesEmployees.find(e => e.id === l.assigned_by);
-        return assigner?.is_sales_head || assigner?.can_assign_leads;
+        return (assigner?.is_sales_head || assigner?.can_assign_leads) && l.assigned_to && l.assigned_to !== l.assigned_by;
       }).length;
       const totalNewLeads = reps.reduce((sum, r) => sum + r.newLeads, 0);
       const totalQuotedLeads = reps.reduce((sum, r) => sum + r.quotedLeads, 0);

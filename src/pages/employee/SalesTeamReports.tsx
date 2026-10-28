@@ -545,12 +545,13 @@ export default function SalesTeamReports() {
                               <span>{rep.employeeCode || 'REP'}</span>
                               <span>•</span>
                               <span>{rep.branchName}</span>
-                              <span>•</span>
-                              <span className="font-bold text-foreground">{rep.assignedLeadsCount || rep.totalLeads} Assigned</span>
                               {rep.assignedByMeCount > 0 && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-amber-400 font-semibold">{rep.assignedByMeCount} distributed</span>
+                                  <span className="text-amber-400 font-semibold flex items-center gap-0.5" title="Leads delegated to other team members">
+                                    <span>↗</span>
+                                    <span>{rep.assignedByMeCount} distributed to team</span>
+                                  </span>
                                 </>
                               )}
                             </div>
@@ -809,7 +810,7 @@ export default function SalesTeamReports() {
                         className="text-[9px] text-amber-400 hover:text-amber-300 block mt-0.5 font-bold hover:underline mx-auto"
                         title="Click to view distributed leads"
                       >
-                        {currentSelectedRep.assignedByMeCount} distributed ↗
+                        {currentSelectedRep.assignedByMeCount} distributed to team ↗
                       </button>
                     )}
                   </div>
