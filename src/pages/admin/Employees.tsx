@@ -239,6 +239,7 @@ const Employees = () => {
                       <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">{emp.employee_code}</p>
                       {emp.is_manager && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-purple-500/10 text-purple-400 border border-purple-500/20">Manager</span>}
                       {emp.is_sales_head && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-amber-500/10 text-amber-400 border border-amber-500/20">👑 Sales Head</span>}
+                      {emp.is_ops_head && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">⚙️ Ops Head</span>}
                       {emp.can_assign_leads && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">🎯 Coordinator</span>}
                       {emp.can_do_sales && !emp.is_sales_head && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-400 border border-blue-500/20">Sales</span>}
                       {emp.can_do_marketing && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-pink-500/10 text-pink-400 border border-pink-500/20">Marketing</span>}

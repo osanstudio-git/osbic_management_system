@@ -27,7 +27,8 @@ import {
    Megaphone,
    Handshake,
    ShoppingBag,
-   BarChart3
+   BarChart3,
+   Briefcase
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -132,11 +133,24 @@ const EmployeeLayout: React.FC = () => {
     role === 'admin'
   );
 
+  const isOpsHead = Boolean(
+    (profile as any)?.is_ops_head === true ||
+    (profile as any)?.is_ops_head === 'true' ||
+    (profile as any)?.is_ops_head === 1 ||
+    (profile as any)?.can_assign_jobs === true ||
+    profile?.is_manager ||
+    profile?.role === 'admin' ||
+    role === 'admin'
+  );
+
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
     ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
     ...(isSalesHead ? [
       { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : '👑 Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
+    ] : []),
+    ...(isOpsHead ? [
+      { key: 'ops_team_reports', label: isRtl ? 'مركز فريق العمليات' : '⚙️ Ops Team Hub', icon: Briefcase, path: '/employee/ops-team-reports' }
     ] : []),
     { key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
     { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },

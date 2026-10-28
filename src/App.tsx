@@ -73,6 +73,7 @@ import BranchTeam from './pages/employee/BranchTeam';
 import BranchApprovals from './pages/employee/BranchApprovals';
 import WalkinSales from './pages/employee/WalkinSales';
 import SalesTeamReports from './pages/employee/SalesTeamReports';
+import OpsTeamReports from './pages/employee/OpsTeamReports';
 
 
 
@@ -524,6 +525,8 @@ function App() {
               <Route path="daily_sales" element={<WalkinSales />} />
               <Route path="sales-team-reports" element={<SalesTeamReports />} />
               <Route path="sales-reports" element={<SalesTeamReports />} />
+              <Route path="ops-team-reports" element={<OpsTeamReports />} />
+              <Route path="ops-hub" element={<OpsTeamReports />} />
             </Route>
 
             {/* Client Portal */}

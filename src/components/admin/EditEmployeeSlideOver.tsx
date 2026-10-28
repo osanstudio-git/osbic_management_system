@@ -27,6 +27,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     is_pro: false,
     is_sales_head: false,
     can_assign_leads: false,
+    is_ops_head: false,
+    can_assign_jobs: false,
     avatarUrl: '',
     branch_id: '' as string,
     gender: 'male' as 'male' | 'female',
@@ -50,6 +52,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         can_do_sales: employee.can_do_sales || false,
         is_sales_head: (employee as any).is_sales_head || false,
         can_assign_leads: (employee as any).can_assign_leads || false,
+        is_ops_head: (employee as any).is_ops_head || false,
+        can_assign_jobs: (employee as any).can_assign_jobs || false,
         can_do_marketing: (employee as any).can_do_marketing || false,
         can_do_ops: employee.can_do_ops || false,
         can_do_accounts: employee.can_do_accounts || false,
@@ -117,6 +121,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         can_do_sales: formData.can_do_sales,
         is_sales_head: formData.is_sales_head,
         can_assign_leads: formData.can_assign_leads,
+        is_ops_head: formData.is_ops_head,
+        can_assign_jobs: formData.can_assign_jobs,
         can_do_marketing: formData.can_do_marketing,
         can_do_ops: formData.can_do_ops,
         can_do_accounts: formData.can_do_accounts,
@@ -407,6 +413,25 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_assign_leads ? 'bg-indigo-500' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_assign_leads ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Ops Head / Operations Lead Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <div>
+                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                          ⚙️ Operations Head / Ops Lead
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Full team operations oversight: monitor active jobs, PRO queues, workflow steps, and bottlenecks.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, is_ops_head: !formData.is_ops_head, can_do_ops: true })}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_ops_head ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      >
+                        <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_ops_head ? 'translate-x-5' : ''}`} />
                       </button>
                     </div>
 
