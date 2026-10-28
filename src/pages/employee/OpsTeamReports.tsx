@@ -99,7 +99,7 @@ export default function OpsTeamReports() {
   const filteredActiveJobs = useMemo(() => {
     if (!currentSelectedMember) return [];
     return (currentSelectedMember.jobs || [])
-      .filter(j => ['pending', 'in_progress', 'review'].includes(j.status))
+      .filter(j => ['active', 'in_progress', 'pending', 'awaiting_govt', 'on_hold', 'review', 'draft'].includes(j.status))
       .filter(j => isDateInFilter(j.created_at, drawerDateFilter));
   }, [currentSelectedMember, drawerDateFilter]);
 
@@ -421,8 +421,7 @@ export default function OpsTeamReports() {
             <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider font-bold text-[10px] border-b border-border">
               <tr>
                 <th className="py-3.5 px-4">Specialist / PRO</th>
-                <th className="py-3.5 px-4 text-center">Active Workload Pipeline</th>
-                <th className="py-3.5 px-4 text-center">Assigned from Sales</th>
+                <th className="py-3.5 px-4 text-center">Workload & Assignment Pipeline</th>
                 <th className="py-3.5 px-4 text-center">Completion Rate</th>
                 <th className="py-3.5 px-4 text-center">PRO Steps</th>
                 <th className="py-3.5 px-4 text-right">Govt Fees Disbursed</th>
@@ -433,14 +432,14 @@ export default function OpsTeamReports() {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     <RefreshCw size={24} className="animate-spin text-primary mx-auto mb-2" />
                     <span>Analyzing operations team workload...</span>
                   </td>
                 </tr>
               ) : filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     No operations team records found for this period.
                   </td>
                 </tr>
@@ -503,38 +502,37 @@ export default function OpsTeamReports() {
                         </div>
                       </td>
 
-                      {/* Workload Pipeline */}
+                      {/* Merged Workload Pipeline & Sources */}
                       <td className="py-3.5 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border">
-                          <span className="font-extrabold text-blue-400">{m.activeJobs} active</span>
-                          <span className="text-muted-foreground/40">|</span>
-                          <span className="font-semibold text-emerald-400">{m.completedJobs} done</span>
-                          <span className="text-muted-foreground/40">|</span>
-                          <span className="font-semibold text-rose-400">{m.blockedJobs} blocked</span>
-                          {m.overdueJobs > 0 && (
-                            <>
-                              <span className="text-muted-foreground/40">|</span>
-                              <span className="font-bold text-rose-400 animate-pulse">{m.overdueJobs} overdue</span>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                        <div className="flex flex-col items-center gap-1.5">
+                          {/* Active / Done / Blocked Pills */}
+                          <div className="inline-flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg border border-border">
+                            <span className="font-extrabold text-blue-400">{m.activeJobs} active</span>
+                            <span className="text-muted-foreground/40">|</span>
+                            <span className="font-semibold text-emerald-400">{m.completedJobs} done</span>
+                            {m.blockedJobs > 0 && (
+                              <>
+                                <span className="text-muted-foreground/40">|</span>
+                                <span className="font-semibold text-rose-400">{m.blockedJobs} blocked</span>
+                              </>
+                            )}
+                            {m.overdueJobs > 0 && (
+                              <>
+                                <span className="text-muted-foreground/40">|</span>
+                                <span className="font-bold text-rose-400 animate-pulse">{m.overdueJobs} overdue</span>
+                              </>
+                            )}
+                          </div>
 
-                      {/* Assigned by Sales Reps */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="font-extrabold text-xs px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                            🎯 {m.salesAssignedJobsCount} works
-                          </span>
-                          {m.topSalesAssigner ? (
-                            <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[130px] truncate" title={`Top sales assigner: ${m.topSalesAssigner}`}>
-                              {m.topSalesAssigner}
+                          {/* Source Breakdown (Only counts, no sales person names) */}
+                          <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold flex-wrap">
+                            <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20" title="Assigned by sales team">
+                              🎯 {m.salesAssignedJobsCount} from Sales
                             </span>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground/50 mt-0.5">
-                              Direct / Ops
+                            <span className="px-2 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border" title="Direct walk-in / enquiry intake">
+                              🏢 {m.directOpsJobsCount} Direct
                             </span>
-                          )}
+                          </div>
                         </div>
                       </td>
 

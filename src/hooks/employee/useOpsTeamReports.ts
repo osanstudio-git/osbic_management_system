@@ -286,9 +286,9 @@ export const useOpsTeamReports = (
 
         // Job calculations
         const totalJobs = empJobs.length;
-        const activeJobs = empJobs.filter(j => ['pending', 'in_progress', 'review'].includes(j.status)).length;
+        const activeJobs = empJobs.filter(j => ['active', 'in_progress', 'pending', 'awaiting_govt', 'on_hold', 'review', 'draft'].includes(j.status)).length;
         const completedJobs = empJobs.filter(j => j.status === 'completed').length;
-        const blockedJobs = empJobs.filter(j => ['blocked', 'rejected', 'on_hold', 'cancelled'].includes(j.status)).length;
+        const blockedJobs = empJobs.filter(j => ['blocked', 'rejected', 'cancelled'].includes(j.status)).length;
         
         // Overdue jobs
         const overdueJobs = empJobs.filter(j => {
