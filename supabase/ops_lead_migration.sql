@@ -41,5 +41,33 @@ BEGIN
           WHERE p.id = auth.uid() AND (p.is_ops_head = TRUE OR p.is_manager = TRUE OR p.role = 'admin')
         )
       );
+  -- Allow Operations Head & Managers to read walk-in daily sales across ops team
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'walkin_sales' AND policyname = 'ops_head_view_walkin_sales'
+  ) THEN
+    CREATE POLICY "ops_head_view_walkin_sales" ON public.walkin_sales
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.id = auth.uid() AND (p.is_ops_head = TRUE OR p.is_manager = TRUE OR p.role = 'admin')
+        )
+      );
+  END IF;
+
+  -- Allow Operations Head & Managers to read client enquiries / leads
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'leads' AND policyname = 'ops_head_view_leads'
+  ) THEN
+    CREATE POLICY "ops_head_view_leads" ON public.leads
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.id = auth.uid() AND (p.is_ops_head = TRUE OR p.is_manager = TRUE OR p.role = 'admin')
+        )
+      );
   END IF;
 END $$;

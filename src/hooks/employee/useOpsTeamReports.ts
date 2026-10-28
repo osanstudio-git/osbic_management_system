@@ -44,7 +44,11 @@ export interface OpsMemberPerformance {
   // Sales employee attribution
   salesAssignedJobsCount: number;
   directOpsJobsCount: number;
-  topSalesAssigner: string | null;
+  // Direct walk-in & enquiries from ops
+  walkinSalesCount: number;
+  walkinTotalAmount: number;
+  walkinGovtFees: number;
+  enquiriesCount: number;
   // Delegated out to other PROs/specialists
   distributedCount: number;
   // Workload capacity
@@ -53,6 +57,8 @@ export interface OpsMemberPerformance {
   jobs: any[];
   steps: any[];
   distributedJobs: any[];
+  walkinSales: any[];
+  enquiries: any[];
 }
 
 export interface OpsTeamSummary {
@@ -66,6 +72,8 @@ export interface OpsTeamSummary {
   totalGovtFees: number;
   totalRevenue: number;
   totalSalesAssignedJobs: number;
+  totalWalkinSales: number;
+  totalEnquiries: number;
   overallCompletionRate: number;
   opsHeadDelegatedCount: number;
   busiestMember: OpsMemberPerformance | null;
@@ -220,7 +228,40 @@ export const useOpsTeamReports = (
         stepsQuery = stepsQuery.or(`and(created_at.gte.${dateRange.startIso},created_at.lte.${dateRange.endIso}),status.in.(pending,in_progress)`);
       }
 
-      const [jobsRes, stepsRes] = await Promise.all([jobsQuery, stepsQuery]);
+      // 4. Fetch Walk-in Sales (Daily Sales logged by Ops Specialists)
+      let walkinQuery = supabase
+        .from('walkin_sales')
+        .select('id, client_name, client_phone, work_type, work_description, total_amount, government_fee, profit, payment_mode, status, date, employee_id, created_at')
+        .in('employee_id', opsEmpIds);
+
+      if (dateRange.startIso && dateRange.endIso) {
+        const startDay = dateRange.startIso.split('T')[0];
+        const endDay = dateRange.endIso.split('T')[0];
+        walkinQuery = walkinQuery.gte('date', startDay).lte('date', endDay);
+      }
+
+      // 5. Fetch Client Enquiries (Leads handled or recorded by Ops Specialists)
+      let leadsQuery = supabase
+        .from('leads')
+        .select(`
+          id, lead_code, contact_name, contact_phone, company_name, service_required,
+          assigned_to, assigned_by, status, quoted_amount, expected_govt_fee, total_amount,
+          created_at, call_status
+        `)
+        .or(`assigned_to.in.(${opsEmpIds.join(',')}),assigned_by.in.(${opsEmpIds.join(',')})`);
+
+      if (dateRange.startIso && dateRange.endIso) {
+        leadsQuery = leadsQuery
+          .gte('created_at', dateRange.startIso)
+          .lte('created_at', dateRange.endIso);
+      }
+
+      const [jobsRes, stepsRes, walkinRes, leadsRes] = await Promise.all([
+        jobsQuery,
+        stepsQuery,
+        walkinQuery,
+        leadsQuery,
+      ]);
       if (jobsRes.error) {
         console.error('OpsTeamReports jobsQuery error:', jobsRes.error);
       }
@@ -229,6 +270,8 @@ export const useOpsTeamReports = (
       }
       const allJobs = jobsRes.data || [];
       const allSteps = stepsRes.data || [];
+      const allWalkin = walkinRes.data || [];
+      const allLeads = leadsRes.data || [];
 
       const now = new Date();
 
@@ -253,6 +296,15 @@ export const useOpsTeamReports = (
 
         // Steps assigned to this specialist (e.g. PRO tasks)
         const empSteps = allSteps.filter(s => s.assigned_to === emp.id);
+
+        // Walk-in Sales & Enquiries handled by this specialist
+        const empWalkin = allWalkin.filter(w => w.employee_id === emp.id);
+        const empEnquiries = allLeads.filter(l => l.assigned_to === emp.id || l.assigned_by === emp.id);
+
+        const walkinSalesCount = empWalkin.length;
+        const walkinTotalAmount = Number(empWalkin.reduce((sum, w) => sum + (Number(w.total_amount) || 0), 0).toFixed(3));
+        const walkinGovtFees = Number(empWalkin.reduce((sum, w) => sum + (Number(w.government_fee) || 0), 0).toFixed(3));
+        const enquiriesCount = empEnquiries.length;
 
         // Sales assigners breakdown
         const salesJobs = empJobs.filter(j => j.isSalesAssigned);
@@ -352,11 +404,17 @@ export const useOpsTeamReports = (
           salesAssignedJobsCount,
           directOpsJobsCount,
           topSalesAssigner,
+          walkinSalesCount,
+          walkinTotalAmount,
+          walkinGovtFees,
+          enquiriesCount,
           distributedCount: empDistributedJobs.length,
           capacityStatus,
           jobs: empJobs,
           steps: empSteps,
           distributedJobs: empDistributedJobs,
+          walkinSales: empWalkin,
+          enquiries: empEnquiries,
         };
       });
 
@@ -374,6 +432,8 @@ export const useOpsTeamReports = (
       const totalGovtFees = Number(members.reduce((sum, m) => sum + m.govtFeesTotal, 0).toFixed(3));
       const totalRevenue = Number(members.reduce((sum, m) => sum + m.totalServiceRevenue, 0).toFixed(3));
       const totalSalesAssignedJobs = members.reduce((sum, m) => sum + m.salesAssignedJobsCount, 0);
+      const totalWalkinSales = members.reduce((sum, m) => sum + m.walkinSalesCount, 0);
+      const totalEnquiries = members.reduce((sum, m) => sum + m.enquiriesCount, 0);
       const overallCompletionRate = totalJobs > 0 ? Number(((totalCompletedJobs / totalJobs) * 100).toFixed(1)) : 0;
       const opsHeadDelegatedCount = allJobs.filter(j => {
         const assigner = opsEmployees.find(e => e.id === j.assigned_by);
@@ -400,6 +460,8 @@ export const useOpsTeamReports = (
           totalGovtFees,
           totalRevenue,
           totalSalesAssignedJobs,
+          totalWalkinSales,
+          totalEnquiries,
           overallCompletionRate,
           opsHeadDelegatedCount,
           busiestMember,

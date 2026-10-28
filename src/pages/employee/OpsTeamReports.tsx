@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase, CheckCircle2, Clock, AlertTriangle, Layers,
   Search, Download, Printer, RefreshCw, X, ArrowUpRight,
-  Shield, Send, Filter, ChevronRight, Building2, UserCheck
+  Shield, Send, Filter, ChevronRight, Building2, UserCheck,
+  ShoppingBag, Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -41,7 +42,7 @@ export default function OpsTeamReports() {
   const [customEnd, setCustomEnd] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMember, setSelectedMember] = useState<OpsMemberPerformance | null>(null);
-  const [activeTab, setActiveTab] = useState<'jobs' | 'steps' | 'distributed' | 'completed'>('jobs');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'walkin' | 'enquiries' | 'steps' | 'distributed' | 'completed'>('jobs');
   const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   // Fetch ops team data
@@ -101,6 +102,18 @@ export default function OpsTeamReports() {
     return (currentSelectedMember.jobs || [])
       .filter(j => ['active', 'in_progress', 'pending', 'awaiting_govt', 'on_hold', 'review', 'draft'].includes(j.status))
       .filter(j => isDateInFilter(j.created_at, drawerDateFilter));
+  }, [currentSelectedMember, drawerDateFilter]);
+
+  const filteredWalkinSales = useMemo(() => {
+    if (!currentSelectedMember) return [];
+    return (currentSelectedMember.walkinSales || [])
+      .filter(w => isDateInFilter(w.date || w.created_at, drawerDateFilter));
+  }, [currentSelectedMember, drawerDateFilter]);
+
+  const filteredEnquiries = useMemo(() => {
+    if (!currentSelectedMember) return [];
+    return (currentSelectedMember.enquiries || [])
+      .filter(l => isDateInFilter(l.created_at, drawerDateFilter));
   }, [currentSelectedMember, drawerDateFilter]);
 
   const filteredSteps = useMemo(() => {
@@ -684,34 +697,49 @@ export default function OpsTeamReports() {
                 </div>
 
                 {/* KPI Tiles */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-5">
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Active Jobs</span>
-                    <p className="text-base font-extrabold text-blue-400 mt-0.5">
+                    <p className="text-sm font-extrabold text-blue-400 mt-0.5">
                       {currentSelectedMember.activeJobs}
                     </p>
                     {currentSelectedMember.overdueJobs > 0 && (
-                      <span className="text-[9px] text-rose-400 font-bold block mt-0.5">
+                      <span className="text-[9px] text-rose-400 font-bold block">
                         {currentSelectedMember.overdueJobs} overdue
                       </span>
                     )}
                   </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Completed</span>
-                    <p className="text-base font-extrabold text-emerald-400 mt-0.5">
+                    <p className="text-sm font-extrabold text-emerald-400 mt-0.5">
                       {currentSelectedMember.completedJobs} ({currentSelectedMember.completionRate}%)
                     </p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">PRO Steps</span>
-                    <p className="text-base font-extrabold text-amber-400 mt-0.5">
-                      {currentSelectedMember.pendingSteps} pending
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Daily Sales</span>
+                    <p className="text-sm font-extrabold text-amber-400 mt-0.5">
+                      {currentSelectedMember.walkinSalesCount || 0}
+                    </p>
+                    <span className="text-[9px] text-muted-foreground block truncate">
+                      {(currentSelectedMember.walkinTotalAmount || 0).toFixed(3)} OMR
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Enquiries</span>
+                    <p className="text-sm font-extrabold text-purple-400 mt-0.5">
+                      {currentSelectedMember.enquiriesCount || 0}
                     </p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">PRO Steps</span>
+                    <p className="text-sm font-extrabold text-amber-400 mt-0.5">
+                      {currentSelectedMember.pendingSteps}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Govt Fees</span>
-                    <p className="text-base font-extrabold text-purple-400 mt-0.5">
-                      {currentSelectedMember.govtFeesTotal.toFixed(3)} <span className="text-[10px]">OMR</span>
+                    <p className="text-sm font-extrabold text-purple-400 mt-0.5">
+                      {currentSelectedMember.govtFeesTotal.toFixed(3)}
                     </p>
                   </div>
                 </div>
@@ -727,6 +755,34 @@ export default function OpsTeamReports() {
                     }`}
                   >
                     Active Jobs ({filteredActiveJobs.length})
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('walkin')}
+                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+                      activeTab === 'walkin'
+                        ? 'border-amber-400 text-amber-400'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span>Daily Sales / Walk-in</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-400/20 text-amber-300">
+                      {filteredWalkinSales.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('enquiries')}
+                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+                      activeTab === 'enquiries'
+                        ? 'border-purple-400 text-purple-400'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span>Enquiries / Leads</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-purple-400/20 text-purple-300">
+                      {filteredEnquiries.length}
+                    </span>
                   </button>
 
                   <button
@@ -881,7 +937,151 @@ export default function OpsTeamReports() {
                   </div>
                 )}
 
-                {/* 2. Workflow Steps */}
+                {/* 2. Walk-in Daily Sales */}
+                {activeTab === 'walkin' && (
+                  <div className="space-y-3">
+                    {filteredWalkinSales.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No daily walk-in sales recorded for this specialist in this period.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredWalkinSales.map((ws: any) => (
+                        <div
+                          key={ws.id}
+                          className="p-3.5 rounded-xl border border-border bg-card/60 hover:bg-muted/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-extrabold text-foreground text-sm">
+                                {ws.work_type || 'Walk-in Service'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                {ws.payment_mode || 'Cash'}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                ws.status === 'completed'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                              }`}>
+                                {ws.status || 'Active'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                              <span>Client: <strong className="text-foreground">{ws.client_name || 'Walk-in Customer'}</strong></span>
+                              <span>•</span>
+                              <span>{format(parseISO(ws.date || ws.created_at), 'dd MMM yyyy')}</span>
+                              {ws.work_description && (
+                                <>
+                                  <span>•</span>
+                                  <span className="italic text-muted-foreground/80">{ws.work_description}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <div className="text-right mr-1">
+                              <span className="text-[10px] text-muted-foreground block">Amount / Gov Fee</span>
+                              <span className="font-extrabold text-foreground">{Number(ws.total_amount || 0).toFixed(3)} OMR</span>
+                              {Number(ws.government_fee) > 0 && (
+                                <span className="text-[10px] text-muted-foreground block">Gov: {Number(ws.government_fee).toFixed(3)} OMR</span>
+                              )}
+                            </div>
+                            {ws.client_phone && (
+                              <a
+                                href={getWhatsAppUrl(ws.client_phone, ws.client_name)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all flex items-center gap-1 text-[11px] font-bold"
+                              >
+                                <Send size={12} />
+                                <span>WhatsApp</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Direct Client Enquiries (Leads) */}
+                {activeTab === 'enquiries' && (
+                  <div className="space-y-3">
+                    {filteredEnquiries.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No direct enquiries or leads logged for this specialist in this period.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredEnquiries.map((l: any) => (
+                        <div
+                          key={l.id}
+                          className="p-3.5 rounded-xl border border-border bg-card/60 hover:bg-muted/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-extrabold text-foreground text-sm">
+                                {l.contact_name || 'Anonymous Enquiry'}
+                              </span>
+                              {l.lead_code && (
+                                <span className="font-mono text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+                                  {l.lead_code}
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                l.status === 'Won' || l.status === 'converted'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                  : l.status === 'Lost'
+                                  ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                  : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                              }`}>
+                                {l.status || 'Enquiry'}
+                              </span>
+                              {l.call_status && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
+                                  {l.call_status}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                              {l.company_name && <span>Company: <strong className="text-foreground">{l.company_name}</strong> •</span>}
+                              {l.service_required && <span>Requirement: <strong className="text-foreground">{l.service_required}</strong> •</span>}
+                              <span>{format(parseISO(l.created_at), 'dd MMM yyyy')}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            {Number(l.quoted_amount || l.total_amount) > 0 && (
+                              <div className="text-right mr-1">
+                                <span className="text-[10px] text-muted-foreground block">Quoted Amount</span>
+                                <span className="font-extrabold text-foreground">{Number(l.quoted_amount || l.total_amount).toFixed(3)} OMR</span>
+                              </div>
+                            )}
+                            {l.contact_phone && (
+                              <a
+                                href={getWhatsAppUrl(l.contact_phone, l.contact_name)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all flex items-center gap-1 text-[11px] font-bold"
+                              >
+                                <Send size={12} />
+                                <span>WhatsApp</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Workflow Steps */}
                 {activeTab === 'steps' && (
                   <div className="space-y-3">
                     {filteredSteps.length === 0 ? (
