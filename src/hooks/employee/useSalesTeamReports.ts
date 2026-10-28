@@ -38,6 +38,7 @@ export interface RepPerformanceData {
   avgDealSize: number;
   // Raw items for deep-dive
   leads: any[];
+  distributedLeads: any[];
   quotations: any[];
   sales: any[];
 }
@@ -323,6 +324,19 @@ export const useSalesTeamReports = (
           })),
         ];
 
+        // Distributed leads (leads assigned out to team by this employee/sales head)
+        const empDistributedRaw = leadsData.filter(l => l.assigned_by === emp.id);
+        const empDistributedLeads = empDistributedRaw.map(l => {
+          const assignee = rawEmployees?.find(e => e.id === l.assigned_to);
+          return {
+            ...l,
+            assignedToName: assignee?.full_name || 'Unassigned',
+            assignedToCode: assignee?.employee_code || '',
+            assignedToAvatar: assignee?.avatar_url || null,
+            assignedToPhone: assignee?.phone || null,
+          };
+        });
+
         return {
           employeeId: emp.id,
           fullName: emp.full_name,
@@ -335,7 +349,7 @@ export const useSalesTeamReports = (
           branchName: (emp.branches as any)?.name || 'Head Office',
           totalLeads,
           assignedLeadsCount: totalLeads,
-          assignedByMeCount: leadsData.filter(l => l.assigned_by === emp.id).length,
+          assignedByMeCount: empDistributedLeads.length,
           newLeads,
           inProgressLeads,
           quotedLeads,
@@ -352,6 +366,7 @@ export const useSalesTeamReports = (
           profitMargin,
           avgDealSize,
           leads: empLeads,
+          distributedLeads: empDistributedLeads,
           quotations: empQuotes,
           sales: combinedSales,
         };

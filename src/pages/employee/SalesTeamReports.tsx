@@ -13,7 +13,17 @@ import {
   type RepPerformanceData
 } from '../../hooks/employee/useSalesTeamReports';
 import { useReactToPrint } from 'react-to-print';
-import { format, parseISO } from 'date-fns';
+import {
+  format,
+  parseISO,
+  isWithinInterval,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth
+} from 'date-fns';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -27,7 +37,8 @@ export default function SalesTeamReports() {
   const [customEnd, setCustomEnd] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRep, setSelectedRep] = useState<RepPerformanceData | null>(null);
-  const [activeRepTab, setActiveRepTab] = useState<'leads' | 'quotes' | 'sales'>('leads');
+  const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales'>('leads');
+  const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   // Fetch performance data
   const { data, isLoading, refetch, isRefetching } = useSalesTeamReports(
@@ -51,6 +62,55 @@ export default function SalesTeamReports() {
       r.email.toLowerCase().includes(q)
     );
   }, [reps, searchQuery]);
+
+  // Keep selected rep synced with latest reps data
+  const currentSelectedRep = useMemo(() => {
+    if (!selectedRep) return null;
+    return reps.find(r => r.employeeId === selectedRep.employeeId) || selectedRep;
+  }, [reps, selectedRep]);
+
+  // Date filter helper for drawer items
+  const isDateInFilter = (dateStr?: string | null, filter: 'all' | 'today' | 'week' | 'month' = 'all') => {
+    if (!dateStr || filter === 'all') return true;
+    try {
+      const d = typeof dateStr === 'string' ? parseISO(dateStr) : new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+      const now = new Date();
+      if (filter === 'today') {
+        return isWithinInterval(d, { start: startOfDay(now), end: endOfDay(now) });
+      }
+      if (filter === 'week') {
+        return isWithinInterval(d, { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
+      }
+      if (filter === 'month') {
+        return isWithinInterval(d, { start: startOfMonth(now), end: endOfMonth(now) });
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  };
+
+  // Filtered lists for the active selected representative in the drawer
+  const filteredAssignedLeads = useMemo(() => {
+    if (!currentSelectedRep) return [];
+    return (currentSelectedRep.leads || []).filter(l => isDateInFilter(l.created_at, drawerDateFilter));
+  }, [currentSelectedRep, drawerDateFilter]);
+
+  const filteredDistributedLeads = useMemo(() => {
+    if (!currentSelectedRep) return [];
+    return (currentSelectedRep.distributedLeads || []).filter(l => isDateInFilter(l.created_at, drawerDateFilter));
+  }, [currentSelectedRep, drawerDateFilter]);
+
+  const filteredQuotations = useMemo(() => {
+    if (!currentSelectedRep) return [];
+    return (currentSelectedRep.quotations || []).filter(q => isDateInFilter(q.created_at || q.issue_date, drawerDateFilter));
+  }, [currentSelectedRep, drawerDateFilter]);
+
+  const filteredSales = useMemo(() => {
+    if (!currentSelectedRep) return [];
+    return (currentSelectedRep.sales || []).filter(s => isDateInFilter(s.date, drawerDateFilter));
+  }, [currentSelectedRep, drawerDateFilter]);
 
   // Printable document ref
   const printRef = useRef<HTMLDivElement>(null);
@@ -439,7 +499,11 @@ export default function SalesTeamReports() {
                   return (
                     <tr
                       key={rep.employeeId}
-                      onClick={() => setSelectedRep(rep)}
+                      onClick={() => {
+                        setSelectedRep(rep);
+                        setDrawerDateFilter('all');
+                        setActiveRepTab(rep.assignedLeadsCount === 0 && rep.assignedByMeCount > 0 ? 'distributed' : 'leads');
+                      }}
                       className="hover:bg-muted/40 transition-colors cursor-pointer group"
                     >
                       {/* Consultant Info */}
@@ -577,7 +641,11 @@ export default function SalesTeamReports() {
                       <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={() => setSelectedRep(rep)}
+                          onClick={() => {
+                            setSelectedRep(rep);
+                            setDrawerDateFilter('all');
+                            setActiveRepTab(rep.assignedLeadsCount === 0 && rep.assignedByMeCount > 0 ? 'distributed' : 'leads');
+                          }}
                           className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-all flex items-center gap-1 mx-auto"
                         >
                           <span>Deep-Dive</span>
@@ -682,32 +750,32 @@ export default function SalesTeamReports() {
               <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    {selectedRep.avatarUrl ? (
+                    {currentSelectedRep?.avatarUrl ? (
                       <img
-                        src={selectedRep.avatarUrl}
-                        alt={selectedRep.fullName}
+                        src={currentSelectedRep.avatarUrl}
+                        alt={currentSelectedRep.fullName}
                         className="w-12 h-12 rounded-full object-cover border border-border"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-sm">
-                        {selectedRep.fullName.slice(0, 2).toUpperCase()}
+                        {currentSelectedRep?.fullName?.slice(0, 2).toUpperCase()}
                       </div>
                     )}
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-extrabold text-foreground">{selectedRep.fullName}</h3>
-                        {selectedRep.isSalesHead && (
+                        <h3 className="text-lg font-extrabold text-foreground">{currentSelectedRep?.fullName}</h3>
+                        {currentSelectedRep?.isSalesHead && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
                             👑 Sales Head
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                        <span>{selectedRep.employeeCode || 'REP'}</span>
+                        <span>{currentSelectedRep?.employeeCode || 'REP'}</span>
                         <span>•</span>
-                        <span>{selectedRep.branchName}</span>
+                        <span>{currentSelectedRep?.branchName}</span>
                         <span>•</span>
-                        <span>{selectedRep.email}</span>
+                        <span>{currentSelectedRep?.email}</span>
                       </div>
                     </div>
                   </div>
@@ -722,83 +790,155 @@ export default function SalesTeamReports() {
 
                 {/* Consultant KPI Pills */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                  <div
+                    onClick={() => setActiveRepTab('leads')}
+                    className="p-2.5 rounded-xl bg-muted/40 border border-border text-center cursor-pointer hover:border-primary/40 hover:bg-muted/60 transition-all"
+                    title="Click to view assigned leads"
+                  >
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Assigned</span>
                     <p className="text-base font-extrabold text-foreground mt-0.5">
-                      {selectedRep.assignedLeadsCount || selectedRep.totalLeads}
+                      {currentSelectedRep ? (currentSelectedRep.assignedLeadsCount || currentSelectedRep.totalLeads) : 0}
                     </p>
-                    {selectedRep.assignedByMeCount > 0 && (
-                      <span className="text-[9px] text-amber-400 block mt-0.5 font-bold">
-                        {selectedRep.assignedByMeCount} distributed
-                      </span>
+                    {currentSelectedRep && currentSelectedRep.assignedByMeCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveRepTab('distributed');
+                        }}
+                        className="text-[9px] text-amber-400 hover:text-amber-300 block mt-0.5 font-bold hover:underline mx-auto"
+                        title="Click to view distributed leads"
+                      >
+                        {currentSelectedRep.assignedByMeCount} distributed ↗
+                      </button>
                     )}
                   </div>
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Won</span>
                     <p className="text-base font-extrabold text-emerald-400 mt-0.5">
-                      {selectedRep.wonLeads} ({selectedRep.conversionRate}%)
+                      {currentSelectedRep?.wonLeads || 0} ({currentSelectedRep?.conversionRate || 0}%)
                     </p>
                   </div>
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Won Revenue</span>
                     <p className="text-base font-extrabold text-foreground mt-0.5">
-                      {selectedRep.wonRevenue.toFixed(3)} <span className="text-[10px]">OMR</span>
+                      {(currentSelectedRep?.wonRevenue || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
                     </p>
                   </div>
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold">Net Margin</span>
                     <p className="text-base font-extrabold text-purple-400 mt-0.5">
-                      {selectedRep.netProfit.toFixed(3)} <span className="text-[10px]">OMR</span>
+                      {(currentSelectedRep?.netProfit || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
                     </p>
                   </div>
                 </div>
 
                 {/* Sub-Tabs */}
-                <div className="flex items-center gap-2 mt-5 border-b border-border/50">
+                <div className="flex items-center gap-2 mt-5 border-b border-border/50 overflow-x-auto pb-0.5">
                   <button
                     onClick={() => setActiveRepTab('leads')}
-                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 ${
+                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
                       activeRepTab === 'leads'
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Assigned Leads ({selectedRep.leads.length})
+                    Assigned Leads ({filteredAssignedLeads.length})
                   </button>
+
+                  {currentSelectedRep && (currentSelectedRep.isSalesHead || currentSelectedRep.canAssignLeads || (currentSelectedRep.distributedLeads && currentSelectedRep.distributedLeads.length > 0)) && (
+                    <button
+                      onClick={() => setActiveRepTab('distributed')}
+                      className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+                        activeRepTab === 'distributed'
+                          ? 'border-amber-400 text-amber-400'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <span>Distributed Leads</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                        activeRepTab === 'distributed'
+                          ? 'bg-amber-400/20 text-amber-300'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {filteredDistributedLeads.length}
+                      </span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setActiveRepTab('quotes')}
-                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 ${
+                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
                       activeRepTab === 'quotes'
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Quotations ({selectedRep.quotations.length})
+                    Quotations ({filteredQuotations.length})
                   </button>
                   <button
                     onClick={() => setActiveRepTab('sales')}
-                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 ${
+                    className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
                       activeRepTab === 'sales'
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Closed Sales ({selectedRep.sales.length})
+                    Closed Sales ({filteredSales.length})
                   </button>
+                </div>
+
+                {/* Quick Date Filters inside Drawer */}
+                <div className="flex items-center justify-between gap-2 mt-3 pt-2">
+                  <div className="flex items-center gap-1.5 overflow-x-auto">
+                    <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 mr-1">
+                      <Filter size={11} className="text-muted-foreground" />
+                      <span>Filter:</span>
+                    </span>
+                    {[
+                      { id: 'all', label: 'All Period' },
+                      { id: 'today', label: 'Today' },
+                      { id: 'week', label: 'This Week' },
+                      { id: 'month', label: 'This Month' },
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setDrawerDateFilter(p.id as any)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                          drawerDateFilter === p.id
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                    {activeRepTab === 'leads' && `${filteredAssignedLeads.length} assigned`}
+                    {activeRepTab === 'distributed' && `${filteredDistributedLeads.length} distributed`}
+                    {activeRepTab === 'quotes' && `${filteredQuotations.length} quote${filteredQuotations.length === 1 ? '' : 's'}`}
+                    {activeRepTab === 'sales' && `${filteredSales.length} sale${filteredSales.length === 1 ? '' : 's'}`}
+                  </span>
                 </div>
               </div>
 
               {/* Drawer Body */}
               <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                {/* 1. Leads List */}
+                {/* 1. Assigned Leads List */}
                 {activeRepTab === 'leads' && (
                   <div className="space-y-3">
-                    {selectedRep.leads.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-8">
-                        No leads assigned to this consultant during {dateLabel}.
-                      </p>
+                    {filteredAssignedLeads.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No leads assigned to this consultant {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                        </p>
+                      </div>
                     ) : (
-                      selectedRep.leads.map((l: any) => {
+                      filteredAssignedLeads.map((l: any) => {
                         const isWon = l.status === 'converted' || Number(l.total_amount) > 0;
                         const quoted = Number(l.quoted_amount) || 0;
 
@@ -859,15 +999,109 @@ export default function SalesTeamReports() {
                   </div>
                 )}
 
-                {/* 2. Quotations List */}
+                {/* 2. Distributed Leads List (Assigned out to other team members) */}
+                {activeRepTab === 'distributed' && (
+                  <div className="space-y-3">
+                    {filteredDistributedLeads.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No leads distributed by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredDistributedLeads.map((l: any) => {
+                        const isWon = l.status === 'converted' || Number(l.total_amount) > 0;
+                        const quoted = Number(l.quoted_amount) || 0;
+
+                        return (
+                          <div
+                            key={l.id}
+                            className="p-3.5 rounded-xl border border-border bg-card/60 hover:bg-muted/30 transition-all space-y-2 text-xs"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-bold text-foreground text-sm">{l.contact_name}</span>
+                                  {l.company_name && (
+                                    <span className="text-[11px] text-muted-foreground">({l.company_name})</span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      isWon
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                        : l.status === 'new'
+                                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                        : 'bg-muted text-muted-foreground border border-border'
+                                    }`}
+                                  >
+                                    {l.status}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                                  <span>{l.lead_sources?.name || 'Direct'}</span>
+                                  <span>•</span>
+                                  <span>{format(parseISO(l.created_at), 'dd MMM yyyy, hh:mm a')}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {quoted > 0 && (
+                                  <div className="text-right mr-1">
+                                    <span className="text-[10px] text-muted-foreground block">Quoted</span>
+                                    <span className="font-bold text-foreground">{quoted.toFixed(3)} OMR</span>
+                                  </div>
+                                )}
+                                {l.contact_phone && (
+                                  <a
+                                    href={getWhatsAppUrl(l.contact_phone, l.contact_name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all flex items-center gap-1 text-[11px] font-bold"
+                                    title="WhatsApp client"
+                                  >
+                                    <Send size={12} />
+                                    <span>WhatsApp</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Assignee attribution card */}
+                            <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Assigned to:</span>
+                                <span className="font-extrabold text-foreground px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                  <span>👤</span>
+                                  <span>{l.assignedToName}</span>
+                                  {l.assignedToCode && <span className="opacity-70 text-[10px]">({l.assignedToCode})</span>}
+                                </span>
+                              </div>
+                              {l.call_status && (
+                                <span className="text-muted-foreground">
+                                  Call: <strong className="text-foreground">{l.call_status}</strong>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Quotations List */}
                 {activeRepTab === 'quotes' && (
                   <div className="space-y-3">
-                    {selectedRep.quotations.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-8">
-                        No formal quotations issued during {dateLabel}.
-                      </p>
+                    {filteredQuotations.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <FileText className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No formal quotations issued {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                        </p>
+                      </div>
                     ) : (
-                      selectedRep.quotations.map((q: any) => (
+                      filteredQuotations.map((q: any) => (
                         <div
                           key={q.id}
                           className="p-3.5 rounded-xl border border-border bg-card/60 flex items-center justify-between gap-3 text-xs"
@@ -883,7 +1117,7 @@ export default function SalesTeamReports() {
                               Client: {q.client?.full_name || q.lead?.contact_name || 'Walk-in / Inquirer'}
                             </p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {format(parseISO(q.created_at), 'dd MMM yyyy')}
+                              {format(parseISO(q.created_at || q.issue_date), 'dd MMM yyyy')}
                             </p>
                           </div>
                           <div className="text-right">
@@ -897,15 +1131,18 @@ export default function SalesTeamReports() {
                   </div>
                 )}
 
-                {/* 3. Sales List */}
+                {/* 4. Sales List */}
                 {activeRepTab === 'sales' && (
                   <div className="space-y-3">
-                    {selectedRep.sales.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-8">
-                        No closed sales recorded during {dateLabel}.
-                      </p>
+                    {filteredSales.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <TrendingUp className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No closed sales recorded {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                        </p>
+                      </div>
                     ) : (
-                      selectedRep.sales.map((s: any, sIdx: number) => (
+                      filteredSales.map((s: any, sIdx: number) => (
                         <div
                           key={s.id || sIdx}
                           className="p-3.5 rounded-xl border border-border bg-card/60 flex items-center justify-between gap-3 text-xs"
