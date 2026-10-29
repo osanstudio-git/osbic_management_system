@@ -201,9 +201,89 @@ export const useSaveInvoice = () => {
         invoiceId = generatedId;
         invoiceData.id = generatedId;
 
+        // Ensure collision-free unique invoice_number for new records
+        if (!invoiceData.invoice_number) {
+          const year = new Date().getFullYear();
+          const isB2B = invoiceData.metadata?.proposal_type === 'b2b_proposal' || Boolean(invoiceData.b2b_partner_id);
+          
+          let prefix = `INV-${year}-`;
+          if (isB2B) {
+            prefix = `B2B-QT-${year}-`;
+          } else if (invoiceData.type === 'quotation') {
+            prefix = `QT-${year}-`;
+          }
+
+          // Check if client or lead has a 4-digit code (for standard quotations/invoices)
+          if (!isB2B) {
+            if (invoiceData.client_id) {
+              const { data: cl } = await (supabase.from('profiles') as any)
+                .select('client_code')
+                .eq('id', invoiceData.client_id)
+                .maybeSingle();
+              const digits = (cl?.client_code || '').replace(/\D/g, '').slice(-4);
+              if (digits && digits.length === 4) {
+                prefix = invoiceData.type === 'quotation' ? `QT-${digits}-` : `INV-${digits}-`;
+              }
+            } else if (invoiceData.lead_id) {
+              const { data: ld } = await (supabase.from('leads') as any)
+                .select('lead_code')
+                .eq('id', invoiceData.lead_id)
+                .maybeSingle();
+              const digits = (ld?.lead_code || '').replace(/\D/g, '').slice(-4);
+              if (digits && digits.length === 4) {
+                prefix = invoiceData.type === 'quotation' ? `QT-${digits}-` : `INV-${digits}-`;
+              }
+            }
+          }
+
+          // Query highest existing sequence for this prefix across ALL invoices
+          const { data: latestRows } = await (supabase.from('invoices') as any)
+            .select('invoice_number')
+            .like('invoice_number', `${prefix}%`)
+            .order('invoice_number', { ascending: false })
+            .limit(5);
+
+          let maxSeq = 0;
+          if (latestRows && latestRows.length > 0) {
+            latestRows.forEach((r: any) => {
+              if (r.invoice_number) {
+                const numPart = r.invoice_number.replace(prefix, '');
+                const parsed = parseInt(numPart, 10);
+                if (!isNaN(parsed) && parsed > maxSeq) {
+                  maxSeq = parsed;
+                }
+              }
+            });
+          }
+
+          const padLen = prefix.includes(String(year)) ? 4 : 2;
+          let nextSeq = maxSeq > 0 ? maxSeq + 1 : (padLen === 4 ? 1001 : 1);
+          let candidate = `${prefix}${nextSeq.toString().padStart(padLen, '0')}`;
+
+          // Verify uniqueness against DB to guarantee 0 collision
+          let isUnique = false;
+          let attempts = 0;
+          while (!isUnique && attempts < 25) {
+            const { data: conflict } = await (supabase.from('invoices') as any)
+              .select('id')
+              .eq('invoice_number', candidate)
+              .maybeSingle();
+
+            if (!conflict) {
+              isUnique = true;
+            } else {
+              nextSeq += 1;
+              candidate = `${prefix}${nextSeq.toString().padStart(padLen, '0')}`;
+              attempts += 1;
+            }
+          }
+
+          invoiceData.invoice_number = candidate;
+        }
+
         const { data, error } = await (supabase.from('invoices') as any)
           .insert([invoiceData])
-          .select('id')
+          .select('id, invoice_number')
           .single();
         if (error) throw error;
         invoiceId = data?.id || generatedId;

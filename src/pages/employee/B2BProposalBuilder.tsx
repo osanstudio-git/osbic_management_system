@@ -354,7 +354,7 @@ export default function B2BProposalBuilder() {
     try {
       const totalAmount = Number(proposalData.pkgExistingCr || 13000);
       const payload: Invoice = {
-        ...(isNew ? {} : { id }),
+        ...(isNew ? {} : { id, invoice_number: initialData?.invoice_number }),
         type: 'quotation',
         status: proposalData.status || 'draft',
         currency: proposalData.currency || 'SAR',
@@ -541,7 +541,7 @@ export default function B2BProposalBuilder() {
                   Strategic B2B Quotation
                 </span>
                 <span className="text-xs text-muted-foreground font-mono">
-                  {isNew ? 'New Quotation' : `#${id?.slice(0, 8)}`}
+                  {isNew ? 'New Quotation' : (initialData?.invoice_number || `#${id?.slice(0, 8)}`)}
                 </span>
               </div>
               <h1 className="text-sm font-bold text-foreground truncate max-w-[280px] sm:max-w-md">
