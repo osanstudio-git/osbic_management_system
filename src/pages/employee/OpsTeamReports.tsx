@@ -315,7 +315,7 @@ export default function OpsTeamReports() {
       </div>
 
       {/* ── 3. OPS TEAM KPI SUMMARY CARDS ─────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
         {/* Active Jobs */}
         <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
           <div className="flex items-center justify-between text-muted-foreground">
@@ -389,11 +389,11 @@ export default function OpsTeamReports() {
         </div>
 
         {/* Govt Fees Handled */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2 col-span-2 lg:col-span-1">
+        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Govt Fees Handled</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-              <Layers size={18} />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Govt Fees</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+              <Building2 size={18} />
             </div>
           </div>
           <div>
@@ -405,6 +405,45 @@ export default function OpsTeamReports() {
             </div>
             <span className="text-xs text-muted-foreground block mt-0.5">
               disbursed via operations
+            </span>
+          </div>
+        </div>
+
+        {/* Daily Walk-in Sales */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Daily Sales</span>
+            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+              <ShoppingBag size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-black text-cyan-400">
+                {(summary?.totalWalkinAmount || 0).toFixed(3)}
+              </span>
+              <span className="text-xs font-bold text-muted-foreground">OMR</span>
+            </div>
+            <span className="text-xs text-muted-foreground block mt-0.5">
+              {summary?.totalWalkinSales || 0} counter deals taken
+            </span>
+          </div>
+        </div>
+
+        {/* Direct Client Enquiries */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Direct Enquiries</span>
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+              <Users size={18} />
+            </div>
+          </div>
+          <div>
+            <span className="text-2xl sm:text-3xl font-black text-indigo-400">
+              {summary?.totalEnquiries || 0}
+            </span>
+            <span className="text-xs text-muted-foreground block mt-0.5">
+              client inquiries logged
             </span>
           </div>
         </div>
@@ -1223,7 +1262,7 @@ export default function OpsTeamReports() {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 my-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+          <div className="grid grid-cols-6 gap-3 my-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
             <div>
               <p className="text-[10px] uppercase font-bold text-gray-500">Active Files</p>
               <p className="text-xl font-black text-black">{summary?.totalActiveJobs || 0}</p>
@@ -1240,6 +1279,16 @@ export default function OpsTeamReports() {
               <p className="text-[10px] uppercase font-bold text-gray-500">Govt Fees Cleared</p>
               <p className="text-xl font-black text-purple-700">{(summary?.totalGovtFees || 0).toFixed(3)} OMR</p>
             </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-gray-500">Daily Sales</p>
+              <p className="text-xl font-black text-blue-700">{(summary?.totalWalkinAmount || 0).toFixed(3)} OMR</p>
+              <p className="text-[9px] text-gray-500">{summary?.totalWalkinSales || 0} counter deals</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-gray-500">Direct Enquiries</p>
+              <p className="text-xl font-black text-indigo-700">{summary?.totalEnquiries || 0}</p>
+              <p className="text-[9px] text-gray-500">desk inquiries</p>
+            </div>
           </div>
 
           <table className="w-full text-left text-xs border border-gray-300">
@@ -1249,6 +1298,8 @@ export default function OpsTeamReports() {
                 <th className="p-2 text-center border-r border-gray-300">Active Workload</th>
                 <th className="p-2 text-center border-r border-gray-300">Completion %</th>
                 <th className="p-2 text-center border-r border-gray-300">Pending Steps</th>
+                <th className="p-2 text-center border-r border-gray-300">Daily Sales</th>
+                <th className="p-2 text-center border-r border-gray-300">Enquiries</th>
                 <th className="p-2 text-right">Govt Fees</th>
               </tr>
             </thead>
@@ -1259,6 +1310,12 @@ export default function OpsTeamReports() {
                   <td className="p-2 text-center border-r border-gray-200">{m.activeJobs} active / {m.completedJobs} done</td>
                   <td className="p-2 text-center border-r border-gray-200 font-bold">{m.completionRate}%</td>
                   <td className="p-2 text-center border-r border-gray-200">{m.pendingSteps}</td>
+                  <td className="p-2 text-center border-r border-gray-200 font-bold">
+                    {m.walkinSalesCount > 0 ? `${m.walkinSalesCount} (${(m.walkinTotalAmount || 0).toFixed(3)} OMR)` : '—'}
+                  </td>
+                  <td className="p-2 text-center border-r border-gray-200">
+                    {m.enquiriesCount > 0 ? m.enquiriesCount : '—'}
+                  </td>
                   <td className="p-2 text-right font-bold">{m.govtFeesTotal.toFixed(3)} OMR</td>
                 </tr>
               ))}

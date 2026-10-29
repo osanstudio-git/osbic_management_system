@@ -73,6 +73,7 @@ export interface OpsTeamSummary {
   totalRevenue: number;
   totalSalesAssignedJobs: number;
   totalWalkinSales: number;
+  totalWalkinAmount: number;
   totalEnquiries: number;
   overallCompletionRate: number;
   opsHeadDelegatedCount: number;
@@ -436,6 +437,7 @@ export const useOpsTeamReports = (
       const totalRevenue = Number(members.reduce((sum, m) => sum + m.totalServiceRevenue, 0).toFixed(3));
       const totalSalesAssignedJobs = members.reduce((sum, m) => sum + m.salesAssignedJobsCount, 0);
       const totalWalkinSales = members.reduce((sum, m) => sum + m.walkinSalesCount, 0);
+      const totalWalkinAmount = Number(members.reduce((sum, m) => sum + (m.walkinTotalAmount || 0), 0).toFixed(3));
       const totalEnquiries = members.reduce((sum, m) => sum + m.enquiriesCount, 0);
       const overallCompletionRate = totalJobs > 0 ? Number(((totalCompletedJobs / totalJobs) * 100).toFixed(1)) : 0;
       const opsHeadDelegatedCount = allJobs.filter(j => {
@@ -464,6 +466,7 @@ export const useOpsTeamReports = (
           totalRevenue,
           totalSalesAssignedJobs,
           totalWalkinSales,
+          totalWalkinAmount,
           totalEnquiries,
           overallCompletionRate,
           opsHeadDelegatedCount,
