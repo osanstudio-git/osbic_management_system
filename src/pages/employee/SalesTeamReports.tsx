@@ -1264,7 +1264,7 @@ export default function SalesTeamReports() {
               {filteredReps.map(r => (
                 <tr key={r.employeeId}>
                   <td className="p-2 font-bold border-r border-gray-300">
-                    {r.fullName} ({r.employeeCode || 'REP'})
+                    {r.fullName}
                   </td>
                   <td className="p-2 text-center border-r border-gray-300">
                     {r.wonLeads} / {r.totalLeads}

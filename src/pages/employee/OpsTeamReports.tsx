@@ -1255,7 +1255,7 @@ export default function OpsTeamReports() {
             <tbody className="divide-y divide-gray-200">
               {filteredMembers.map(m => (
                 <tr key={m.employeeId}>
-                  <td className="p-2 border-r border-gray-200 font-bold">{m.fullName} ({m.employeeCode})</td>
+                  <td className="p-2 border-r border-gray-200 font-bold">{m.fullName}</td>
                   <td className="p-2 text-center border-r border-gray-200">{m.activeJobs} active / {m.completedJobs} done</td>
                   <td className="p-2 text-center border-r border-gray-200 font-bold">{m.completionRate}%</td>
                   <td className="p-2 text-center border-r border-gray-200">{m.pendingSteps}</td>
