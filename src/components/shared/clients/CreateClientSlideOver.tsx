@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   X, User, Mail, 
   Phone, Shield, Loader2, 
-  Copy, Check, UserPlus,
-  Eye, EyeOff, Key,
+  Check, UserPlus,
   ChevronRight, Globe, MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -96,7 +95,7 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
     e.preventDefault();
     try {
       // Guard against browser autofill or employee typing their own employee email
-      if (profile?.email && formData.email.trim().toLowerCase() === profile.email.trim().toLowerCase()) {
+      if (formData.email?.trim() && profile?.email && formData.email.trim().toLowerCase() === profile.email.trim().toLowerCase()) {
         toast.error("You cannot register your own staff/employee email as a client. Please enter the client's email address.");
         return;
       }
@@ -203,10 +202,10 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                     </div>
                   </div>
 
-                  {/* Email */}
+                  {/* Email (Optional) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client Email / Username</label>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client Email (Optional)</label>
                       {isEditing && (
                         <span className="text-[10px] text-primary font-medium">Editable</span>
                       )}
@@ -214,17 +213,16 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                     <div className="relative">
                       <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
-                        required
                         type="email"
                         autoComplete="off"
                         spellCheck={false}
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="client@example.com"
+                        placeholder="client@example.com (optional)"
                         className="w-full bg-background border border-border rounded-xl py-3 pl-12 pr-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/50"
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground/70 ml-1">Must be client's email (do not use staff / employee emails).</p>
+                    <p className="text-[10px] text-muted-foreground/70 ml-1">Optional. Portal access email is currently paused.</p>
                     {/* Quick Domain Helpers */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] text-muted-foreground/70 font-medium">Quick:</span>
@@ -345,41 +343,6 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                     </div>
                   </div>
 
-                  {/* Password - Only for new clients */}
-                  {!isEditing && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between ml-1">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Credentials</label>
-                        <button
-                          type="button"
-                          onClick={generatePassword}
-                          className="text-[10px] font-bold text-primary hover:text-foreground uppercase tracking-widest transition-colors"
-                        >
-                          Auto-Generate
-                        </button>
-                      </div>
-                      <div className="relative group">
-                        <Key size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <input
-                          required
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete="new-password"
-                          value={formData.password}
-                          onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                          placeholder="Secure Portal Password"
-                          className="w-full bg-background/50 border border-border rounded-xl py-3.5 pl-12 pr-12 text-sm text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
-                        >
-                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   <button
                     type="submit"
                     disabled={createClientMutation.isPending || updateClientMutation.isPending}
@@ -388,7 +351,7 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                     {(createClientMutation.isPending || updateClientMutation.isPending) ? (
                       <Loader2 className="animate-spin" size={18} />
                     ) : (
-                      <>{clientToEdit ? 'Save Changes' : 'Register Client Portal'} <ChevronRight size={16} /></>
+                      <>{isEditing ? 'Save Changes' : 'Register Client'} <ChevronRight size={16} /></>
                     )}
                   </button>
                 </form>
@@ -402,39 +365,36 @@ const CreateClientSlideOver = ({ isOpen, onClose, clientToEdit, onClientCreated 
                     <Check size={40} />
                   </div>
                   <h3 className="text-2xl font-bold text-foreground mb-2">Registration Success</h3>
-                  <p className="text-sm text-muted-foreground mb-8">One-time account credentials for {createdClient.full_name}</p>
+                  <p className="text-sm text-muted-foreground mb-6">Client profile created successfully</p>
  
-                  <div className="space-y-4">
-                    <div className="bg-background border border-border rounded-2xl p-6 relative group overflow-hidden">
-                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-2">Secure Password</p>
-                       <p className="text-xl font-mono text-foreground tracking-widest">{createdClient.password}</p>
-                       <button
-                         onClick={() => copyToClipboard(createdClient.password)}
-                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-gold/10 text-gold opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                       >
-                         <Copy size={16} />
-                       </button>
+                  <div className="space-y-3 text-left">
+                    <div className="bg-background border border-border rounded-2xl p-4">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Full Name</p>
+                      <p className="text-base font-bold text-foreground">{createdClient.full_name}</p>
                     </div>
- 
-                    <div className="bg-background border border-border rounded-2xl p-6 relative group overflow-hidden">
-                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-2">Portal Access</p>
-                       <p className="text-sm text-foreground font-mono">{createdClient.email}</p>
-                       <button
-                         onClick={() => copyToClipboard(createdClient.email)}
-                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-gold/10 text-gold opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                       >
-                         <Copy size={16} />
-                       </button>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-background border border-border rounded-2xl p-4">
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Client Code</p>
+                        <p className="text-sm font-mono font-bold text-primary">{createdClient.client_code || 'CLT-Auto'}</p>
+                      </div>
+                      <div className="bg-background border border-border rounded-2xl p-4">
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Phone</p>
+                        <p className="text-sm font-mono text-foreground">{createdClient.phone || '—'}</p>
+                      </div>
                     </div>
-                  </div>
- 
-                  <div className="flex items-center justify-center gap-2 text-sm text-emerald-400 mt-6 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
-                    <Mail size={16} /> Credentials securely emailed to {createdClient.email}
+
+                    {createdClient.email && (
+                      <div className="bg-background border border-border rounded-2xl p-4">
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Email</p>
+                        <p className="text-sm font-mono text-foreground">{createdClient.email}</p>
+                      </div>
+                    )}
                   </div>
 
                   <button
                     onClick={handleClose}
-                    className="w-full mt-8 py-5 bg-muted text-foreground font-bold rounded-2xl hover:bg-muted/80 transition-all"
+                    className="w-full mt-6 py-4 bg-primary text-primary-foreground font-bold rounded-2xl hover:brightness-110 shadow-lg shadow-primary/20 transition-all"
                   >
                     Done
                   </button>

@@ -202,34 +202,48 @@ export const useAdminClient = (id?: string) => {
   });
 };
 
+// Feature flag: toggle client portal credential emails (disabled per user request)
+const ENABLE_CLIENT_PORTAL_CREDENTIALS_EMAIL = false;
+
 // ─── Create Client ────────────────────────────────────────────────────────────
 export const useCreateClient = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (newClient: {
-      email: string;
+      email?: string;
       full_name: string;
       phone?: string;
       whatsapp?: string;
       nationality?: string;
       company_name?: string;
-      password: string;
+      password?: string;
       created_by?: string;
       branch_id?: string;
     }) => {
-      // Step 0: Ensure the email does not belong to an internal staff member (employee, admin, manager, accountant)
-      const cleanEmail = newClient.email.trim();
-      const { data: staffMatch } = await db
-        .from('profiles')
-        .select('id, full_name, role, email')
-        .ilike('email', cleanEmail)
-        .in('role', ['employee', 'admin', 'manager', 'accountant'])
-        .maybeSingle();
+      const rawEmail = (newClient.email || '').trim();
+      const hasRealEmail = rawEmail.length > 0;
+      const clientCode = `CLT-${Date.now().toString().slice(-7)}`;
 
-      if (staffMatch) {
-        throw new Error(
-          `This email (${cleanEmail}) belongs to staff member "${staffMatch.full_name}" (${staffMatch.role}). Staff accounts cannot be linked or registered as clients. Please use the client's own email address.`
-        );
+      // Internal auth credentials (if client has no email, use internal placeholder so auth.users FK is satisfied)
+      const authEmail = hasRealEmail 
+        ? rawEmail 
+        : `clt_${Date.now()}_${Math.floor(Math.random() * 1000)}@osbic.internal`;
+      const authPassword = newClient.password?.trim() || `${crypto.randomUUID().slice(0, 8)}Aa1!`;
+
+      // Step 0: Ensure the email does not belong to an internal staff member if email was supplied
+      if (hasRealEmail) {
+        const { data: staffMatch } = await db
+          .from('profiles')
+          .select('id, full_name, role, email')
+          .ilike('email', rawEmail)
+          .in('role', ['employee', 'admin', 'manager', 'accountant'])
+          .maybeSingle();
+
+        if (staffMatch) {
+          throw new Error(
+            `This email (${rawEmail}) belongs to staff member "${staffMatch.full_name}" (${staffMatch.role}). Staff accounts cannot be linked or registered as clients. Please use the client's own email address.`
+          );
+        }
       }
 
       // Step A: Create a temporary Supabase client that DOES NOT save to localStorage.
@@ -248,8 +262,8 @@ export const useCreateClient = () => {
 
       // Step B: Create the auth user
       const { data: authData, error: authError } = await authClient.auth.signUp({
-        email: cleanEmail,
-        password: newClient.password,
+        email: authEmail,
+        password: authPassword,
         options: {
           data: { 
             full_name: newClient.full_name, 
@@ -258,8 +272,8 @@ export const useCreateClient = () => {
         }
       });
 
-      // Handle case where user is already registered in Auth or profiles
-      if (authError) {
+      // Handle case where user is already registered in Auth or profiles (only applicable if real email provided)
+      if (authError && hasRealEmail) {
         const errorMsg = authError.message.toLowerCase();
         if (
           errorMsg.includes('already registered') || 
@@ -271,7 +285,7 @@ export const useCreateClient = () => {
           const { data: existingProfile } = await db
             .from('profiles')
             .select('*')
-            .ilike('email', cleanEmail)
+            .ilike('email', rawEmail)
             .maybeSingle();
 
           if (existingProfile) {
@@ -295,14 +309,16 @@ export const useCreateClient = () => {
           }
         }
         throw new Error(authError.message);
+      } else if (authError) {
+        throw new Error(authError.message);
       }
 
       // Check for Supabase identity check behavior (empty identities array when already registered)
-      if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+      if (hasRealEmail && authData.user && authData.user.identities && authData.user.identities.length === 0) {
         const { data: existingProfile } = await db
           .from('profiles')
           .select('*')
-          .ilike('email', cleanEmail)
+          .ilike('email', rawEmail)
           .maybeSingle();
 
         if (existingProfile) {
@@ -321,7 +337,6 @@ export const useCreateClient = () => {
       if (!authData.user) throw new Error('Client creation failed');
 
       const userId = authData.user.id;
-      const clientCode = `CLT-${Date.now().toString().slice(-7)}`;
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
@@ -329,7 +344,7 @@ export const useCreateClient = () => {
           id: userId,
           full_name: newClient.full_name,
           company_name: newClient.company_name ?? null,
-          email: newClient.email,
+          email: hasRealEmail ? rawEmail : null,
           phone: newClient.phone ?? null,
           whatsapp: newClient.whatsapp ?? null,
           nationality: newClient.nationality ?? null,
@@ -344,30 +359,23 @@ export const useCreateClient = () => {
 
       if (profileError) throw new Error(profileError.message);
 
-      // Send the credentials via Edge Function (Resend)
-      const { error: invokeError } = await supabase.functions.invoke('send-credentials', {
-        body: {
-          email: newClient.email,
-          password: newClient.password,
-          name: newClient.full_name,
-          role: 'client'
-        }
-      });
-      
-      if (invokeError) {
-        console.error('Failed to send credentials email:', invokeError);
-        if (invokeError.context) {
-          try {
-            const errorBody = await invokeError.context.json();
-            console.error('Edge Function Error Body:', errorBody);
-          } catch (e) {
-            const errorText = await invokeError.context.text();
-            console.error('Edge Function Error Text:', errorText);
-          }
+      // Send credentials via Edge Function (Resend) only if feature flag is active
+      if (ENABLE_CLIENT_PORTAL_CREDENTIALS_EMAIL && hasRealEmail) {
+        try {
+          await supabase.functions.invoke('send-credentials', {
+            body: {
+              email: rawEmail,
+              password: authPassword,
+              name: newClient.full_name,
+              role: 'client'
+            }
+          });
+        } catch (mailErr) {
+          console.warn('Portal credentials email send error (non-fatal):', mailErr);
         }
       }
 
-      return { ...profile, password: newClient.password }; // Return password for one-time display
+      return { ...profile, password: authPassword };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'clients'] });

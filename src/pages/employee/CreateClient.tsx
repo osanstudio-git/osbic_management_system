@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useCreateClient } from '../../hooks/employee/useEmployeeClients';
 import { useAdminServices } from '../../hooks/admin/useAdminServices'; // Reusing for mock services
-import CredentialRevealCard from '../../components/ui/CredentialRevealCard';
 import toast from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -90,11 +89,11 @@ const CreateClient = () => {
 
   // Validation
   const validateStep1 = () => {
-    if (!clientData.fullNameEn || !clientData.email || !clientData.phone || !clientData.nationality || !clientData.idNumber || !clientData.idExpiry) {
+    if (!clientData.fullNameEn || !clientData.phone || !clientData.nationality || !clientData.idNumber || !clientData.idExpiry) {
       toast.error('Please fill all required fields (*) in Step 1');
       return false;
     }
-    if (!clientData.email.includes('@')) {
+    if (clientData.email && !clientData.email.includes('@')) {
       toast.error('Please enter a valid email address');
       return false;
     }
@@ -173,8 +172,8 @@ const CreateClient = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-muted-foreground/60 transition-colors uppercase tracking-widest font-bold text-[10px] mb-1.5 block">Email Address *</label>
-              <input type="email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-foreground focus:border-gold outline-none" placeholder="client@example.com" />
+              <label className="text-muted-foreground/60 transition-colors uppercase tracking-widest font-bold text-[10px] mb-1.5 block">Email Address (Optional)</label>
+              <input type="email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-foreground focus:border-gold outline-none" placeholder="client@example.com (optional)" />
             </div>
             <div>
               <label className="text-muted-foreground/60 transition-colors uppercase tracking-widest font-bold text-[10px] mb-1.5 block">Phone Number *</label>
@@ -416,8 +415,8 @@ const CreateClient = () => {
            <div className="w-full bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex gap-3 text-left items-start mt-4">
               <Lock size={16} className="text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-0.5">Credential Generation</p>
-                <p className="text-xs text-blue-200/80">A portal access account will be automatically generated and emailed to the client alongside the initial invoice.</p>
+                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-0.5">Account Setup</p>
+                <p className="text-xs text-blue-200/80">Client profile and initial invoice will be generated automatically in the system.</p>
               </div>
            </div>
          </div>
@@ -449,14 +448,22 @@ const CreateClient = () => {
            <h2 className="text-2xl font-syne font-bold text-foreground mb-2">Onboarding Complete</h2>
            <p className="text-[#94A3B8] mb-6">Client profile created and assigned to job <span className="font-mono text-foreground">JOB-{new Date().getFullYear()}091</span></p>
 
-           <div className="text-left mb-6">
-             <CredentialRevealCard 
-               username={createdResponse.username} 
-               password={createdResponse.password} 
-             />
+           <div className="bg-background border border-border rounded-xl p-4 text-left space-y-2 mb-6">
+             <div className="flex justify-between items-center text-xs">
+               <span className="text-muted-foreground uppercase font-bold tracking-wider">Client Code</span>
+               <span className="font-mono font-bold text-primary">{createdResponse.client_code}</span>
+             </div>
+             {createdResponse.email && (
+               <div className="flex justify-between items-center text-xs">
+                 <span className="text-muted-foreground uppercase font-bold tracking-wider">Email</span>
+                 <span className="font-mono text-foreground">{createdResponse.email}</span>
+               </div>
+             )}
+             <div className="flex justify-between items-center text-xs">
+               <span className="text-muted-foreground uppercase font-bold tracking-wider">Phone</span>
+               <span className="font-mono text-foreground">{createdResponse.phone || '—'}</span>
+             </div>
            </div>
-
-           <p className="text-sm text-[#475569] mb-8">Welcome email securely dispatched to <span className="text-foreground">{createdResponse.email}</span></p>
 
            <div className="flex gap-4">
               <button onClick={() => navigate('/admin/clients')} className="flex-1 py-3 px-4 bg-white/5 text-foreground font-bold border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-sm">Return Home</button>
