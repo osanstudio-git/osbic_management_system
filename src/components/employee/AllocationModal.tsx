@@ -65,7 +65,7 @@ export const AllocationModal = ({
 
       // Run step-by-step auto-allocation on top of existing allocations
       // Total available is current payment + previous leftover
-      let remaining = payment.amount + prevLeftover;
+      let remaining = Number(payment.amount) + prevLeftover;
       
       // Subtract what is already allocated in the current payment from the available pool
       const currentAllocatedTotal = Object.values(mapped).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
@@ -73,7 +73,7 @@ export const AllocationModal = ({
 
       const finalAllocations: Record<string, string> = { ...mapped };
 
-      // Auto-fill services that have a predefined ministry fee if they have not been allocated yet
+      // Pass 1: Auto-fill services that have a predefined ministry fee if they have not been allocated yet
       for (const service of jobServices) {
         const baseGovFee = Number(service.ministry_fee) || 0;
         if (baseGovFee <= 0) continue;
@@ -87,7 +87,7 @@ export const AllocationModal = ({
         const alreadyAllocated = parseFloat(finalAllocations[service.id] || '0') || 0;
         needed = Math.max(0, needed - alreadyAllocated);
 
-        if (needed > 0) {
+        if (needed > 0 && remaining > 0) {
           if (remaining >= needed) {
             finalAllocations[service.id] = parseFloat((alreadyAllocated + needed).toFixed(3)).toString();
             remaining -= needed;
@@ -100,6 +100,30 @@ export const AllocationModal = ({
         }
       }
 
+      // Pass 2: If funds still remain, auto-fill services with 0 ministry fee (work fee services like Share Transfer)
+      if (remaining > 0) {
+        for (const service of jobServices) {
+          const baseGovFee = Number(service.ministry_fee) || 0;
+          if (baseGovFee > 0) continue;
+
+          const targetFee = Number(service.total_fee || service.work_fee || 0);
+          const alreadyAllocated = parseFloat(finalAllocations[service.id] || '0') || 0;
+          const otherAllocated = otherMap[service.id] || 0;
+          const needed = targetFee > 0 ? Math.max(0, targetFee - otherAllocated - alreadyAllocated) : remaining;
+
+          if (needed > 0 && remaining > 0) {
+            if (remaining >= needed) {
+              finalAllocations[service.id] = parseFloat((alreadyAllocated + needed).toFixed(3)).toString();
+              remaining -= needed;
+            } else {
+              finalAllocations[service.id] = parseFloat((alreadyAllocated + remaining).toFixed(3)).toString();
+              remaining = 0;
+              break;
+            }
+          }
+        }
+      }
+
       setAllocations(finalAllocations);
     };
 
@@ -108,7 +132,7 @@ export const AllocationModal = ({
  
   // Total allocated so far in this modal
   const totalAllocated = Object.values(allocations).reduce((sum, amountStr) => sum + (parseFloat(amountStr) || 0), 0);
-  const totalPool = payment.amount + leftoverFromPrevious;
+  const totalPool = Number(payment.amount) + leftoverFromPrevious;
   const remainingToAllocate = Math.max(0, totalPool - totalAllocated);
 
   const handleAllocate = (serviceId: string, amountStr: string) => {
@@ -185,18 +209,25 @@ export const AllocationModal = ({
             job_service_id: serviceId,
             amount: allocMinistry,
             allocation_type: 'ministry_fee',
-            created_by: payment.recorded_by
+            created_by: payment.recorded_by || (payment as any).created_by || null
           });
         }
 
         // Prepare service updates (adjust from reverted baseline)
         const baseMinAlloc = Math.max(0, (service?.ministry_fee_allocated || 0) - (isVerified ? revertedMin : 0));
         const baseMinPend = Math.max(0, (service?.ministry_fee_pending || 0) - (isVerified ? 0 : revertedMin));
+        const finalMinAlloc = isVerified ? baseMinAlloc + allocMinistry : baseMinAlloc;
+        const reqFee = Number(service?.ministry_fee || 0);
+        const isFundedNow = isVerified && (
+          (reqFee > 0 && finalMinAlloc >= reqFee) ||
+          (reqFee <= 0 && finalMinAlloc > 0)
+        );
 
         serviceUpdates.push({
           id: serviceId,
-          ministry_fee_allocated: isVerified ? baseMinAlloc + allocMinistry : baseMinAlloc,
-          ministry_fee_pending: isVerified ? baseMinPend : baseMinPend + allocMinistry
+          ministry_fee_allocated: finalMinAlloc,
+          ministry_fee_pending: isVerified ? baseMinPend : baseMinPend + allocMinistry,
+          is_funded: isFundedNow ? true : service?.is_funded
         });
       }
 
@@ -217,13 +248,14 @@ export const AllocationModal = ({
           .from('job_services')
           .update({
             ministry_fee_allocated: update.ministry_fee_allocated,
-            ministry_fee_pending: update.ministry_fee_pending
+            ministry_fee_pending: update.ministry_fee_pending,
+            ...(update.is_funded !== undefined ? { is_funded: update.is_funded } : {})
           })
           .eq('id', update.id);
         if (updateError) throw updateError;
       }
 
-      toast.success('Gov fees allocated successfully!');
+      toast.success('Funds allocated successfully!');
       onSuccess();
     } catch (e: any) {
       toast.error(e.message || 'Failed to allocate funds');
@@ -303,7 +335,7 @@ export const AllocationModal = ({
               const totalAllocatedForService = currentVal + otherAllocated;
               
               const isExceedingBase = baseGovFee > 0 && totalAllocatedForService > baseGovFee;
-              const isBaseMet = baseGovFee > 0 && totalAllocatedForService >= baseGovFee;
+              const isBaseMet = (baseGovFee > 0 && totalAllocatedForService >= baseGovFee) || (baseGovFee <= 0 && totalAllocatedForService > 0);
               const extraAmount = Math.max(0, totalAllocatedForService - baseGovFee);
 
               const prevVal = parseFloat(allocations[service.id] || '0') || 0;
@@ -316,7 +348,7 @@ export const AllocationModal = ({
                       <h4 className="font-bold text-sm text-foreground">{service.service_name}</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] text-muted-foreground font-semibold">
-                          Default Gov Fee: {baseGovFee > 0 ? `${baseGovFee.toFixed(3)} OMR` : '0.000 OMR (Flexible)'}
+                          Target Fee: {baseGovFee > 0 ? `${baseGovFee.toFixed(3)} OMR (Gov)` : `${Number(service.total_fee || service.work_fee || 0).toFixed(3)} OMR (Work)`}
                         </span>
                         {otherAllocated > 0 && (
                           <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">

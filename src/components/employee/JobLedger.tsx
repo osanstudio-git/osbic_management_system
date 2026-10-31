@@ -331,6 +331,44 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         remaining_amount: remaining
       }).eq('id', job.id);
 
+      // If fully paid, unlock all services in job_services immediately
+      if (isRemainingPaid) {
+        await supabase
+          .from('job_services')
+          .update({ is_funded: true })
+          .eq('job_id', job.id);
+      }
+
+      // Transfer pending allocations to allocated
+      const { data: payAllocs } = await supabase
+        .from('payment_allocations')
+        .select('*')
+        .eq('payment_id', paymentId);
+
+      if (payAllocs && payAllocs.length > 0) {
+        for (const alloc of payAllocs) {
+          if (alloc.allocation_type === 'ministry_fee') {
+            const svc = jobServices.find(s => s.id === alloc.job_service_id);
+            if (svc) {
+              const currentPending = Number(svc.ministry_fee_pending || 0);
+              const currentAlloc = Number(svc.ministry_fee_allocated || 0);
+              const newPending = Math.max(0, currentPending - alloc.amount);
+              const newAlloc = currentAlloc + alloc.amount;
+              const isFunded = isRemainingPaid || newAlloc >= Number(svc.ministry_fee || 0);
+
+              await supabase
+                .from('job_services')
+                .update({
+                  ministry_fee_pending: newPending,
+                  ministry_fee_allocated: newAlloc,
+                  is_funded: isFunded ? true : svc.is_funded
+                })
+                .eq('id', alloc.job_service_id);
+            }
+          }
+        }
+      }
+
       toast.success('Payment verified successfully. Receipt is now active!');
       setPayments(payments.map(p => p.id === paymentId ? { ...p, status: 'verified', verified_by: profile?.id, verified_at: new Date().toISOString() } : p));
       onPaymentReceived();
@@ -359,10 +397,23 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
   // We estimate allocated funds by seeing which services are funded. Since we don't have exact per-service ministry fee,
   // we'll just show the total ministry fee and total paid, and let the user decide.
   const isFundedHelper = (service: any) => {
-    const currentMinistryAllocated = service.ministry_fee_allocated || 0;
-    const reqMinistryFee = service.ministry_fee || 0;
-    const isAutoUnlocked = reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee;
-    return service.is_funded || isAutoUnlocked || Number(service.total_fee) === 0;
+    const isJobFullyPaid = Boolean(
+      job?.remaining_paid === true || 
+      remainingBalance <= 0 || 
+      totalPaid >= totalBilled
+    );
+    const isJobAdvancePaid = Boolean(job?.advance_paid === true || totalPaid > 0);
+    const currentMinistryAllocated = Number(service.ministry_fee_allocated) || 0;
+    const reqMinistryFee = Number(service.ministry_fee) || 0;
+    const isFree = Number(service.total_fee) === 0;
+
+    const isAutoUnlocked = clientPaysMinistryFee 
+      || isFree
+      || isJobFullyPaid 
+      || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
+      || (reqMinistryFee <= 0 && isJobAdvancePaid);
+
+    return service.is_funded || isAutoUnlocked;
   };
 
   const fundedCount = jobServices.filter(isFundedHelper).length;
@@ -906,11 +957,23 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                     ) : (
                       <div className="space-y-3">
                         {(showAllServices ? jobServices : jobServices.slice(0, 3)).map((service, idx) => {
-                          const currentMinistryAllocated = service.ministry_fee_allocated || 0;
-                          const reqMinistryFee = service.ministry_fee || 0;
-                          const isAutoUnlocked = reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee;
-                          const isServiceFunded = service.is_funded || isAutoUnlocked || Number(service.total_fee) === 0 || job?.client_pays_ministry_fee;
+                          const isJobFullyPaid = Boolean(
+                            job?.remaining_paid === true || 
+                            remainingBalance <= 0 || 
+                            totalPaid >= totalBilled
+                          );
+                          const isJobAdvancePaid = Boolean(job?.advance_paid === true || totalPaid > 0);
+                          const currentMinistryAllocated = Number(service.ministry_fee_allocated) || 0;
+                          const reqMinistryFee = Number(service.ministry_fee) || 0;
                           const isFree = Number(service.total_fee) === 0;
+
+                          const isAutoUnlocked = clientPaysMinistryFee 
+                            || isFree
+                            || isJobFullyPaid 
+                            || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
+                            || (reqMinistryFee <= 0 && isJobAdvancePaid);
+
+                          const isServiceFunded = service.is_funded || isAutoUnlocked;
                           
                           return (
                             <div key={service.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${isServiceFunded ? 'bg-primary/5 border-primary/30' : 'bg-muted/10 border-border opacity-75'}`}>

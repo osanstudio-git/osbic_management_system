@@ -95,12 +95,31 @@ const ApplicantCard = ({
   const [isUploadingDoc, setIsUploadingDoc] = useState<string | null>(null);
   const isClientTrusted = job?.client?.is_trusted === true;
   const clientPaysMinistryFee = job?.client_pays_ministry_fee === true;
-  const currentMinistryAllocated = js.ministry_fee_allocated || 0;
-  const reqMinistryFee = js.ministry_fee || 0;
-  // Auto-unlock if: client is trusted, OR client pays ministry fee directly, OR funds have been allocated
+  const isJobFullyPaid = Boolean(
+    job?.remaining_paid === true || 
+    Number(job?.remaining_amount || 0) <= 0 ||
+    (Number(job?.advance_amount || 0) >= Number(job?.total_fee || 0) && Number(job?.total_fee || 0) > 0)
+  );
+  const isJobAdvancePaid = Boolean(job?.advance_paid === true || Number(job?.advance_amount || 0) > 0);
+
+  const currentMinistryAllocated = Number(js.ministry_fee_allocated) || 0;
+  const reqMinistryFee = Number(js.ministry_fee) || 0;
+  const isFree = Number(js.total_fee) === 0;
+
+  // Auto-unlock if:
+  // 1. Client is trusted
+  // 2. Client pays ministry fee directly with their card
+  // 3. Service is completely free (0 OMR)
+  // 4. Job is fully paid (no remaining balance on project)
+  // 5. Required ministry fee (> 0) has been allocated
+  // 6. Service has no ministry fee (<= 0) and advance or full payment is received
   const isAutoUnlocked = isClientTrusted 
     || clientPaysMinistryFee 
-    || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
+    || isFree
+    || isJobFullyPaid
+    || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
+    || (reqMinistryFee <= 0 && (isJobAdvancePaid || isJobFullyPaid));
+
   const isLocked = !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.is_manager;
   const isOpsHead = Boolean(
@@ -1795,12 +1814,25 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
 
   const isClientTrusted = job?.client?.is_trusted === true;
   const clientPaysMinistryFee = job?.client_pays_ministry_fee === true;
+  const isJobFullyPaid = Boolean(
+    job?.remaining_paid === true || 
+    Number(job?.remaining_amount || 0) <= 0 ||
+    (Number(job?.advance_amount || 0) >= Number(job?.total_fee || 0) && Number(job?.total_fee || 0) > 0)
+  );
+  const isJobAdvancePaid = Boolean(job?.advance_paid === true || Number(job?.advance_amount || 0) > 0);
+
   const lockedServices = filteredServices.filter((js) => {
-    const currentMinistryAllocated = js.ministry_fee_allocated || 0;
-    const reqMinistryFee = js.ministry_fee || 0;
+    const currentMinistryAllocated = Number(js.ministry_fee_allocated) || 0;
+    const reqMinistryFee = Number(js.ministry_fee) || 0;
+    const isFree = Number(js.total_fee) === 0;
+
     const isAutoUnlocked = isClientTrusted 
       || clientPaysMinistryFee 
-      || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
+      || isFree
+      || isJobFullyPaid
+      || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
+      || (reqMinistryFee <= 0 && (isJobAdvancePaid || isJobFullyPaid));
+
     return !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
   });
 
@@ -1944,8 +1976,14 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
 
 // ─── Timeline Panel (Imported from shared components/jobs/JobTimelinePanel) ───
 
-export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () => void }) => {
+export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpdated?: () => void }) => {
   const navigate = useNavigate();
+  const [job, setJob] = useState(initialJob);
+
+  useEffect(() => {
+    setJob(initialJob);
+  }, [initialJob]);
+
   const [activeTab, setActiveTab] = useState<'operations' | 'ledger' | 'timeline' | 'documents' | 'messages'>('operations');
   const [steps, setSteps] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -2202,6 +2240,18 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
   const loadData = async () => {
     setLoading(true);
     
+    // Fetch latest job details to ensure remaining_paid and balances are up-to-date
+    try {
+      const { data: freshJob } = await supabase
+        .from('jobs')
+        .select('*, client:clients(*)')
+        .eq('id', initialJob.id)
+        .single();
+      if (freshJob) setJob(freshJob);
+    } catch (e) {
+      console.warn('Could not refresh job in loadData:', e);
+    }
+
     // Fetch steps with workflow template info
     const { data: stepData } = await supabase
       .from('job_steps')
@@ -2209,7 +2259,7 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
         *,
         workflow_step:workflow_steps(name_en, step_order)
       `)
-      .eq('job_id', job.id)
+      .eq('job_id', initialJob.id)
       .order('created_at', { ascending: true }); 
 
     // Fetch total ministry fees for the job
@@ -2537,7 +2587,10 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
              <OperationsPanel
                job={job}
                employees={employees}
-               onDataRefresh={loadData}
+               onDataRefresh={() => {
+                 loadData();
+                 if (onUpdated) onUpdated();
+               }}
              />
            </div>
         ) : activeTab === 'documents' ? (
@@ -2549,7 +2602,13 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
             <MessagesTab jobId={job.id} messages={messages} isAdmin={false} currentUserType="employee" scope="staff_client" />
           </div>
         ) : (
-          <JobLedger job={job} onPaymentReceived={loadData} />
+          <JobLedger 
+            job={job} 
+            onPaymentReceived={() => {
+              loadData();
+              if (onUpdated) onUpdated();
+            }} 
+          />
         )}
       </div>
 
