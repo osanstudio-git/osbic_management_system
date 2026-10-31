@@ -968,6 +968,7 @@ export default function EmployeeLeads() {
                 <thead className="bg-muted/60 border-b border-border text-[10px] uppercase font-bold text-muted-foreground">
                   <tr>
                     <th className="px-6 py-3">Client</th>
+                    <th className="px-6 py-3">Status</th>
                     <th className="px-6 py-3">Phone</th>
                     <th className="px-6 py-3">Call Status</th>
                     <th className="px-6 py-3">Next Action</th>
@@ -984,7 +985,25 @@ export default function EmployeeLeads() {
                       className="hover:bg-white/[0.02] cursor-pointer"
                     >
                       <td className="px-6 py-4 font-bold text-foreground">
-                        {lead.contact_name}
+                        <div className="flex items-center gap-2">
+                          <span>{lead.contact_name}</span>
+                          {lead.lead_code && (
+                            <span className="text-[9px] font-mono font-medium text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded border border-border">
+                              {lead.lead_code}
+                            </span>
+                          )}
+                        </div>
+                        {lead.company_name && (
+                          <div className="text-[11px] text-muted-foreground font-normal">{lead.company_name}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-block",
+                          getStatusBadgeClass(lead.status)
+                        )}>
+                          {lead.status.replace('_', ' ')}
+                        </span>
                       </td>
                       <td className="px-6 py-4 font-mono text-muted-foreground">
                         {lead.contact_phone || '—'}

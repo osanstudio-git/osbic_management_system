@@ -196,21 +196,38 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
     if (newStatus === 'quoted') {
       const checkAndQuoted = async () => {
         try {
-          const { count, error } = await supabase
+          const { data: quotesData, error } = await supabase
             .from('invoices')
-            .select('*', { count: 'exact', head: true })
-            .eq('lead_id', lead.id);
+            .select('*')
+            .eq('lead_id', lead.id)
+            .order('created_at', { ascending: false });
           
           if (error) throw error;
           
+          const latestQuote = quotesData?.[0];
+          const todayDate = format(new Date(), 'yyyy-MM-dd');
+          
+          const updates: Record<string, any> = {
+            status: 'quoted',
+            second_followup_status: 'Quoted',
+            lost_reason: null
+          };
+
+          if (!lead.quote_date) {
+            updates.quote_date = latestQuote ? format(new Date(latestQuote.created_at), 'yyyy-MM-dd') : todayDate;
+          }
+          if (latestQuote?.total_amount && (!lead.quoted_amount || lead.quoted_amount === 0)) {
+            updates.quoted_amount = latestQuote.total_amount;
+          }
+
           await updateLeadMutation.mutateAsync({
             id: lead.id,
-            updates: { status: 'quoted', lost_reason: null }
+            updates
           });
           
-          toast.success('Status updated to Quoted');
+          toast.success('Status updated to Quoted & synced with Living Grid');
           
-          if (!count || count === 0) {
+          if (!quotesData || quotesData.length === 0) {
             toast.success('Opening quotation builder...');
             setTimeout(() => {
               onClose();
@@ -227,9 +244,15 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
     }
 
     if (newStatus !== 'lost') {
+      const updates: Record<string, any> = { status: newStatus as any, lost_reason: null };
+      if (newStatus === 'interested') {
+        updates.second_followup_status = 'Interested';
+      } else if (newStatus === 'negotiating') {
+        updates.second_followup_status = 'Negotiating';
+      }
       updateLeadMutation.mutate({
         id: lead.id,
-        updates: { status: newStatus as any, lost_reason: null }
+        updates
       }, {
         onSuccess: () => toast.success('Status updated'),
         onError: () => setStatus(lead.status)

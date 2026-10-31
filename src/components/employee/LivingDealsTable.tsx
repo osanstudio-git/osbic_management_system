@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, startOfDay, isToday } from 'date-fns';
 import { 
   Phone, MessageSquare, AlertTriangle, ArrowRight, UserCheck, 
   Calendar, Check, CheckCircle2, Clock, DollarSign, Edit3, 
   ExternalLink, FileText, ChevronDown, User, ShieldAlert, Sparkles,
-  TrendingUp, Award, Zap
+  TrendingUp, Award, Zap, ChevronLeft, ChevronRight, Maximize2, Minimize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -43,6 +43,73 @@ export const LivingDealsTable: React.FC<Props> = ({
   const [tempValues, setTempValues] = useState<Record<string, any>>({});
   const [reassigningLeadId, setReassigningLeadId] = useState<string | null>(null);
 
+  // Horizontal scroll synchronization & Viewport management
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollWidth, setScrollWidth] = useState<number>(2400);
+  const [isFitScreen, setIsFitScreen] = useState<boolean>(true);
+  const isSyncingScroll = useRef<boolean>(false);
+
+  // Measure table width for top scrollbar
+  useEffect(() => {
+    const updateWidth = () => {
+      if (tableContainerRef.current) {
+        setScrollWidth(tableContainerRef.current.scrollWidth);
+      }
+    };
+    updateWidth();
+    const timer = setTimeout(updateWidth, 300);
+    window.addEventListener('resize', updateWidth);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, [leads]);
+
+  const handleTableScroll = () => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (topScrollRef.current && tableContainerRef.current) {
+      topScrollRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  };
+
+  const handleTopScroll = () => {
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    if (tableContainerRef.current && topScrollRef.current) {
+      tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  };
+
+  const scrollToStage = (stage: 'inbound' | 'followup' | 'quote' | 'won') => {
+    if (!tableContainerRef.current) return;
+    const offsets: Record<string, number> = {
+      inbound: 0,
+      followup: 520,
+      quote: 1050,
+      won: 1650,
+    };
+    tableContainerRef.current.scrollTo({
+      left: offsets[stage] || 0,
+      behavior: 'smooth',
+    });
+  };
+
+  const scrollHorizontally = (distance: number) => {
+    if (!tableContainerRef.current) return;
+    tableContainerRef.current.scrollBy({
+      left: distance,
+      behavior: 'smooth',
+    });
+  };
+
   // Phone duplication detector
   const duplicatePhoneSet = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -59,6 +126,33 @@ export const LivingDealsTable: React.FC<Props> = ({
     });
     return dupes;
   }, [leads, allLeads]);
+
+const getStatusBadgeClass = (status?: string) => {
+  switch (status) {
+    case 'new':
+      return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+    case 'contacted':
+      return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    case 'interested':
+    case 'qualified':
+      return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+    case 'on_progress':
+      return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+    case 'quoted':
+      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    case 'negotiating':
+      return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+    case 'converted':
+      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    case 'cancelled':
+    case 'lost':
+      return 'bg-red-500/10 text-red-400 border-red-500/20';
+    case 'on_hold':
+      return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+    default:
+      return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+  }
+};
 
   const handleInlineSave = async (leadId: string, field: string, value: any) => {
     setEditingCell(null);
@@ -79,6 +173,20 @@ export const LivingDealsTable: React.FC<Props> = ({
         if (tot > 0 && !lead?.conversion_date) {
           updates.conversion_date = format(new Date(), 'yyyy-MM-dd');
           updates.status = 'converted';
+        }
+      } else if (field === 'second_followup_status') {
+        const lead = leads.find(l => l.id === leadId);
+        if (value === 'Quoted') {
+          updates.status = 'quoted';
+          if (!lead?.quote_date) {
+            updates.quote_date = format(new Date(), 'yyyy-MM-dd');
+          }
+        } else if (value === 'Interested') {
+          updates.status = 'interested';
+        } else if (value === 'Negotiating') {
+          updates.status = 'negotiating';
+        } else if (value === 'Lost') {
+          updates.status = 'lost';
         }
       }
 
@@ -138,81 +246,155 @@ export const LivingDealsTable: React.FC<Props> = ({
 
   return (
     <div className="w-full bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-      {/* Table Sub-Header / Stage Legend */}
-      <div className="px-6 py-3 bg-muted/40 border-b border-border flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-2">
+      {/* Table Sub-Header / Stage Legend with Stage Navigation & Horizontal Scroll Controls */}
+      <div className="px-5 py-2.5 bg-muted/50 border-b border-border flex flex-wrap items-center justify-between gap-3 text-xs select-none">
+        <div className="flex items-center gap-3">
           <span className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
             <Zap size={14} className="text-primary" /> Single Living Deal Grid
           </span>
-          <span className="text-muted-foreground/60">|</span>
-          <span className="text-muted-foreground text-[11px]">
-            {leads.length} Active Deal{leads.length !== 1 ? 's' : ''}
+          <span className="text-muted-foreground/40">|</span>
+          <span className="text-muted-foreground text-[11px] font-mono">
+            {leads.length} Active Deals
           </span>
         </div>
 
-        {/* Pipeline Stage Indicators */}
-        <div className="flex items-center gap-3 text-[10px] font-bold tracking-wide">
-          <span className="flex items-center gap-1 text-blue-400">
-            <span className="w-2 h-2 rounded-full bg-blue-400" /> 1. Inbound & Outreach
-          </span>
-          <span className="text-muted-foreground/40">→</span>
-          <span className="flex items-center gap-1 text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400" /> 2. Follow-Up Radar
-          </span>
-          <span className="text-muted-foreground/40">→</span>
-          <span className="flex items-center gap-1 text-purple-400">
-            <span className="w-2 h-2 rounded-full bg-purple-400" /> 3. Pipeline & Forecast
-          </span>
-          <span className="text-muted-foreground/40">→</span>
-          <span className="flex items-center gap-1 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" /> 4. Won & Net Profit
-          </span>
+        {/* Quick Clickable Stage Jump Buttons */}
+        <div className="flex items-center gap-1.5 bg-background/60 p-1 rounded-xl border border-border/60">
+          <button
+            type="button"
+            onClick={() => scrollToStage('inbound')}
+            className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
+            title="Jump to Stage 1: Inbound & Outreach"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> 1. Inbound
+          </button>
+          <span className="text-muted-foreground/30 text-[10px]">→</span>
+          <button
+            type="button"
+            onClick={() => scrollToStage('followup')}
+            className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+            title="Jump to Stage 2: Follow-Up Radar"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> 2. Follow-Up
+          </button>
+          <span className="text-muted-foreground/30 text-[10px]">→</span>
+          <button
+            type="button"
+            onClick={() => scrollToStage('quote')}
+            className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg text-purple-400 hover:bg-purple-500/10 transition-colors"
+            title="Jump to Stage 3: Pipeline & Quote Forecast"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" /> 3. Pipeline
+          </button>
+          <span className="text-muted-foreground/30 text-[10px]">→</span>
+          <button
+            type="button"
+            onClick={() => scrollToStage('won')}
+            className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            title="Jump to Stage 4: Won Sales & Net Profit"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> 4. Won & Profit
+          </button>
+        </div>
+
+        {/* Scroll Arrows & Height Mode Toggle */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center bg-background/60 p-0.5 rounded-lg border border-border/60">
+            <button
+              type="button"
+              onClick={() => scrollHorizontally(-350)}
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              title="Scroll Left"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollHorizontally(350)}
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              title="Scroll Right"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsFitScreen(!isFitScreen)}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+              isFitScreen
+                ? "bg-primary/10 text-primary border-primary/30"
+                : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+            )}
+            title={isFitScreen ? "Switch to Full Page Scrolling" : "Pin Bottom Scrollbar to Screen Viewport"}
+          >
+            {isFitScreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            <span>{isFitScreen ? "Fit Screen" : "Expand All"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Living Rows Table */}
-      <div className="overflow-x-auto min-h-[400px]">
+      {/* Synchronized Top Horizontal Scrollbar */}
+      <div 
+        ref={topScrollRef} 
+        onScroll={handleTopScroll}
+        className="w-full overflow-x-auto overflow-y-hidden border-b border-border/40 bg-muted/20 scrollbar-thin scrollbar-thumb-border hover:scrollbar-thumb-primary/50"
+        style={{ height: '12px' }}
+      >
+        <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
+      </div>
+
+      {/* Living Rows Table with Pinned Bottom Scrollbar & Sticky Header */}
+      <div 
+        ref={tableContainerRef}
+        onScroll={handleTableScroll}
+        className={cn(
+          "overflow-x-auto overflow-y-auto scrollbar-thin transition-all relative",
+          isFitScreen ? "max-h-[calc(100vh-270px)] min-h-[460px]" : "min-h-[500px]"
+        )}
+      >
         <table className="w-full border-collapse text-left text-xs whitespace-nowrap">
-          <thead>
-            <tr className="bg-muted/80 border-b border-border text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none">
+          <thead className="sticky top-0 z-30 shadow-sm">
+            <tr className="bg-card border-b border-border text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none">
               {/* STAGE 1: Client & Lead */}
-              <th className="p-3 sticky left-0 z-20 bg-muted/95 backdrop-blur shadow-[2px_0_5px_rgba(0,0,0,0.1)] min-w-[200px]">
+              <th className="p-3 sticky left-0 z-40 bg-card shadow-[2px_0_5px_rgba(0,0,0,0.2)] min-w-[200px]">
                 Client / Contact
               </th>
-              <th className="p-3 min-w-[140px]">Phone & Actions</th>
-              <th className="p-3 min-w-[140px]">Service Interested</th>
-              <th className="p-3 min-w-[120px]">Source</th>
+              <th className="p-3 min-w-[140px] bg-card">Phone & Actions</th>
+              <th className="p-3 min-w-[140px] bg-card">Service Interested</th>
+              <th className="p-3 min-w-[120px] bg-card">Source</th>
               
               {/* STAGE 2: Outreach & Call */}
-              <th className="p-3 min-w-[150px] bg-blue-500/5 text-blue-400 border-l border-border">1st Call Status</th>
-              <th className="p-3 min-w-[180px] bg-blue-500/5 text-blue-400">1st Call Notes</th>
+              <th className="p-3 min-w-[150px] bg-card text-blue-400 border-l border-border">1st Call Status</th>
+              <th className="p-3 min-w-[180px] bg-card text-blue-400">1st Call Notes</th>
               
               {/* STAGE 3: Follow-Up Radar */}
-              <th className="p-3 min-w-[140px] bg-amber-500/5 text-amber-400 border-l border-border">2nd Follow-up</th>
-              <th className="p-3 min-w-[150px] bg-amber-500/5 text-amber-400">Next Follow-Up Date</th>
-              <th className="p-3 min-w-[180px] bg-amber-500/5 text-amber-400">Follow-up Notes</th>
+              <th className="p-3 min-w-[140px] bg-card text-amber-400 border-l border-border">2nd Follow-up</th>
+              <th className="p-3 min-w-[150px] bg-card text-amber-400">Next Follow-Up Date</th>
+              <th className="p-3 min-w-[180px] bg-card text-amber-400">Follow-up Notes</th>
 
               {/* STAGE 4: Pipeline & Forecast */}
-              <th className="p-3 min-w-[130px] bg-purple-500/5 text-purple-400 border-l border-border">Quote Date</th>
-              <th className="p-3 min-w-[120px] bg-purple-500/5 text-purple-400">Quoted (OMR)</th>
-              <th className="p-3 min-w-[120px] bg-purple-500/5 text-purple-400">Exp. Govt Fee</th>
-              <th className="p-3 min-w-[120px] bg-purple-500/5 text-purple-400 font-black">Exp. Profit</th>
-              <th className="p-3 min-w-[130px] bg-purple-500/5 text-purple-400">Exp. Close Date</th>
+              <th className="p-3 min-w-[130px] bg-card text-purple-400 border-l border-border">Quote Date</th>
+              <th className="p-3 min-w-[120px] bg-card text-purple-400">Quoted (OMR)</th>
+              <th className="p-3 min-w-[120px] bg-card text-purple-400">Exp. Govt Fee</th>
+              <th className="p-3 min-w-[120px] bg-card text-purple-400 font-black">Exp. Profit</th>
+              <th className="p-3 min-w-[130px] bg-card text-purple-400">Exp. Close Date</th>
 
               {/* STAGE 5: Closed Sale & Net Profit */}
-              <th className="p-3 min-w-[130px] bg-emerald-500/5 text-emerald-400 border-l border-border">Won Date</th>
-              <th className="p-3 min-w-[120px] bg-emerald-500/5 text-emerald-400">Pay Mode</th>
-              <th className="p-3 min-w-[120px] bg-emerald-500/5 text-emerald-400">Total Sale (OMR)</th>
-              <th className="p-3 min-w-[120px] bg-emerald-500/5 text-emerald-400">Govt Fee</th>
-              <th className="p-3 min-w-[130px] bg-emerald-500/10 text-emerald-300 font-black">Net Profit</th>
+              <th className="p-3 min-w-[130px] bg-card text-emerald-400 border-l border-border">Won Date</th>
+              <th className="p-3 min-w-[120px] bg-card text-emerald-400">Pay Mode</th>
+              <th className="p-3 min-w-[120px] bg-card text-emerald-400">Total Sale (OMR)</th>
+              <th className="p-3 min-w-[120px] bg-card text-emerald-400">Govt Fee</th>
+              <th className="p-3 min-w-[130px] bg-card text-emerald-300 font-black">Net Profit</th>
 
               {/* CONDITIONAL: Lead Coordinator Reassignment Columns (Sandra's Role) */}
               {(canAssignLeads || isSalesHead) && (
                 <>
-                  <th className="p-3 min-w-[170px] bg-indigo-500/10 text-indigo-300 border-l border-border">
+                  <th className="p-3 min-w-[170px] bg-card text-indigo-300 border-l border-border">
                     🎯 Reassign To
                   </th>
-                  <th className="p-3 min-w-[140px] bg-indigo-500/10 text-indigo-300">
+                  <th className="p-3 min-w-[140px] bg-card text-indigo-300">
                     Date Reassigned
                   </th>
                 </>
@@ -220,12 +402,12 @@ export const LivingDealsTable: React.FC<Props> = ({
 
               {/* Assigned Rep info for Sales Head */}
               {isSalesHead && (
-                <th className="p-3 min-w-[140px] bg-muted/60 text-muted-foreground border-l border-border">
+                <th className="p-3 min-w-[140px] bg-card text-muted-foreground border-l border-border">
                   Current Rep
                 </th>
               )}
 
-              <th className="p-3 sticky right-0 z-10 bg-muted/95 backdrop-blur text-center min-w-[80px]">
+              <th className="p-3 sticky right-0 z-40 bg-card shadow-[-2px_0_5px_rgba(0,0,0,0.2)] text-center min-w-[80px]">
                 Open
               </th>
             </tr>
@@ -288,6 +470,14 @@ export const LivingDealsTable: React.FC<Props> = ({
                         {lead.lead_code && (
                           <span className="text-[9px] font-mono bg-muted/60 text-muted-foreground px-1 py-0.5 rounded">
                             {lead.lead_code}
+                          </span>
+                        )}
+                        {lead.status && (
+                          <span className={cn(
+                            "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
+                            getStatusBadgeClass(lead.status)
+                          )}>
+                            {lead.status.replace('_', ' ')}
                           </span>
                         )}
                         {lead.is_reassigned && (
@@ -625,7 +815,7 @@ export const LivingDealsTable: React.FC<Props> = ({
                     )}
 
                     {/* View/Details Button */}
-                    <td className="p-3 sticky right-0 z-10 bg-card/95 backdrop-blur text-center">
+                    <td className="p-3 sticky right-0 z-10 bg-card/95 backdrop-blur shadow-[-2px_0_5px_rgba(0,0,0,0.1)] text-center">
                       <button
                         onClick={() => onSelectLead(lead)}
                         className="p-1.5 rounded-lg bg-muted/60 hover:bg-primary/20 hover:text-primary text-muted-foreground transition-all"

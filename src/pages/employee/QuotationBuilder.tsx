@@ -971,17 +971,23 @@ const QuotationBuilder = () => {
     setAutoSaveStatus('saving');
 
     try {
-      if (formData.lead_id && formData.lead) {
+      if (formData.lead_id) {
+        const leadUpdates: Record<string, any> = {
+          status: 'quoted',
+          second_followup_status: 'Quoted',
+          quote_date: formData.issue_date || new Date().toISOString().slice(0, 10),
+          quoted_amount: formData.total_amount,
+        };
+        if (formData.lead?.contact_name) leadUpdates.contact_name = formData.lead.contact_name;
+        if (formData.lead?.contact_phone) leadUpdates.contact_phone = formData.lead.contact_phone;
+        if (formData.lead?.contact_email) leadUpdates.contact_email = formData.lead.contact_email;
+
         const { error: leadUpdateError } = await supabase
           .from('leads')
-          .update({
-            contact_name: formData.lead.contact_name,
-            contact_phone: formData.lead.contact_phone || null,
-            contact_email: formData.lead.contact_email || null
-          })
+          .update(leadUpdates)
           .eq('id', formData.lead_id);
 
-        if (leadUpdateError) throw leadUpdateError;
+        if (leadUpdateError) console.warn('Lead quote sync warning:', leadUpdateError);
       }
 
       const quotationPayload: Invoice = {
