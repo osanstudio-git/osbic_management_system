@@ -101,6 +101,7 @@ const ApplicantCard = ({
   const isAutoUnlocked = isClientTrusted 
     || clientPaysMinistryFee 
     || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
+  const isLocked = !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.is_manager;
   const isOpsHead = Boolean(
     (profile as any)?.is_ops_head || 
