@@ -9,11 +9,12 @@ import {
   Clock, CheckCircle2, AlertCircle, Shield, ExternalLink,
   ChevronRight, ChevronDown, X, FileText, Phone, Building2, Calendar,
   Layers, Users, Info, Upload, Download, Eye, Trash2, Paperclip, Loader2,
-  Check, Wallet
+  Check, Wallet, Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { TaskAssignmentBriefing } from '../../components/employee/TaskAssignmentBriefing';
 
 // ─── Status Config ─────────────────────────────────────────────────────────────
 
@@ -59,17 +60,22 @@ const StatusUpdateSheet = ({
   task,
   onClose,
   onSuccess,
+  onOpenBriefing,
 }: {
   task: any;
   onClose: () => void;
   onSuccess: () => void;
+  onOpenBriefing?: (jobId: string, serviceId?: string) => void;
 }) => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [newStatus, setNewStatus] = useState(task.status);
   const [reason, setReason] = useState('');
   const [govRef, setGovRef] = useState('');
-  const [applicantName, setApplicantName] = useState(task.applicant_name || '');
+  const [applicantName, setApplicantName] = useState(
+    // Prefer existing applicant_name; fall back to client full_name so ops never sees blank or "Applicant 1"
+    task.applicant_name || task.job?.client?.full_name || ''
+  );
   const [isClientCaused, setIsClientCaused] = useState(false);
   const [proId, setProId] = useState(task.pro_id || '');
   const [proNotes, setProNotes] = useState(task.pro_notes || '');
@@ -218,10 +224,19 @@ const StatusUpdateSheet = ({
           <div>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
               {task.service?.name_en || task.service_name}
-              {task.quantity > 1 ? ` · #${task.item_number}` : ''}
+              {task.quantity > 1 ? ` · Person ${task.item_number} of ${task.quantity}` : ''}
             </p>
             <h3 className="font-syne font-bold text-foreground mt-0.5 flex items-center gap-2">
-              {task.applicant_name || `Applicant ${task.item_number}`}
+              {applicantName || task.job?.client?.full_name || `Person ${task.item_number}`}
+              {onOpenBriefing && (
+                <button 
+                  onClick={() => onOpenBriefing(task.job_id, task.id)}
+                  className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-lg hover:bg-amber-500/20 transition-all leading-none"
+                  title="View complete job dossier & handoff notes"
+                >
+                  <Sparkles size={9} /> Dossier
+                </button>
+              )}
               <button 
                 onClick={() => {
                   navigate(`/employee/tasks?jobId=${task.job_id}`);
@@ -233,6 +248,11 @@ const StatusUpdateSheet = ({
                 <ExternalLink size={9} /> Workspace
               </button>
             </h3>
+            {/* Client name context — always visible so ops never loses track */}
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+              Client: <span className="font-semibold text-muted-foreground">{task.job?.client?.full_name}</span>
+              {task.job?.job_code && <span className="ml-2 font-mono opacity-50">#{task.job.job_code}</span>}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl text-muted-foreground transition-colors">
             <X size={18} />
@@ -243,9 +263,16 @@ const StatusUpdateSheet = ({
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Applicant name */}
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
-              Applicant Name
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
+                Applicant Name
+              </label>
+              {!task.applicant_name && task.job?.client?.full_name && (
+                <span className="text-[8px] font-bold text-primary/70 bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                  ↩ From client record
+                </span>
+              )}
+            </div>
             <input
               type="text"
               value={applicantName}
@@ -253,6 +280,11 @@ const StatusUpdateSheet = ({
               placeholder="Enter applicant name..."
               className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-4 py-2.5 text-sm text-foreground outline-none transition-all"
             />
+            {task.quantity > 1 && (
+              <p className="text-[9px] text-muted-foreground/60">
+                Person {task.item_number} of {task.quantity} — edit to set the actual applicant's name
+              </p>
+            )}
           </div>
 
           {/* Status grid */}
@@ -540,7 +572,15 @@ const StatusUpdateSheet = ({
   );
 };
 
-const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
+const TaskRow = ({ 
+  task, 
+  onUpdate,
+  onOpenBriefing
+}: { 
+  task: any; 
+  onUpdate: () => void;
+  onOpenBriefing?: (jobId: string, serviceId?: string) => void;
+}) => {
   const [showSheet, setShowSheet] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -700,7 +740,12 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
             )}
           </h4>
           <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-            Applicant: <span className="text-foreground/80 font-medium">{task.applicant_name || <span className="italic opacity-55">No name set</span>}</span>
+            Applicant: <span className="text-foreground/80 font-medium">
+              {task.applicant_name || task.job?.client?.full_name || <span className="italic opacity-55">No name set</span>}
+            </span>
+            {task.quantity > 1 && (
+              <span className="ml-1 text-muted-foreground/50">· Person {task.item_number}/{task.quantity}</span>
+            )}
           </p>
           {outputs.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -765,6 +810,18 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+          {onOpenBriefing && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenBriefing(task.job_id, task.id);
+              }}
+              className="flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-1.5 rounded-lg transition-all border border-amber-400/25"
+              title="View full job dossier & handoff notes"
+            >
+              <Sparkles size={10} /> Dossier
+            </button>
+          )}
 
           {task.status !== 'completed' && task.status !== 'cancelled' && !isLocked && (
             <button
@@ -912,6 +969,7 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
               setShowSheet(false);
               onUpdate();
             }}
+            onOpenBriefing={onOpenBriefing}
           />
         )}
       </AnimatePresence>
@@ -920,7 +978,15 @@ const TaskRow = ({ task, onUpdate }: { task: any; onUpdate: () => void }) => {
   );
 };
 
-const GroupedJobCard = ({ group, onUpdate }: { group: any; onUpdate: () => void }) => {
+const GroupedJobCard = ({ 
+  group, 
+  onUpdate,
+  onOpenBriefing
+}: { 
+  group: any; 
+  onUpdate: () => void;
+  onOpenBriefing?: (jobId: string, serviceId?: string) => void;
+}) => {
   const navigate = useNavigate();
 
   const handleWhatsApp = (e: React.MouseEvent) => {
@@ -959,6 +1025,15 @@ const GroupedJobCard = ({ group, onUpdate }: { group: any; onUpdate: () => void 
         </div>
 
         <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          {onOpenBriefing && (
+            <button
+              onClick={() => onOpenBriefing(group.jobId)}
+              title="Open Full Case Dossier & Handoff Notes"
+              className="h-7.5 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 flex items-center gap-1 text-amber-400 text-[10px] font-bold transition-all border border-amber-500/20"
+            >
+              <Sparkles size={11} /> Case Dossier
+            </button>
+          )}
           {group.clientPhone && (
             <button
               onClick={handleWhatsApp}
@@ -981,7 +1056,12 @@ const GroupedJobCard = ({ group, onUpdate }: { group: any; onUpdate: () => void 
       {/* Services List inside the Job */}
       <div className="space-y-2">
         {group.services.map((task: any) => (
-          <TaskRow key={task.id} task={task} onUpdate={onUpdate} />
+          <TaskRow 
+            key={task.id} 
+            task={task} 
+            onUpdate={onUpdate} 
+            onOpenBriefing={onOpenBriefing}
+          />
         ))}
       </div>
     </motion.div>
@@ -996,8 +1076,15 @@ const MyTasks: React.FC = () => {
   const { profile } = useAuth();
   const { data: tasks = [], isLoading, refetch } = useMyOpsTasks(profile?.id || null);
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [briefingJobId, setBriefingJobId] = useState<string | null>(null);
+  const [briefingServiceId, setBriefingServiceId] = useState<string | null>(null);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
+
+  const handleOpenBriefing = (jobId: string, serviceId?: string) => {
+    setBriefingJobId(jobId);
+    setBriefingServiceId(serviceId || null);
+  };
 
   const now = new Date();
 
@@ -1104,11 +1191,20 @@ const MyTasks: React.FC = () => {
             {isRtl ? `لديك ${active.length} مهمة نشطة مسندة إليك` : `${active.length} active task${active.length !== 1 ? 's' : ''} assigned to you`}
           </p>
         </div>
-        {urgent.length > 0 && (
-          <div className="flex items-center gap-1.5 bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-            <AlertCircle size={12} /> {urgent.length} {isRtl ? 'عاجل' : 'Urgent'}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/employee/task-pool')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all"
+          >
+            <Sparkles size={13} />
+            <span>{isRtl ? 'سوق المهام' : '⚡ Open Pool'}</span>
+          </button>
+          {urgent.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-3 py-1.5 rounded-xl text-xs font-bold">
+              <AlertCircle size={12} /> {urgent.length} {isRtl ? 'عاجل' : 'Urgent'}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -1143,7 +1239,14 @@ const MyTasks: React.FC = () => {
               <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest flex items-center gap-1.5">
                 <AlertCircle size={11} /> {isRtl ? 'متأخرة' : 'Overdue'} — {overdue.length}
               </p>
-              {groupTasksByJob(overdue).map(group => <GroupedJobCard key={group.jobId} group={group} onUpdate={refetch} />)}
+              {groupTasksByJob(overdue).map(group => (
+                <GroupedJobCard 
+                  key={group.jobId} 
+                  group={group} 
+                  onUpdate={refetch} 
+                  onOpenBriefing={handleOpenBriefing}
+                />
+              ))}
             </div>
           )}
 
@@ -1153,7 +1256,14 @@ const MyTasks: React.FC = () => {
               <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest flex items-center gap-1.5">
                 <Clock size={11} /> {isRtl ? 'مستحقة قريباً' : 'Due Soon'} — {soonDue.length}
               </p>
-              {groupTasksByJob(soonDue).map(group => <GroupedJobCard key={group.jobId} group={group} onUpdate={refetch} />)}
+              {groupTasksByJob(soonDue).map(group => (
+                <GroupedJobCard 
+                  key={group.jobId} 
+                  group={group} 
+                  onUpdate={refetch} 
+                  onOpenBriefing={handleOpenBriefing}
+                />
+              ))}
             </div>
           )}
 
@@ -1163,7 +1273,14 @@ const MyTasks: React.FC = () => {
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                 <CheckCircle2 size={11} /> {isRtl ? 'قيد العمل' : 'In Progress'} — {onTrack.length}
               </p>
-              {groupTasksByJob(onTrack).map(group => <GroupedJobCard key={group.jobId} group={group} onUpdate={refetch} />)}
+              {groupTasksByJob(onTrack).map(group => (
+                <GroupedJobCard 
+                  key={group.jobId} 
+                  group={group} 
+                  onUpdate={refetch} 
+                  onOpenBriefing={handleOpenBriefing}
+                />
+              ))}
             </div>
           )}
 
@@ -1182,10 +1299,28 @@ const MyTasks: React.FC = () => {
               <p className="text-sm text-muted-foreground">{isRtl ? 'لا توجد مهام في هذه الفئة' : 'No tasks in this category'}</p>
             </div>
           ) : (
-            groupTasksByJob(displayTasks).map(group => <GroupedJobCard key={group.jobId} group={group} onUpdate={refetch} />)
+            groupTasksByJob(displayTasks).map(group => (
+              <GroupedJobCard 
+                key={group.jobId} 
+                group={group} 
+                onUpdate={refetch} 
+                onOpenBriefing={handleOpenBriefing}
+              />
+            ))
           )}
         </div>
       )}
+
+      {/* Case Dossier & Handoff Briefing Modal */}
+      <TaskAssignmentBriefing
+        jobId={briefingJobId || ''}
+        currentServiceId={briefingServiceId || undefined}
+        isOpen={!!briefingJobId}
+        onClose={() => {
+          setBriefingJobId(null);
+          setBriefingServiceId(null);
+        }}
+      />
     </div>
   );
 };

@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, Plus, Calendar, MessageSquare, 
   CheckCircle2, AlertCircle, Clock, User, X, Coins,
   Upload, FileText, Eye, Download, Loader2, Layers,
-  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock
+  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JobLedger } from './JobLedger';
@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import MessagesTab from '../jobs/MessagesTab';
 import DocumentsTab from '../jobs/DocumentsTab';
+import { TaskAssignmentBriefing } from './TaskAssignmentBriefing';
 import { 
   useJobServices, 
   useUpdateJobServiceStep, 
@@ -100,8 +101,12 @@ const ApplicantCard = ({
   const isAutoUnlocked = isClientTrusted 
     || clientPaysMinistryFee 
     || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee);
-  const isLocked = !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.is_manager;
+  const isOpsHead = Boolean(
+    (profile as any)?.is_ops_head || 
+    profile?.is_manager || 
+    profile?.role === 'admin'
+  );
 
   const handleToggleLock = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -127,11 +132,21 @@ const ApplicantCard = ({
   const updateStepMutation = useUpdateJobServiceStep();
   const addStepMutation = useAddJobServiceStep();
 
-  const handleToggleStep = async (stepId: string, currentStatus: string) => {
+  const handleToggleStep = async (stepId: string, currentStatus: string, stepIndex?: number) => {
     if (isLocked) {
       toast.error('This service is locked until funds are allocated by Sales.');
       return;
     }
+
+    // Sequential Step Locking: cannot mark step completed if earlier steps are pending
+    if (currentStatus !== 'completed' && typeof stepIndex === 'number' && stepIndex > 0) {
+      const prevStep = js.steps?.[stepIndex - 1];
+      if (prevStep && prevStep.status !== 'completed' && prevStep.status !== 'skipped') {
+        toast.error(`Sequential workflow: Please complete previous step "${prevStep.step_name}" first.`);
+        return;
+      }
+    }
+
     const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
     try {
       await updateStepMutation.mutateAsync({
@@ -371,8 +386,27 @@ const ApplicantCard = ({
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               <StatusBadge status={js.status} />
               <DeadlineBadge dateStr={js.deadline} status={js.status} />
-              {js.ops_employee && (
-                <span className="text-[9px] text-muted-foreground whitespace-nowrap">· Ops: {(js.ops_employee as any).full_name}</span>
+              {js.ops_employee ? (
+                <span className="text-[9px] font-bold text-foreground/80 bg-muted/60 border border-border/50 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <User size={10} className="text-primary" />
+                  Ops: {(js.ops_employee as any).full_name}
+                </span>
+              ) : (
+                <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                  <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap animate-pulse">
+                    <AlertCircle size={10} /> Unassigned
+                  </span>
+                  {isOpsHead && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenStatusSheet(js)}
+                      className="text-[9px] font-bold text-primary hover:text-white bg-primary/10 hover:bg-primary border border-primary/25 px-2 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
+                      title="Assign Ops Employee"
+                    >
+                      <UserPlus size={10} /> Assign
+                    </button>
+                  )}
+                </div>
               )}
               {js.pro_agent && (
                 <span className="text-[9px] text-amber-400 whitespace-nowrap">· PRO: {(js.pro_agent as any).full_name}</span>
@@ -463,38 +497,60 @@ const ApplicantCard = ({
                 </h4>
                 
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                  {js.steps?.map((step: any) => (
-                    <div key={step.id} className="flex items-start justify-between gap-3 p-3 bg-muted/20 border border-border/40 rounded-xl">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={step.status === 'completed'}
-                          onChange={() => handleToggleStep(step.id, step.status)}
-                          className="mt-0.5 w-4 h-4 rounded border-border text-primary focus:ring-primary bg-background outline-none cursor-pointer"
-                        />
-                        <div className="min-w-0">
-                          <p className={`text-xs font-bold leading-tight ${step.status === 'completed' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                            {step.step_name}
-                          </p>
-                          <p className="text-[9px] text-muted-foreground mt-0.5 uppercase tracking-wider font-semibold">
-                            Status: {step.status.replace('_', ' ')}
-                          </p>
-                        </div>
-                      </div>
+                  {js.steps?.map((step: any, idx: number) => {
+                    const isStepLocked = idx > 0 && js.steps[idx - 1]?.status !== 'completed' && js.steps[idx - 1]?.status !== 'skipped';
 
-                      {/* Step Assignee Selector */}
-                      <select
-                        value={step.assigned_to || ''}
-                        onChange={(e) => handleUpdateStepAssignee(step.id, e.target.value)}
-                        className="bg-muted/40 border border-border/60 rounded-lg px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:border-primary/40 focus:border-primary cursor-pointer outline-none shrink-0"
+                    return (
+                      <div 
+                        key={step.id} 
+                        className={`flex items-start justify-between gap-3 p-3 border rounded-xl transition-all ${
+                          isStepLocked
+                            ? 'bg-muted/10 border-border/30 opacity-60'
+                            : 'bg-muted/20 border-border/40'
+                        }`}
                       >
-                        <option value="">Unassigned</option>
-                        {employees.filter(e => e.can_do_ops || e.role === 'employee').map(e => (
-                          <option key={e.id} value={e.id}>{e.full_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
+                        <div className="flex items-start gap-3 min-w-0">
+                          {isStepLocked ? (
+                            <span className="mt-0.5 text-muted-foreground p-0.5" title={`Locked until previous step (${js.steps[idx - 1]?.step_name}) is completed`}>
+                              <Lock size={14} className="text-muted-foreground/60" />
+                            </span>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={step.status === 'completed'}
+                              onChange={() => handleToggleStep(step.id, step.status, idx)}
+                              className="mt-0.5 w-4 h-4 rounded border-border text-primary focus:ring-primary bg-background outline-none cursor-pointer"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold leading-tight ${step.status === 'completed' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                              {step.step_name}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground mt-0.5 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                              <span>Status: {step.status.replace('_', ' ')}</span>
+                              {isStepLocked && (
+                                <span className="text-[8px] font-bold text-amber-400 bg-amber-400/10 px-1 rounded">
+                                  🔒 Waiting on Step {idx}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Step Assignee Selector */}
+                        <select
+                          value={step.assigned_to || ''}
+                          onChange={(e) => handleUpdateStepAssignee(step.id, e.target.value)}
+                          className="bg-muted/40 border border-border/60 rounded-lg px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:border-primary/40 focus:border-primary cursor-pointer outline-none shrink-0"
+                        >
+                          <option value="">Unassigned</option>
+                          {employees.filter(e => e.can_do_ops || e.role === 'employee').map(e => (
+                            <option key={e.id} value={e.id}>{e.full_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
 
                   {(!js.steps || js.steps.length === 0) && (
                     <p className="text-xs text-muted-foreground italic">No checklist steps initialized for this applicant.</p>
@@ -759,6 +815,7 @@ const ServiceStatusSheet = ({
   const [rejectionReason, setRejectionReason] = useState(service.rejection_reason || '');
   const [applicantName, setApplicantName] = useState(service.applicant_name || '');
   const [notes, setNotes] = useState(service.notes || '');
+  const [handoffNote, setHandoffNote] = useState('');
   const [opsEmployeeId, setOpsEmployeeId] = useState(service.ops_employee_id || '');
   const [deadline, setDeadline] = useState(service.deadline || '');
   const [issueDate, setIssueDate] = useState((service as any).issue_date || '');
@@ -1155,6 +1212,22 @@ const ServiceStatusSheet = ({
         } as any) as any);
       }
 
+      // Record Handoff Note for the next team member if provided
+      if (handoffNote.trim()) {
+        try {
+          await supabase.from('job_handoff_notes').insert({
+            job_id: jobId,
+            job_service_id: service.id,
+            from_employee_id: profile?.id,
+            stage_name: service.service_name,
+            note_text: handoffNote.trim(),
+            created_at: new Date().toISOString()
+          } as any);
+        } catch (noteErr) {
+          console.warn('Could not record handoff note:', noteErr);
+        }
+      }
+
       toast.success('Service status updated');
       onUpdated();
       onClose();
@@ -1374,6 +1447,24 @@ const ServiceStatusSheet = ({
               rows={2}
               placeholder="Internal notes for this service item..."
               className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-4 py-2.5 text-sm text-foreground outline-none transition-all resize-none"
+            />
+          </div>
+
+          {/* Handoff Note for Next Team Member */}
+          <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles size={11} />
+                Team Handoff Note (For Next Specialist)
+              </label>
+              <span className="text-[8px] font-medium text-muted-foreground">Appears in Case Dossier</span>
+            </div>
+            <textarea
+              value={handoffNote}
+              onChange={(e) => setHandoffNote(e.target.value)}
+              rows={2}
+              placeholder="e.g. KYC approved, customer prefers WhatsApp for visa stamp, trade license received..."
+              className="w-full bg-background/50 border border-amber-500/30 focus:border-amber-400 rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none transition-all resize-none"
             />
           </div>
 
@@ -1858,6 +1949,7 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
   const [steps, setSteps] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isBriefingOpen, setIsBriefingOpen] = useState(false);
 
   // Fetch messages reactively via React Query
   const { data: messages = [] } = useQuery({
@@ -2318,6 +2410,13 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
               </span>
             )}
           </button>
+          <button 
+            onClick={() => setIsBriefingOpen(true)}
+            className="pb-4 text-sm font-bold uppercase tracking-widest border-b-2 border-transparent text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 ml-auto"
+            title="Open comprehensive job dossier and handoff briefing"
+          >
+            <Sparkles size={14} /> Case Dossier
+          </button>
         </div>
       </div>
 
@@ -2620,6 +2719,13 @@ export const JobDetailsView = ({ job, onUpdated }: { job: any; onUpdated?: () =>
             </div>
           )}
         </AnimatePresence>
+
+        {/* Case Dossier & Handoff Briefing Modal */}
+        <TaskAssignmentBriefing
+          jobId={job.id}
+          isOpen={isBriefingOpen}
+          onClose={() => setIsBriefingOpen(false)}
+        />
     </div>
   );
 };

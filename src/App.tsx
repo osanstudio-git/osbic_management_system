@@ -74,6 +74,8 @@ import BranchApprovals from './pages/employee/BranchApprovals';
 import WalkinSales from './pages/employee/WalkinSales';
 import SalesTeamReports from './pages/employee/SalesTeamReports';
 import OpsTeamReports from './pages/employee/OpsTeamReports';
+import OpsCommandCenter from './pages/employee/OpsCommandCenter';
+import TaskPool from './pages/employee/TaskPool';
 
 
 
@@ -511,6 +513,8 @@ function App() {
               <Route path="marketing" element={<MarketingHub />} />
               <Route path="packages/groups/:id" element={<PackageGroupDetail />} />
               <Route path="my-tasks" element={<MyTasks />} />
+              <Route path="task-pool" element={<TaskPool />} />
+              <Route path="open-tasks" element={<TaskPool />} />
               <Route path="pro-queue" element={<ProQueue />} />
               <Route path="accounts" element={<AccountsDashboard />} />
               <Route path="team" element={<BranchTeam />} />
@@ -527,6 +531,8 @@ function App() {
               <Route path="sales-reports" element={<SalesTeamReports />} />
               <Route path="ops-team-reports" element={<OpsTeamReports />} />
               <Route path="ops-hub" element={<OpsTeamReports />} />
+              <Route path="ops-command" element={<OpsCommandCenter />} />
+              <Route path="ops-command-center" element={<OpsCommandCenter />} />
             </Route>
 
             {/* Client Portal */}

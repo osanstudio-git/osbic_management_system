@@ -68,6 +68,8 @@ export interface JobServiceStep {
   completed_at: string | null;
   is_client_visible: boolean;
   notes: string | null;
+  requires_step_id?: string | null;
+  is_locked?: boolean;
   created_at: string;
   assigned_employee?: { full_name: string } | null;
   pro_agent?: { full_name: string } | null;
@@ -86,6 +88,10 @@ export interface JobService {
   ops_employee_id: string | null;
   assigned_by: string | null;
   assigned_at: string | null;
+  assignment_model?: 'direct' | 'pool';
+  pool_posted_at?: string | null;
+  pool_claimed_at?: string | null;
+  pool_claimed_by?: string | null;
   status: JobServiceStatus;
   pending_reason: string | null;
   rejection_reason: string | null;

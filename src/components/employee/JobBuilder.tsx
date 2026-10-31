@@ -355,6 +355,7 @@ export const JobBuilder = ({
         const insertServiceId = line.isCustom ? fallbackServiceId : line.service_id;
 
         // Create quantity copies for this service
+        const clientFullName = selectedClient?.full_name || null;
         const rows = Array.from({ length: line.quantity }, (_, i) => ({
           job_id: job.id,
           service_id: insertServiceId,
@@ -362,7 +363,10 @@ export const JobBuilder = ({
           display_order: displayOrder + i,
           quantity: line.quantity,
           item_number: i + 1,
-          applicant_name: null,
+          // Autofill: item 1 gets client name, additional get numbered labels
+          applicant_name: line.quantity === 1
+            ? clientFullName
+            : (i === 0 ? clientFullName : null),
           status: 'pending',
           work_fee: line.work_fee,
           ministry_fee: line.ministry_fee,

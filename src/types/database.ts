@@ -627,6 +627,10 @@ export interface Database {
         started_at: string | null
         completed_at: string | null
         deadline: string | null
+        assignment_model: 'direct' | 'pool' | null
+        pool_posted_at: string | null
+        pool_claimed_at: string | null
+        pool_claimed_by: string | null
         notes: string | null
         created_at: string
         updated_at: string
@@ -647,6 +651,8 @@ export interface Database {
         pro_shared_at: string | null
         pro_status: string | null
         government_ref: string | null
+        requires_step_id: string | null
+        is_locked: boolean | null
         estimated_days_min: number | null
         estimated_days_max: number | null
         started_at: string | null
@@ -656,6 +662,18 @@ export interface Database {
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at'>
+
+      job_handoff_notes: TableDef<{
+        id: string
+        job_id: string
+        job_service_id: string | null
+        job_service_step_id: string | null
+        from_employee_id: string | null
+        to_employee_id: string | null
+        stage_name: string | null
+        note_text: string
+        created_at: string
+      }, 'id' | 'created_at'>
 
       job_service_documents: TableDef<{
         id: string
@@ -786,6 +804,13 @@ export interface Database {
           p_customer_name: string | null
           p_customer_phone?: string | null
           p_status?: string
+        }
+        Returns: any
+      }
+      claim_pool_task: {
+        Args: {
+          p_job_service_id: string
+          p_employee_id: string
         }
         Returns: any
       }
