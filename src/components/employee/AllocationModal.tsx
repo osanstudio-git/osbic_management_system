@@ -190,7 +190,13 @@ export const AllocationModal = ({
       }
 
       // 2. Prepare new allocation records (allow custom amounts based on activities)
-      const recordsToInsert = [];
+      const recordsToInsert: Array<{
+        payment_id: string;
+        job_service_id: string;
+        amount: number;
+        allocation_type: 'ministry_fee' | 'service_fee';
+        created_by: string | null;
+      }> = [];
       const serviceUpdates = [];
 
       for (const [serviceId, amountStr] of Object.entries(allocations)) {
@@ -208,7 +214,7 @@ export const AllocationModal = ({
             payment_id: payment.id,
             job_service_id: serviceId,
             amount: allocMinistry,
-            allocation_type: 'ministry_fee',
+            allocation_type: 'ministry_fee' as const,
             created_by: payment.recorded_by || (payment as any).created_by || null
           });
         }
