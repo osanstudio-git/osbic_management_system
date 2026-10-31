@@ -206,7 +206,7 @@ const EmployeeLayout: React.FC = () => {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir={isRtl ? 'rtl' : 'ltr'}>
       <GlobalNotificationListener />
-      {/* Removed AssignmentBanner for immediate direct task activation workflow */}
+      <AssignmentBanner />
       <QuickUpdateWidget />
       {/* Mobile Menu Overlay */}
       <AnimatePresence>

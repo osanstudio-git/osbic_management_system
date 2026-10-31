@@ -181,6 +181,7 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
           ops_employee_id: opsEmployeeId,
           assigned_by: headId,
           assigned_at: now,
+          acceptance_status: (opsEmployeeId && opsEmployeeId !== headId) ? 'pending_acceptance' : 'accepted',
           status: opsEmployeeId ? 'in_progress' : 'pending',
           updated_at: now,
         })

@@ -1131,9 +1131,15 @@ const ServiceStatusSheet = ({
         payload.deadline = deadline || null;
         payload.target_completion_date = deadline || null;
 
-        // Assignment directly goes into accepted state
+        // If assigned to another worker, require acceptance offer modal
         if (opsEmployeeId !== service.ops_employee_id) {
-          payload.acceptance_status = 'accepted';
+          payload.acceptance_status = (opsEmployeeId && opsEmployeeId !== profile?.id)
+            ? 'pending_acceptance'
+            : 'accepted';
+          if (opsEmployeeId && opsEmployeeId !== profile?.id) {
+            payload.assigned_by = profile?.id;
+            payload.assigned_at = new Date().toISOString();
+          }
         }
       }
 
@@ -1192,6 +1198,23 @@ const ServiceStatusSheet = ({
           is_delay_event: false,
           is_client_caused: false
         } as any) as any);
+
+        if (opsEmployeeId && opsEmployeeId !== profile?.id) {
+          await supabase.from('notifications').insert({
+            recipient_id: opsEmployeeId,
+            sender_id: profile?.id || null,
+            job_id: jobId,
+            type: 'action_required',
+            title_en: `New Work Assignment: ${service.service_name || 'Service'}`,
+            title_ar: `تعيين عمل جديد: ${service.service_name || 'خدمة'}`,
+            body_en: `${profile?.full_name || 'Sales team'} assigned you ${service.service_name || 'a service'} in job ${job?.job_code || ''}. Please review and accept.`,
+            body_ar: `قام ${profile?.full_name || 'فريق المبيعات'} بتعيين ${service.service_name || 'خدمة'} لك في المعاملة ${job?.job_code || ''}.`,
+            action_url: `/employee/tasks?jobId=${jobId}`,
+            is_read: false,
+            action_required: true,
+            created_at: new Date().toISOString()
+          } as any);
+        }
       }
 
       // Log status transition to timeline

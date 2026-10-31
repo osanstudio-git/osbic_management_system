@@ -374,12 +374,31 @@ export const JobBuilder = ({
           ops_employee_id: assignedTo || profile?.id,
           assigned_by: profile?.id,
           assigned_at: new Date().toISOString(),
+          acceptance_status: (assignedTo && assignedTo !== profile?.id) ? 'pending_acceptance' : 'accepted',
           notes: line.notes || null,
         }));
 
         const { error: svcErr } = await (supabase.from('job_services').insert(rows as any) as any);
         if (svcErr) throw svcErr;
         displayOrder += line.quantity;
+      }
+
+      // Notify assigned ops employee if different from current creator
+      if (assignedTo && assignedTo !== profile?.id) {
+        await supabase.from('notifications').insert({
+          recipient_id: assignedTo,
+          sender_id: profile?.id || null,
+          job_id: job.id,
+          type: 'action_required',
+          title_en: `New Job Assigned: ${job.job_code || ''}`,
+          title_ar: `تم تعيين معاملة جديدة: ${job.job_code || ''}`,
+          body_en: `${profile?.full_name || 'Sales team'} assigned you a new job (${job.job_code || ''}). Please review and accept.`,
+          body_ar: `قام ${profile?.full_name || 'فريق المبيعات'} بتعيين معاملة جديدة لك (${job.job_code || ''}).`,
+          action_url: `/employee/tasks?jobId=${job.id}`,
+          is_read: false,
+          action_required: true,
+          created_at: new Date().toISOString()
+        } as any);
       }
 
       toast.success('Job created successfully!');
