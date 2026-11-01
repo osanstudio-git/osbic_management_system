@@ -148,16 +148,16 @@ const EmployeeLayout: React.FC = () => {
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
     ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
     ...(isSalesHead ? [
-      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : '👑 Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
+      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
     ] : []),
     ...(isOpsHead ? [
-      { key: 'ops_command', label: isRtl ? 'غرفة عمليات التوزيع' : '🎯 Ops Command Center', icon: Compass, path: '/employee/ops-command' },
-      { key: 'ops_team_reports', label: isRtl ? 'مركز فريق العمليات' : '⚙️ Ops Team Hub', icon: Briefcase, path: '/employee/ops-team-reports' }
+      { key: 'ops_command', label: isRtl ? 'غرفة عمليات التوزيع' : 'Ops Command Center', icon: Compass, path: '/employee/ops-command' },
+      { key: 'ops_team_reports', label: isRtl ? 'مركز فريق العمليات' : 'Ops Team Hub', icon: Briefcase, path: '/employee/ops-team-reports' }
     ] : []),
     { key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
     { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
     // Open Task Pool Marketplace — open for ops employees to claim tasks
-    ...(profile?.can_do_ops ? [{ key: 'task_pool', label: isRtl ? 'سوق المهام المتاح' : '⚡ Task Marketplace', icon: Sparkles, path: '/employee/task-pool' }] : []),
+    ...(profile?.can_do_ops ? [{ key: 'task_pool', label: isRtl ? 'سوق المهام المتاح' : 'Task Marketplace', icon: Sparkles, path: '/employee/task-pool' }] : []),
     // Ops queue — shown if employee can do ops work
     ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
     // Daily Sales — shown for ops employees

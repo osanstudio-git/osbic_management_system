@@ -120,8 +120,8 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
     queryFn: async (): Promise<OpsEmployeeRoster[]> => {
       let q = supabase
         .from('profiles')
-        .select('id, full_name, email, phone, avatar_url, employee_code, is_ops_head, is_pro, can_do_ops, branch_id')
-        .or('can_do_ops.eq.true,is_ops_head.eq.true,role.eq.employee');
+        .select('id, full_name, email, phone, avatar_url, employee_code, is_ops_head, is_pro, can_do_ops, department, is_active, branch_id')
+        .or('can_do_ops.eq.true,department.eq.operations,is_pro.eq.true,is_ops_head.eq.true');
 
       if (branchId) {
         q = q.eq('branch_id', branchId);
@@ -130,9 +130,15 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
       const { data: emps, error } = await q;
       if (error) throw error;
 
+      // Filter: ONLY active employees belonging to Operations
+      const opsEmps = (emps || []).filter((emp: any) => 
+        emp.is_active !== false &&
+        (emp.can_do_ops || emp.department === 'operations' || emp.is_pro || emp.is_ops_head)
+      );
+
       const services = servicesQuery.data || [];
 
-      return (emps || []).map((emp: any) => {
+      return opsEmps.map((emp: any) => {
         const empServices = services.filter(s => s.ops_employee_id === emp.id);
         const active = empServices.filter(s => !['completed', 'cancelled'].includes(s.status)).length;
         const completed = empServices.filter(s => s.status === 'completed').length;

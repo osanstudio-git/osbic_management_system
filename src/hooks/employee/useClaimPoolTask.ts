@@ -123,7 +123,7 @@ export const useClaimPoolTask = (branchId?: string | null) => {
       if (!rpcError && rpcResult) {
         if (!rpcResult.success) {
           if (rpcResult.error === 'already_claimed') {
-            throw new Error('⚡ Another specialist just claimed this task a split-second ago!');
+            throw new Error('Another specialist just claimed this task a split-second ago!');
           }
           throw new Error(rpcResult.error || 'Failed to claim task.');
         }
@@ -149,7 +149,7 @@ export const useClaimPoolTask = (branchId?: string | null) => {
 
       if (updateError) throw updateError;
       if (!updateData || updateData.length === 0) {
-        throw new Error('⚡ Another specialist just claimed this task!');
+        throw new Error('Another specialist just claimed this task!');
       }
 
       return { success: true };
@@ -158,7 +158,7 @@ export const useClaimPoolTask = (branchId?: string | null) => {
       queryClient.invalidateQueries({ queryKey: ['pool_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my_ops_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['ops_command_services'] });
-      toast.success('🎉 Task claimed successfully! Added to your My Tasks.');
+      toast.success('Task claimed successfully! Added to your My Tasks.');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to claim task');

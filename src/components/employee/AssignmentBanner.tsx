@@ -140,7 +140,7 @@ export const AssignmentBanner = ({ onAccept }: { onAccept?: () => void }) => {
 
       if (error) throw error;
 
-      toast.success('🎉 Task accepted! Added directly to your My Tasks.');
+      toast.success('Task accepted! Added directly to your My Tasks.');
       queryClient.invalidateQueries({ queryKey: ['ops_my_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my_ops_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['employee', 'jobs'] });
@@ -167,7 +167,7 @@ export const AssignmentBanner = ({ onAccept }: { onAccept?: () => void }) => {
 
       if (error) throw error;
 
-      toast('Task passed & returned to dispatch pool', { icon: '↩️' });
+      toast('Task passed and returned to dispatch pool.');
       queryClient.invalidateQueries({ queryKey: ['ops_my_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['my_ops_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['employee', 'jobs'] });
@@ -218,7 +218,7 @@ export const AssignmentBanner = ({ onAccept }: { onAccept?: () => void }) => {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
               </span>
               <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                ⚡ New Assignment Offer
+                New Assignment Offer
               </span>
               {currentTask.service?.requires_pro && (
                 <span className="text-[9px] font-bold uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">

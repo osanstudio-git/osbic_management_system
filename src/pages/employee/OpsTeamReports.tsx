@@ -229,7 +229,7 @@ export default function OpsTeamReports() {
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-              <span>⚙️ Operations Head</span>
+              <span>Operations Head</span>
               <span>•</span>
               <span>{profile?.branch_id ? 'Branch Hub' : 'Executive Overview'}</span>
             </span>
@@ -528,7 +528,7 @@ export default function OpsTeamReports() {
                               <span>{m.fullName}</span>
                               {m.isOpsHead && (
                                 <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                  ⚙️ Ops Head
+                                  Ops Head
                                 </span>
                               )}
                               {m.isPro && (
@@ -579,10 +579,10 @@ export default function OpsTeamReports() {
                           {/* Source Breakdown (Only counts, no sales person names) */}
                           <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold flex-wrap">
                             <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20" title="Assigned by sales team">
-                              🎯 {m.salesAssignedJobsCount} from Sales
+                              {m.salesAssignedJobsCount} from Sales
                             </span>
                             <span className="px-2 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border" title="Direct walk-in / enquiry intake">
-                              🏢 {m.directOpsJobsCount} Direct
+                              {m.directOpsJobsCount} Direct
                             </span>
                           </div>
                         </div>
@@ -708,7 +708,7 @@ export default function OpsTeamReports() {
                         <h3 className="text-lg font-extrabold text-foreground">{currentSelectedMember.fullName}</h3>
                         {currentSelectedMember.isOpsHead && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            ⚙️ Ops Head
+                            Ops Head
                           </span>
                         )}
                         {currentSelectedMember.isPro && (
@@ -1249,7 +1249,7 @@ export default function OpsTeamReports() {
             <div>
               <h1 className="text-2xl font-black tracking-wider text-black">OSBIC INTERNATIONAL</h1>
               <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mt-0.5">
-                Executive Operations & Workload Report • ⚙️ Ops Lead
+                Executive Operations & Workload Report • Ops Lead
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Period: <strong>{dateLabel}</strong> • Generated on {format(new Date(), 'dd MMMM yyyy, hh:mm a')}

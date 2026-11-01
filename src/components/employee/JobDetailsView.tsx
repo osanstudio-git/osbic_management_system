@@ -564,7 +564,7 @@ const ApplicantCard = ({
                           className="bg-muted/40 border border-border/60 rounded-lg px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:border-primary/40 focus:border-primary cursor-pointer outline-none shrink-0"
                         >
                           <option value="">Unassigned</option>
-                          {employees.filter(e => e.can_do_ops || e.role === 'employee').map(e => (
+                          {employees.filter(e => e.is_active !== false && (e.can_do_ops || e.department === 'operations' || e.is_pro || e.is_ops_head)).map(e => (
                             <option key={e.id} value={e.id}>{e.full_name}</option>
                           ))}
                         </select>
@@ -860,9 +860,10 @@ const ServiceStatusSheet = ({
   const isSalesOnly = !!(profile?.can_do_sales && !profile?.can_do_ops && !profile?.is_manager && profile?.role !== 'admin');
   const isStatusDisabled = isSalesOnly && opsEmployeeId !== profile?.id;
 
+  const isOpsStaff = (e: any) => e.is_active !== false && (e.can_do_ops || e.department === 'operations' || e.is_pro || e.is_ops_head);
   const filteredEmployees = isOpsOnly
-    ? employees.filter((e: any) => (e.can_do_ops || e.role === 'employee') && e.id !== profile?.id)
-    : employees.filter((e: any) => e.can_do_ops || e.role === 'employee');
+    ? employees.filter((e: any) => isOpsStaff(e) && e.id !== profile?.id)
+    : employees.filter((e: any) => isOpsStaff(e));
 
   useEffect(() => {
     if (service.id) {
@@ -2308,8 +2309,12 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     const mergedDocs = await fetchCombinedDocuments(job.id);
     setJobDocuments(mergedDocs);
 
-    // Fetch employees for assignment
-    const { data: empData } = await supabase.from('profiles').select('id, full_name, availability_status, role, is_pro, can_do_ops, can_do_sales').eq('role', 'employee');
+    // Fetch active employees for assignment
+    const { data: empData } = await supabase
+      .from('profiles')
+      .select('id, full_name, availability_status, role, is_pro, can_do_ops, can_do_sales, department, is_ops_head, is_active')
+      .neq('is_active', false)
+      .eq('role', 'employee');
 
     if (stepData) {
       // Sort by workflow_step order if available

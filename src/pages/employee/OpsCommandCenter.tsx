@@ -150,7 +150,7 @@ export default function OpsCommandCenter() {
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-              <span>⚙️ Operations Command Center</span>
+              <span>Operations Command Center</span>
               <span>•</span>
               <span>{profile?.branch_id ? 'Branch Command' : 'HQ Command'}</span>
             </span>
@@ -194,7 +194,7 @@ export default function OpsCommandCenter() {
           }`}
         >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400">⚠️ Unassigned Tasks</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400">Unassigned Tasks</span>
             <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
               <AlertCircle size={18} />
             </div>
@@ -290,10 +290,10 @@ export default function OpsCommandCenter() {
         {/* Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {[
-            { id: 'unassigned', label: `⚠️ Unassigned (${unassignedServices.length})` },
-            { id: 'team', label: `👥 Team Workload (${employees.length})` },
-            { id: 'jobs', label: `📁 Jobs View (${jobsList.length})` },
-            { id: 'services', label: `📋 All Services (${services.length})` },
+            { id: 'unassigned', label: `Unassigned (${unassignedServices.length})` },
+            { id: 'team', label: `Team Workload (${employees.length})` },
+            { id: 'jobs', label: `Jobs View (${jobsList.length})` },
+            { id: 'services', label: `All Services (${services.length})` },
           ].map(tab => (
             <button
               key={tab.id}
@@ -587,7 +587,7 @@ export default function OpsCommandCenter() {
                       {svc.ops_employee ? (
                         <span className="font-medium text-foreground">{svc.ops_employee.full_name}</span>
                       ) : (
-                        <span className="text-rose-400 font-bold">⚠️ Unassigned</span>
+                        <span className="text-rose-400 font-bold">Unassigned</span>
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">

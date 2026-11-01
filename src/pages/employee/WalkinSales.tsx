@@ -773,13 +773,13 @@ const WalkinSales: React.FC = () => {
             onClick={handleAddEnquiry}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm"
           >
-            <MessageSquare size={16} /> + Quick Enquiry
+            <MessageSquare size={16} /> Quick Enquiry
           </button>
           <button
             onClick={handleAddSale}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
           >
-            <Plus size={18} /> + Add New Sale
+            <Plus size={18} /> Add New Sale
           </button>
         </div>
       </div>

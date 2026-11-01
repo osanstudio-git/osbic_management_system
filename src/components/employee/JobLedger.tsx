@@ -986,7 +986,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                                     {service.service_name}
                                   </h5>
                                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mt-0.5">
-                                    {isFree ? '⚡ Free Service (Auto-Unlocked)' : (isAutoUnlocked ? '⚡ Funded (Auto-Unlocked)' : (isServiceFunded ? '✅ Authorized for Ops' : '🔒 Locked (Awaiting Funds)'))}
+                                    {isFree ? 'Free Service (Auto-Unlocked)' : (isAutoUnlocked ? 'Funded (Auto-Unlocked)' : (isServiceFunded ? 'Authorized for Ops' : 'Locked (Awaiting Funds)'))}
                                   </p>
                                 </div>
                               </div>
@@ -995,7 +995,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                               ) : (isAutoUnlocked || service.is_funded) ? (
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 uppercase tracking-widest font-mono">
-                                    {service.is_funded && !isAutoUnlocked ? '⚡ Admin Override' : 'Funded'}
+                                    {service.is_funded && !isAutoUnlocked ? 'Admin Override' : 'Funded'}
                                   </span>
                                   {(isAdmin || isManager || canDoAccounts) && (
                                     <button

@@ -853,7 +853,7 @@ const TaskRow = ({
       {/* Handoff banner inside row if forwarded */}
       {task.acceptance_status === 'pending_acceptance' && (
         <div className="px-4 py-2 bg-yellow-500/10 border-t border-yellow-500/20 flex items-center justify-between text-[10px] text-yellow-400">
-          <span>⚠️ Pending Acceptance Confirm</span>
+          <span>Pending Acceptance Confirm</span>
           <span className="font-bold">Wait for accept</span>
         </div>
       )}
@@ -1197,7 +1197,7 @@ const MyTasks: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all"
           >
             <Sparkles size={13} />
-            <span>{isRtl ? 'سوق المهام' : '⚡ Open Pool'}</span>
+            <span>{isRtl ? 'سوق المهام' : 'Open Pool'}</span>
           </button>
           {urgent.length > 0 && (
             <div className="flex items-center gap-1.5 bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-3 py-1.5 rounded-xl text-xs font-bold">

@@ -34,9 +34,16 @@ export const OpsAssignmentPanel: React.FC<OpsAssignmentPanelProps> = ({
   const { profile } = useAuth();
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(service?.ops_employee_id || null);
 
+  const activeOpsEmployees = React.useMemo(() => {
+    return (employees || []).filter(emp => 
+      (emp as any).is_active !== false && 
+      (emp.can_do_ops || (emp as any).department === 'operations' || emp.is_pro || emp.is_ops_head)
+    );
+  }, [employees]);
+
   if (!isOpen || !service) return null;
 
-  const currentEmp = employees.find(e => e.id === (selectedEmpId || service.ops_employee_id));
+  const currentEmp = activeOpsEmployees.find(e => e.id === (selectedEmpId || service.ops_employee_id));
 
   const handleConfirm = async () => {
     await onAssign(service.id, selectedEmpId);
@@ -154,7 +161,7 @@ export const OpsAssignmentPanel: React.FC<OpsAssignmentPanelProps> = ({
               className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
               <Sparkles size={14} />
-              <span>{isPostingToPool ? 'Releasing to Pool...' : '⚡ Release to Open Marketplace Pool (Any Specialist Can Claim)'}</span>
+              <span>{isPostingToPool ? 'Releasing to Pool...' : 'Release to Open Marketplace Pool (Any Specialist Can Claim)'}</span>
             </button>
           )}
 
@@ -165,12 +172,12 @@ export const OpsAssignmentPanel: React.FC<OpsAssignmentPanelProps> = ({
                 Assign To Specialist
               </span>
               <span className="text-[10px] text-muted-foreground">
-                {employees.length} available
+                {activeOpsEmployees.length} available
               </span>
             </div>
 
             <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-              {employees.map(emp => {
+              {activeOpsEmployees.map(emp => {
                 const isSelected = selectedEmpId === emp.id;
                 const workload = emp.active_tasks_count;
                 const isHeavy = workload >= 6;

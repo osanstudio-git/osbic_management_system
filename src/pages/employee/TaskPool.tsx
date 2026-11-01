@@ -73,7 +73,7 @@ export default function TaskPool() {
             </span>
           </div>
           <h1 className="text-2xl font-black text-foreground mt-1 tracking-tight flex items-center gap-2">
-            <span>⚡ Open Task Pool</span>
+            <span>Open Task Pool</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Uber-style marketplace for corporate operations. Claim any available task to add directly to your active queue.
@@ -305,7 +305,7 @@ export default function TaskPool() {
                     ) : (
                       <>
                         <Zap size={14} className="fill-current" />
-                        <span>⚡ CLAIM THIS TASK</span>
+                        <span>Claim Task</span>
                       </>
                     )}
                   </button>

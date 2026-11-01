@@ -523,7 +523,7 @@ export default function SalesTeamReports() {
                             )}
                             {isTopRevenue && (
                               <span className="absolute -top-1 -right-1 text-[10px]" title="Top Revenue Performer">
-                                👑
+                                <Crown size={12} className="text-amber-400" />
                               </span>
                             )}
                           </div>
@@ -767,7 +767,7 @@ export default function SalesTeamReports() {
                         <h3 className="text-lg font-extrabold text-foreground">{currentSelectedRep?.fullName}</h3>
                         {currentSelectedRep?.isSalesHead && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                            👑 Sales Head
+                            Sales Head
                           </span>
                         )}
                       </div>
@@ -1210,7 +1210,7 @@ export default function SalesTeamReports() {
             <div>
               <h1 className="text-2xl font-black tracking-wider text-black">OSBIC INTERNATIONAL</h1>
               <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mt-0.5">
-                Executive Sales Team Performance Report • 👑 Sales Head
+                Executive Sales Team Performance Report • Sales Head
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Period: <strong>{dateLabel}</strong> • Generated on {format(new Date(), 'dd MMMM yyyy, hh:mm a')}

@@ -398,10 +398,10 @@ export default function EmployeeLeads() {
                   onChange={e => setSelectedRepId(e.target.value)}
                   className="bg-muted/80 border border-primary/40 text-foreground font-bold text-xs px-4 py-2 rounded-xl outline-none shadow-sm cursor-pointer hover:border-primary transition-all"
                 >
-                  <option value="all">👑 All Sales Reps (Whole Team)</option>
+                  <option value="all">All Sales Reps (Whole Team)</option>
                   {salesReps.map(rep => (
                     <option key={rep.id} value={rep.id}>
-                      {rep.full_name} {rep.is_sales_head ? '👑 (Head)' : rep.can_assign_leads ? '🎯 (Coordinator)' : ''}
+                      {rep.full_name} {rep.is_sales_head ? '(Head)' : rep.can_assign_leads ? '(Coordinator)' : ''}
                     </option>
                   ))}
                 </select>
@@ -473,8 +473,8 @@ export default function EmployeeLeads() {
       {isSalesHead && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 rounded-2xl shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
-              👑
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold shadow-sm shrink-0">
+              <Crown size={20} className="text-amber-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -770,7 +770,7 @@ export default function EmployeeLeads() {
               title="Open Sales Team Reports & Analytics"
             >
               <BarChart3 size={15} />
-              <span>👑 Team Reports</span>
+              <span>Team Reports</span>
             </Link>
           )}
         </div>
