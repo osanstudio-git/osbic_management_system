@@ -173,12 +173,12 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
         <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Sparkles size={20} />
+              <FileText size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
-                  Job Case Dossier & Handoff Briefing
+                  Job Summary & Overview
                 </span>
                 {jobData?.job_code && (
                   <span className="text-xs font-mono font-bold text-muted-foreground">
@@ -678,13 +678,13 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
         {/* Footer */}
         <div className="px-6 py-3 border-t border-border bg-muted/20 flex items-center justify-between shrink-0">
           <p className="text-[10px] text-muted-foreground">
-            Complete dossier access ensures zero context loss between team handoffs.
+            Complete job overview ensures clear context and smooth handoffs between team members.
           </p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl transition-all"
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl transition-all cursor-pointer"
           >
-            Close Dossier
+            Close Summary
           </button>
         </div>
       </motion.div>

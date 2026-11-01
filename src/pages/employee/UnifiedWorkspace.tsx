@@ -354,10 +354,10 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   return (
       <>
         {renderModals()}
-    <div className="h-full flex overflow-hidden bg-background">
+    <div className="h-full w-full min-w-0 flex overflow-hidden bg-background rounded-2xl border border-border">
       {/* ── Left Pane: Master List ── */}
       <div className={`flex flex-col border-r border-border transition-all duration-300 ${
-        (selectedJobId || selectedClientId) ? 'w-1/3 hidden lg:flex' : 'w-full lg:w-1/3'
+        (selectedJobId || selectedClientId) ? 'w-full lg:w-80 xl:w-96 shrink-0 hidden lg:flex' : 'w-full lg:w-80 xl:w-96 shrink-0'
       }`}>
         
         {/* Header & Controls */}
@@ -553,23 +553,25 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="flex-1 flex flex-col bg-card relative z-10 border-l border-border shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)] lg:shadow-none"
+            className="flex-1 min-w-0 flex flex-col bg-card relative z-10 border-l border-border shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)] lg:shadow-none overflow-hidden"
           >
              {/* We will build the StepDetailsDrawer / JobBuilder / Ledger components inside here */}
-             <div className="h-20 border-b border-border bg-background/50 backdrop-blur-md px-4 lg:px-8 flex items-center gap-4">
-                <button 
-                  onClick={() => {
-                    setSelectedJobId(null);
-                    setTaskViewMode('list');
-                    setSearchParams({});
-                  }}
-                  className="p-2 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <div>
-                   <h2 className="text-lg lg:text-xl font-syne font-bold text-foreground">Job Details</h2>
-                   <p className="text-[10px] font-bold text-primary tracking-widest uppercase">{selectedJob.job_code}</p>
+             <div className="h-16 lg:h-20 border-b border-border bg-background/50 backdrop-blur-md px-4 lg:px-6 flex items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button 
+                    onClick={() => {
+                      setSelectedJobId(null);
+                      setTaskViewMode('list');
+                      setSearchParams({});
+                    }}
+                    className="p-2 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <div className="min-w-0">
+                     <h2 className="text-base lg:text-xl font-syne font-bold text-foreground truncate">Job Details</h2>
+                     <p className="text-[10px] font-bold text-primary tracking-widest uppercase truncate">{selectedJob.job_code}</p>
+                  </div>
                 </div>
              </div>
              
@@ -581,20 +583,20 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="flex-1 flex flex-col bg-card relative z-10 border-l border-border shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)] lg:shadow-none"
+            className="flex-1 min-w-0 flex flex-col bg-card relative z-10 border-l border-border shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)] lg:shadow-none overflow-hidden"
           >
-             <div className="h-20 border-b border-border bg-background/50 backdrop-blur-md px-4 lg:px-8 flex items-center gap-4">
+             <div className="h-16 lg:h-20 border-b border-border bg-background/50 backdrop-blur-md px-4 lg:px-6 flex items-center gap-4 shrink-0">
                 <button 
                   onClick={() => {
                     setSelectedClientId(null);
                     setClientViewMode('list');
                   }}
-                  className="p-2 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="p-2 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={18} />
                 </button>
-                <div>
-                   <h2 className="text-lg lg:text-xl font-syne font-bold text-foreground">Client Details</h2>
+                <div className="min-w-0">
+                   <h2 className="text-base lg:text-xl font-syne font-bold text-foreground truncate">Client Details</h2>
                 </div>
              </div>
              

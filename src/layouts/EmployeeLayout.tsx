@@ -422,7 +422,13 @@ const EmployeeLayout: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative">
+        <div className={`flex-1 min-w-0 overflow-y-auto relative ${
+          location.pathname.startsWith('/employee/tasks') ||
+          location.pathname.startsWith('/employee/clients') ||
+          location.pathname.startsWith('/employee/pipeline')
+            ? 'p-2 sm:p-4 lg:p-5'
+            : 'p-4 lg:p-8'
+        }`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -430,7 +436,7 @@ const EmployeeLayout: React.FC = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: -10 }}
               transition={{ duration: 0.35 }}
-              className="h-full"
+              className="h-full min-w-0 w-full"
             >
               <Outlet />
             </motion.div>

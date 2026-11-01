@@ -3,11 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { 
-  ChevronDown, ChevronUp, Plus, Calendar, MessageSquare, 
+import {
+  ChevronDown, ChevronUp, Plus, Calendar, MessageSquare,
   CheckCircle2, AlertCircle, Clock, User, X, Coins,
   Upload, FileText, Eye, Download, Loader2, Layers,
-  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus, UserCheck
+  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus, UserCheck,
+  Pencil, Check, Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JobLedger } from './JobLedger';
@@ -17,13 +18,13 @@ import { useQuery } from '@tanstack/react-query';
 import MessagesTab from '../jobs/MessagesTab';
 import DocumentsTab from '../jobs/DocumentsTab';
 import { TaskAssignmentBriefing } from './TaskAssignmentBriefing';
-import { 
-  useJobServices, 
-  useUpdateJobServiceStep, 
-  useAddJobServiceStep, 
-  type JobService, 
-  type JobServiceStatus, 
-  type JobServiceStep 
+import {
+  useJobServices,
+  useUpdateJobServiceStep,
+  useAddJobServiceStep,
+  type JobService,
+  type JobServiceStatus,
+  type JobServiceStep
 } from '../../hooks/employee/useJobServices';
 import { useJobTimeline } from '../../hooks/employee/useTimeline';
 import { JobTimelinePanel } from '../jobs/JobTimelinePanel';
@@ -34,7 +35,7 @@ const CustomSelect = ({ value, options, onChange, className = '' }: any) => {
 
   return (
     <div className="relative">
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center justify-between gap-3 outline-none ${className}`}
       >
@@ -46,7 +47,7 @@ const CustomSelect = ({ value, options, onChange, className = '' }: any) => {
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
@@ -60,9 +61,8 @@ const CustomSelect = ({ value, options, onChange, className = '' }: any) => {
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`text-left px-4 py-2.5 text-[10px] uppercase font-bold tracking-widest transition-colors ${
-                    value === opt.value ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  }`}
+                  className={`text-left px-4 py-2.5 text-[10px] uppercase font-bold tracking-widest transition-colors ${value === opt.value ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
                 >
                   {opt.label}
                 </button>
@@ -75,16 +75,16 @@ const CustomSelect = ({ value, options, onChange, className = '' }: any) => {
   );
 };
 
-const ApplicantCard = ({ 
-  js, 
-  employees, 
-  job, 
+const ApplicantCard = ({
+  js,
+  employees,
+  job,
   onUpdated,
   onOpenStatusSheet
-}: { 
-  js: any; 
-  employees: any[]; 
-  job: any; 
+}: {
+  js: any;
+  employees: any[];
+  job: any;
   onUpdated: () => void;
   onOpenStatusSheet: (js: any) => void;
 }) => {
@@ -93,10 +93,21 @@ const ApplicantCard = ({
   const [isAddingStep, setIsAddingStep] = useState(false);
   const { profile } = useAuth();
   const [isUploadingDoc, setIsUploadingDoc] = useState<string | null>(null);
+
+  // Applicant Name inline editing
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [customName, setCustomName] = useState(js.applicant_name || '');
+
+  // Registered & Expiry dates for deliverables / renewal tracking
+  const [issueDate, setIssueDate] = useState(js.issue_date ? js.issue_date.split('T')[0] : '');
+  const [expiryDate, setExpiryDate] = useState(js.expiry_date ? js.expiry_date.split('T')[0] : '');
+  const [isSavingDates, setIsSavingDates] = useState(false);
+  const [isUploadingGovReceipt, setIsUploadingGovReceipt] = useState(false);
+
   const isClientTrusted = job?.client?.is_trusted === true;
   const clientPaysMinistryFee = job?.client_pays_ministry_fee === true;
   const isJobFullyPaid = Boolean(
-    job?.remaining_paid === true || 
+    job?.remaining_paid === true ||
     Number(job?.remaining_amount || 0) <= 0 ||
     (Number(job?.advance_amount || 0) >= Number(job?.total_fee || 0) && Number(job?.total_fee || 0) > 0)
   );
@@ -106,15 +117,9 @@ const ApplicantCard = ({
   const reqMinistryFee = Number(js.ministry_fee) || 0;
   const isFree = Number(js.total_fee) === 0;
 
-  // Auto-unlock if:
-  // 1. Client is trusted
-  // 2. Client pays ministry fee directly with their card
-  // 3. Service is completely free (0 OMR)
-  // 4. Job is fully paid (no remaining balance on project)
-  // 5. Required ministry fee (> 0) has been allocated
-  // 6. Service has no ministry fee (<= 0) and advance or full payment is received
-  const isAutoUnlocked = isClientTrusted 
-    || clientPaysMinistryFee 
+  // Auto-unlock logic
+  const isAutoUnlocked = isClientTrusted
+    || clientPaysMinistryFee
     || isFree
     || isJobFullyPaid
     || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
@@ -123,17 +128,17 @@ const ApplicantCard = ({
   const isLocked = !js.is_funded && !isAutoUnlocked && (Number(js.total_fee) > 0);
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.is_manager;
   const isOpsHead = Boolean(
-    (profile as any)?.is_ops_head || 
-    profile?.is_manager || 
+    (profile as any)?.is_ops_head ||
+    profile?.is_manager ||
     profile?.role === 'admin'
   );
 
-  const assignerName = 
-    js.assigner?.full_name || 
+  const assignerName =
+    js.assigner?.full_name ||
     job?.assigner_name ||
-    job?.assigner?.full_name || 
-    job?.sales_employee?.full_name || 
-    job?.sales_rep?.full_name || 
+    job?.assigner?.full_name ||
+    job?.sales_employee?.full_name ||
+    job?.sales_rep?.full_name ||
     (job?.assigned_by_profile as any)?.full_name ||
     null;
 
@@ -153,10 +158,117 @@ const ApplicantCard = ({
     }
   };
 
+  const handleSaveApplicantName = async () => {
+    if (!customName.trim()) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('job_services')
+        .update({ applicant_name: customName.trim() })
+        .eq('id', js.id);
+      if (error) throw error;
+      toast.success('Applicant name updated');
+      setIsEditingName(false);
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update name');
+    }
+  };
+
+  const handleSaveDates = async () => {
+    setIsSavingDates(true);
+    try {
+      const { error } = await supabase
+        .from('job_services')
+        .update({
+          issue_date: issueDate || null,
+          expiry_date: expiryDate || null
+        })
+        .eq('id', js.id);
+      if (error) throw error;
+      toast.success('Registration & Expiry dates saved');
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save dates');
+    } finally {
+      setIsSavingDates(false);
+    }
+  };
+
+  const getExpiryBadge = () => {
+    if (!js.expiry_date) return null;
+    try {
+      const days = differenceInDays(parseISO(js.expiry_date), new Date());
+      if (days < 0) {
+        return (
+          <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+            Expired ({Math.abs(days)}d ago)
+          </span>
+        );
+      } else if (days <= 30) {
+        return (
+          <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+            Expiring in {days}d
+          </span>
+        );
+      } else {
+        return (
+          <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+            Valid ({days}d left)
+          </span>
+        );
+      }
+    } catch {
+      return null;
+    }
+  };
 
   const documentsList = js.documents || [];
-  const inputs = documentsList.filter((d: any) => d.document_category !== 'output');
+  const inputs = documentsList.filter((d: any) => d.document_category !== 'output' && d.document_category !== 'gov_receipt');
   const outputs = documentsList.filter((d: any) => d.document_category === 'output');
+  const govReceipts = documentsList.filter((d: any) => d.document_category === 'gov_receipt');
+
+  const handleUploadGovReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+    setIsUploadingGovReceipt(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${job.id}/${js.id}/gov_receipt_${Date.now()}.${fileExt}`;
+      const filePath = `documents/${fileName}`;
+
+      const { error: storageError } = await supabase.storage.from('documents').upload(filePath, file);
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase
+        .from('job_service_documents')
+        .insert({
+          job_service_id: js.id,
+          job_id: job.id,
+          document_name: 'Government Fee Receipt',
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          file_type: file.type,
+          uploaded_by: profile.id,
+          upload_source: 'ops',
+          document_category: 'gov_receipt',
+          status: 'approved',
+          is_client_visible: true,
+          created_at: new Date().toISOString()
+        } as any);
+
+      if (dbError) throw dbError;
+      toast.success('Government fee receipt uploaded');
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setIsUploadingGovReceipt(false);
+    }
+  };
 
   const updateStepMutation = useUpdateJobServiceStep();
   const addStepMutation = useAddJobServiceStep();
@@ -181,7 +293,7 @@ const ApplicantCard = ({
       await updateStepMutation.mutateAsync({
         id: stepId,
         jobId: job.id,
-        updates: { 
+        updates: {
           status: newStatus,
           completed_at: newStatus === 'completed' ? new Date().toISOString() : null
         }
@@ -200,7 +312,7 @@ const ApplicantCard = ({
         jobId: job.id,
         updates: { assigned_to: empId || null }
       });
-      
+
       // Dispatch notification if assigned to another team member
       if (empId && empId !== profile?.id) {
         const stepObj = js.steps?.find((s: any) => s.id === stepId);
@@ -400,21 +512,73 @@ const ApplicantCard = ({
   return (
     <div className={`border border-border/80 rounded-xl overflow-hidden transition-all ${isExpanded ? 'bg-muted/10 ring-1 ring-primary/20' : 'bg-card hover:bg-muted/5'}`}>
       {/* Row Header */}
-      <div 
+      <div
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full text-left px-5 py-4 cursor-pointer flex items-center justify-between group"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
             #{js.item_number}
           </div>
-          <div>
-            <p className="text-sm font-bold text-foreground">
-              {js.applicant_name || `Applicant ${js.item_number}`}
-            </p>
+          <div className="min-w-0">
+            {isEditingName ? (
+              <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={e => setCustomName(e.target.value)}
+                  placeholder="Applicant / Beneficiary name"
+                  className="px-2 py-0.5 text-xs bg-muted/40 border border-primary rounded-lg text-foreground outline-none"
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveApplicantName();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveApplicantName}
+                  className="p-1 text-primary hover:bg-primary/10 rounded cursor-pointer"
+                  title="Save Name"
+                >
+                  <Check size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingName(false)}
+                  className="p-1 text-muted-foreground hover:bg-muted rounded cursor-pointer"
+                  title="Cancel"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-foreground truncate">
+                  {js.applicant_name || `Applicant ${js.item_number}`}
+                </p>
+                {!js.applicant_name && (job?.client?.full_name || job?.client_name) && (
+                  <span className="text-[10px] text-muted-foreground/80 font-normal truncate hidden sm:inline">
+                    · {job?.client?.full_name || job?.client_name}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingName(true);
+                  }}
+                  className="p-0.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                  title="Rename applicant / item"
+                >
+                  <Pencil size={11} />
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               <StatusBadge status={js.status} />
               <DeadlineBadge dateStr={js.deadline} status={js.status} />
+              {getExpiryBadge()}
               {js.ops_employee ? (
                 <>
                   <span className="text-[9px] font-bold text-foreground/80 bg-muted/60 border border-border/50 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
@@ -500,7 +664,7 @@ const ApplicantCard = ({
       {/* Expanded Content */}
       <AnimatePresence>
         {isExpanded && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -532,19 +696,18 @@ const ApplicantCard = ({
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
                   <CheckCircle2 size={12} /> Workflow checklist
                 </h4>
-                
+
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {js.steps?.map((step: any, idx: number) => {
                     const isStepLocked = idx > 0 && js.steps[idx - 1]?.status !== 'completed' && js.steps[idx - 1]?.status !== 'skipped';
 
                     return (
-                      <div 
-                        key={step.id} 
-                        className={`flex items-start justify-between gap-3 p-3 border rounded-xl transition-all ${
-                          isStepLocked
+                      <div
+                        key={step.id}
+                        className={`flex items-start justify-between gap-3 p-3 border rounded-xl transition-all ${isStepLocked
                             ? 'bg-muted/10 border-border/30 opacity-60'
                             : 'bg-muted/20 border-border/40'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3 min-w-0">
                           {isStepLocked ? (
@@ -698,11 +861,56 @@ const ApplicantCard = ({
                 </div>
 
                 {/* Output Deliverables */}
-                <div className="space-y-2 pt-3 border-t border-border/40">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center justify-between">
-                    <span className="flex items-center gap-1.5"><Upload size={12} /> Output Deliverables</span>
-                    <span className="text-[8px] font-normal text-muted-foreground italic">Add multiple files</span>
-                  </h4>
+                <div className="space-y-3 pt-3 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
+                      <Upload size={12} /> Output Deliverables (e.g. CR, License)
+                    </h4>
+                    <span className="text-[8px] font-normal text-muted-foreground italic">Client & Ops visible</span>
+                  </div>
+
+                  {/* Registered & Expiry Dates for Renewal Tracking */}
+                  <div className="p-3 bg-muted/20 border border-border/50 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Calendar size={11} className="text-primary" /> Registration & Expiry Dates
+                      </span>
+                      {getExpiryBadge()}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[8px] font-bold uppercase text-muted-foreground block mb-0.5">Issue / Registered Date</label>
+                        <input
+                          type="date"
+                          value={issueDate}
+                          onChange={(e) => setIssueDate(e.target.value)}
+                          className="w-full bg-background/60 border border-border/70 focus:border-primary rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] font-bold uppercase text-muted-foreground block mb-0.5">Expiry Date (For Renewal)</label>
+                        <input
+                          type="date"
+                          value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)}
+                          className="w-full bg-background/60 border border-border/70 focus:border-primary rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                    {(issueDate !== (js.issue_date?.split('T')[0] || '') || expiryDate !== (js.expiry_date?.split('T')[0] || '')) && (
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSaveDates}
+                          disabled={isSavingDates}
+                          className="px-3 py-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        >
+                          {isSavingDates ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                          Save Dates
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
                     {outputs.map((doc: any) => (
@@ -717,21 +925,21 @@ const ApplicantCard = ({
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() => handleViewDoc(doc)}
-                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors"
+                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors cursor-pointer"
                             title="View"
                           >
                             <Eye size={12} />
                           </button>
                           <button
                             onClick={() => handleDownloadDoc(doc)}
-                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors"
+                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors cursor-pointer"
                             title="Download"
                           >
                             <Download size={12} />
                           </button>
                           <button
                             onClick={() => handleDeleteDoc(doc.id, 'output')}
-                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors"
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer"
                             title="Delete"
                           >
                             <Trash2 size={12} />
@@ -759,6 +967,75 @@ const ApplicantCard = ({
                           <>
                             <Upload size={12} className="text-muted-foreground" />
                             <span className="text-[9px] font-bold text-foreground uppercase">Upload Deliverable files</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Government Fee Receipt (Optional) */}
+                <div className="space-y-2 pt-3 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+                      <Receipt size={12} /> Government Fee Receipt
+                    </h4>
+                    <span className="text-[8px] font-semibold text-muted-foreground uppercase bg-muted/40 px-1.5 py-0.5 rounded border border-border/50">Optional</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                    {govReceipts.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                        <div className="min-w-0 pr-3">
+                          <p className="text-xs font-bold text-foreground truncate">{doc.document_name}</p>
+                          <p className="text-[9px] text-amber-400 font-bold truncate mt-0.5">
+                            ✓ {doc.file_name}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleViewDoc(doc)}
+                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors cursor-pointer"
+                            title="View"
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDoc(doc)}
+                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-colors cursor-pointer"
+                            title="Download"
+                          >
+                            <Download size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDoc(doc.id, 'output')}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="relative border border-dashed border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 text-center transition-all bg-amber-500/5 cursor-pointer">
+                      <input
+                        type="file"
+                        onChange={handleUploadGovReceipt}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        disabled={isUploadingGovReceipt}
+                      />
+                      <div className="flex items-center justify-center gap-1.5">
+                        {isUploadingGovReceipt ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin text-amber-400" />
+                            <span className="text-[9px] font-bold text-amber-400 uppercase">Uploading receipt...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Receipt size={12} className="text-amber-400" />
+                            <span className="text-[9px] font-bold text-foreground uppercase">Upload Govt Fee Receipt</span>
                           </>
                         )}
                       </div>
@@ -912,7 +1189,7 @@ const ServiceStatusSheet = ({
       toast.error('This document requirement is already added.');
       return;
     }
-    
+
     setIsAddingDoc(true);
     try {
       const { data: newDoc, error } = await supabase
@@ -929,7 +1206,7 @@ const ServiceStatusSheet = ({
         .single() as any;
 
       if (error) throw error;
-      
+
       toast.success(`"${docName}" requirement added`);
       setDocs(prev => [...prev, newDoc]);
       onUpdated();
@@ -961,7 +1238,7 @@ const ServiceStatusSheet = ({
         .single() as any;
 
       if (error) throw error;
-      
+
       toast.success('Document requirement added');
       setDocs(prev => [...prev, newDoc]);
       setNewDocName('');
@@ -1007,7 +1284,7 @@ const ServiceStatusSheet = ({
 
       if (error) throw error;
       toast.success('Document file removed');
-      
+
       const { data } = await supabase.from('job_service_documents').select('*').eq('job_service_id', service.id);
       if (data) setDocs(data);
       onUpdated();
@@ -1044,7 +1321,7 @@ const ServiceStatusSheet = ({
 
       if (dbError) throw dbError;
       toast.success('Document uploaded successfully!');
-      
+
       const { data } = await supabase.from('job_service_documents').select('*').eq('job_service_id', service.id);
       if (data) setDocs(data);
     } catch (err: any) {
@@ -1098,7 +1375,7 @@ const ServiceStatusSheet = ({
         const fileExt = receiptFile.name.split('.').pop();
         const fileName = `${jobId}/${service.id}/${Date.now()}_receipt.${fileExt}`;
         const filePath = `documents/${fileName}`;
-        
+
         const { error: storageError } = await supabase.storage.from('documents').upload(filePath, receiptFile);
         if (storageError) throw storageError;
         receiptUrl = filePath;
@@ -1253,9 +1530,9 @@ const ServiceStatusSheet = ({
         else if (profile?.can_do_sales && !profile?.can_do_ops) changerRole = 'sales';
 
         const clientPaidNote = paidByClient
-          ? (isRtl 
-             ? `[دفع بواسطة بطاقة العميل] الرسوم الحكومية: ${feeAmount.toFixed(3)} ريال عماني`
-             : `[Paid by Client Card] Government fee: ${feeAmount.toFixed(3)} OMR`)
+          ? (isRtl
+            ? `[دفع بواسطة بطاقة العميل] الرسوم الحكومية: ${feeAmount.toFixed(3)} ريال عماني`
+            : `[Paid by Client Card] Government fee: ${feeAmount.toFixed(3)} OMR`)
           : null;
 
         await (supabase.from('job_service_timeline').insert({
@@ -1391,11 +1668,10 @@ const ServiceStatusSheet = ({
                   type="button"
                   disabled={isStatusDisabled}
                   onClick={() => setStatus(opt.value)}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-left ${
-                    status === opt.value
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-left ${status === opt.value
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                  } ${isStatusDisabled ? 'opacity-40 cursor-not-allowed border-dashed' : ''}`}
+                    } ${isStatusDisabled ? 'opacity-40 cursor-not-allowed border-dashed' : ''}`}
                 >
                   {opt.label}
                 </button>
@@ -1625,11 +1901,10 @@ const ServiceStatusSheet = ({
                         key={docName}
                         type="button"
                         onClick={() => handleAddPresetDoc(docName)}
-                        className={`text-[9px] px-2.5 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 font-medium select-none ${
-                          isAdded 
+                        className={`text-[9px] px-2.5 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 font-medium select-none ${isAdded
                             ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/20 opacity-55 cursor-not-allowed"
                             : "bg-muted/30 hover:bg-primary/10 text-muted-foreground hover:text-primary border-border/60 cursor-pointer"
-                        }`}
+                          }`}
                         disabled={isAdded || isAddingDoc}
                       >
                         {isAdded && <span className="text-emerald-400 font-bold">✓</span>}
@@ -1702,7 +1977,7 @@ const ServiceStatusSheet = ({
                       className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-4 py-2.5 text-sm text-foreground outline-none transition-all font-mono"
                     />
                   </div>
-                  
+
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-primary uppercase tracking-widest block">
                       Government Receipt Document
@@ -1715,7 +1990,7 @@ const ServiceStatusSheet = ({
                         onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
                         accept="image/*,.pdf"
                       />
-                      <label 
+                      <label
                         htmlFor="details_receipt_file_upload"
                         className="w-full flex items-center justify-center gap-2 border border-dashed border-border rounded-xl px-4 py-3 text-xs text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors"
                       >
@@ -1757,7 +2032,7 @@ const ServiceStatusSheet = ({
                 <h3 className="text-base font-bold text-foreground font-syne flex items-center gap-2 text-gold">
                   ⚠️ Confirm Task Assignment
                 </h3>
-                
+
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Are you sure you want to assign or forward this task to{' '}
                   <span className="text-foreground font-bold">
@@ -1799,15 +2074,15 @@ const ServiceStatusSheet = ({
                         return;
                       }
                       setShowConfirmModal(false);
-                      
+
                       // Update assignee state
                       setOpsEmployeeId(selectedEmployeeId);
-                      
+
                       // If reassigning to another worker, reset status to pending_acceptance
                       if (selectedEmployeeId && selectedEmployeeId !== service.ops_employee_id) {
                         setStatus('pending' as any); // Reset to base status or trigger acceptance
                       }
-                      
+
                       toast.success('Assignment confirmed. Click "Save Changes" to commit.');
                     }}
                     className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-[#0A0F1E] font-bold rounded-xl transition-all text-xs hover:shadow-[0_0_15px_rgba(212,175,55,0.25)]"
@@ -1858,7 +2133,7 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
   const isClientTrusted = job?.client?.is_trusted === true;
   const clientPaysMinistryFee = job?.client_pays_ministry_fee === true;
   const isJobFullyPaid = Boolean(
-    job?.remaining_paid === true || 
+    job?.remaining_paid === true ||
     Number(job?.remaining_amount || 0) <= 0 ||
     (Number(job?.advance_amount || 0) >= Number(job?.total_fee || 0) && Number(job?.total_fee || 0) > 0)
   );
@@ -1869,8 +2144,8 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
     const reqMinistryFee = Number(js.ministry_fee) || 0;
     const isFree = Number(js.total_fee) === 0;
 
-    const isAutoUnlocked = isClientTrusted 
-      || clientPaysMinistryFee 
+    const isAutoUnlocked = isClientTrusted
+      || clientPaysMinistryFee
       || isFree
       || isJobFullyPaid
       || (reqMinistryFee > 0 && currentMinistryAllocated >= reqMinistryFee)
@@ -1944,9 +2219,8 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
             {/* Group header */}
             <div className="px-5 py-4 border-b border-border bg-muted/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                  allDone ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/10 text-primary'
-                }`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${allDone ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/10 text-primary'
+                  }`}>
                   {allDone ? <CheckCircle2 size={16} /> : <Activity size={16} />}
                 </div>
                 <div>
@@ -2047,7 +2321,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         .eq('job_id', job.id)
         .order('created_at', { ascending: true });
       if (error) throw error;
-      
+
       return (data || []).map((m: any) => ({
         id: m.id,
         job_id: m.job_id,
@@ -2066,13 +2340,13 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   const { profile } = useAuth();
 
   // Uniform real assigner across services and job records
-  const resolvedAssigner = 
+  const resolvedAssigner =
     jobServices?.find((s: any) => s.ops_employee_id === profile?.id && s.assigner?.full_name)?.assigner?.full_name ||
     jobServices?.find((s: any) => s.assigner?.full_name)?.assigner?.full_name ||
     job?.assigner_name ||
-    job?.assigner?.full_name || 
-    job?.sales_employee?.full_name || 
-    job?.sales_rep?.full_name || 
+    job?.assigner?.full_name ||
+    job?.sales_employee?.full_name ||
+    job?.sales_rep?.full_name ||
     (job?.assigned_by_profile as any)?.full_name ||
     initialJob?.assigner_name ||
     initialJob?.assigner?.full_name ||
@@ -2266,14 +2540,14 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         advance_amount: Number(jobData?.total_fee || 0),
         remaining_amount: 0
       }).eq('id', job.id);
-      
+
       if (jobErr) throw jobErr;
 
       // 5. Update invoice status to paid
       const { error } = await supabase
         .from('invoices')
-        .update({ 
-          status: 'paid', 
+        .update({
+          status: 'paid',
           paid_date: new Date().toISOString(),
           terms: selectedPayMode
         })
@@ -2300,7 +2574,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
 
   const loadData = async () => {
     setLoading(true);
-    
+
     // Fetch latest job details to ensure remaining_paid and balances are up-to-date
     try {
       const { data: freshJob } = await supabase
@@ -2326,14 +2600,14 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         workflow_step:workflow_steps(name_en, step_order)
       `)
       .eq('job_id', initialJob.id)
-      .order('created_at', { ascending: true }); 
+      .order('created_at', { ascending: true });
 
     // Fetch total ministry fees for the job
     const { data: feesData } = await supabase
       .from('job_sub_tasks')
       .select('ministry_fee, job_steps!inner(job_id)')
       .eq('job_steps.job_id', job.id);
-      
+
     if (feesData) {
       const total = feesData.reduce((sum, item) => sum + (Number(item.ministry_fee) || 0), 0);
       setTotalMinistryFee(total);
@@ -2367,9 +2641,9 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
       });
       setSteps(sortedSteps);
     }
-    
+
     if (empData) setEmployees(empData);
-    
+
     setLoading(false);
   };
 
@@ -2403,7 +2677,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     if (status === 'completed') {
       // Check for incomplete steps in the UI state
       const hasIncompleteSteps = steps.some(s => s.status !== 'completed' && s.status !== 'skipped');
-      
+
       // Query the database for any incomplete sub-tasks linked to this job
       const { data: incompleteSubTasks, error: checkError } = await supabase
         .from('job_sub_tasks')
@@ -2419,7 +2693,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         loadData();
         return;
       }
-      
+
       // Check if full payment has been made before closing the job
       if (!job.remaining_paid && (job.total_fee > 0 || job.remaining_amount > 0)) {
         import('react-hot-toast').then(toast => {
@@ -2433,19 +2707,19 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     const updatePayload: any = { status: status as any };
     if (status === 'completed') {
       updatePayload.completed_at = new Date().toISOString();
-      
+
       try {
         const { data: jobServices } = await supabase
           .from('job_services')
           .select('expiry_date')
           .eq('job_id', job.id);
-          
+
         if (jobServices && jobServices.length > 0) {
           const dates = jobServices
             .map((js: any) => js.expiry_date)
             .filter(Boolean)
             .map((d: string) => new Date(d));
-            
+
           if (dates.length > 0) {
             const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
             updatePayload.service_expiry_date = maxDate.toISOString().split('T')[0];
@@ -2459,7 +2733,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     }
 
     const { error } = await supabase.from('jobs').update(updatePayload).eq('id', job.id);
-    
+
     if (error) {
       import('react-hot-toast').then(toast => {
         toast.default.error(`Failed to update status: ${error.message}`);
@@ -2476,224 +2750,164 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   if (!job) return null;
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="w-full min-w-0 flex flex-col h-full bg-background overflow-hidden">
       {/* Header Tabs */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-6 border-b border-border bg-card">
-        <div className="flex gap-4 sm:gap-6 overflow-x-auto hide-scrollbar whitespace-nowrap">
-          <button 
+      <div className="px-3 sm:px-6 pt-3 sm:pt-4 border-b border-border bg-card shrink-0">
+        <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar whitespace-nowrap pr-6">
+          <button
             onClick={() => setActiveTab('operations')}
-            className={`pb-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${
-              activeTab === 'operations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'operations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             Operations
           </button>
           {canViewFinancials && (
-            <button 
+            <button
               onClick={() => setActiveTab('ledger')}
-              className={`pb-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${
-                activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               Financial Ledger
             </button>
           )}
-          <button 
+          <button
             onClick={() => setActiveTab('timeline')}
-            className={`pb-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-1.5 ${activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Clock size={14} /> Timeline
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('documents')}
-            className={`pb-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${
-              activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             Documents
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('messages')}
-            className={`pb-4 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'messages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-2 ${activeTab === 'messages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <span>Chat Support</span>
             {unreadCount > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${
-                activeTab === 'messages' 
-                  ? 'bg-primary/20 text-primary' 
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${activeTab === 'messages'
+                  ? 'bg-primary/20 text-primary'
                   : 'bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse'
-              }`}>
+                }`}>
                 {unreadCount}
               </span>
             )}
           </button>
-          <button 
+          <button
             onClick={() => setIsBriefingOpen(true)}
-            className="pb-4 text-sm font-bold uppercase tracking-widest border-b-2 border-transparent text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 ml-auto"
-            title="Open comprehensive job dossier and handoff briefing"
+            className="pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 border-transparent text-amber-400 hover:text-amber-300 transition-colors shrink-0"
+            title="Open comprehensive job summary and overview"
           >
-            <Sparkles size={14} /> Case Dossier
+            Job Summary
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 no-scrollbar">
+      <div className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-6 no-scrollbar">
         {activeTab === 'timeline' ? (
-          <div className="max-w-3xl mx-auto pb-12">
+          <div className="max-w-4xl mx-auto pb-12">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-syne font-bold text-foreground mb-1">Execution Timeline</h2>
+                <h2 className="text-xl sm:text-2xl font-syne font-bold text-foreground mb-1">Execution Timeline</h2>
                 <p className="text-xs text-muted-foreground">Historical trail of status changes and delays.</p>
               </div>
             </div>
-            <JobTimelinePanel 
-              jobId={job.id} 
-              job={job} 
-              isEmployee={true} 
-              isAdmin={profile?.role === 'admin'} 
+            <JobTimelinePanel
+              jobId={job.id}
+              job={job}
+              isEmployee={true}
+              isAdmin={profile?.role === 'admin'}
             />
           </div>
         ) : activeTab === 'operations' ? (
-           <div className="max-w-4xl mx-auto pb-12 space-y-6">
-              {/* Operations Bar */}
-              <div className="bg-card border border-border p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-               <div className="space-y-1.5">
-                 <div className="flex items-center gap-3">
-                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Status</span>
-                   {job.status === 'draft' && (
-                     <div className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest flex items-center gap-1 border border-amber-500/20">
-                       <AlertCircle size={10} /> Pending Payment
-                     </div>
-                   )}
-                 </div>
-                 
-                 <div className="flex items-center gap-3">
-                   <CustomSelect
-                     value={job.status}
-                     onChange={(v: string) => handleUpdateJobStatus(v)}
-                     options={[
-                       { value: 'draft', label: 'Draft (Pending)' },
-                       { value: 'active', label: 'In Progress' },
-                       { value: 'awaiting_govt', label: 'Awaiting Govt' },
-                       { value: 'completed', label: 'Completed' },
-                       { value: 'cancelled', label: 'Cancelled' }
-                     ]}
-                     className="bg-muted/30 border border-border rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground hover:border-primary/50 transition-colors min-w-[185px] text-left"
-                   />
+          <div className="w-full max-w-5xl mx-auto pb-12 space-y-6">
+            {/* Operations Bar */}
+            <div className="bg-card border border-border p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Status</span>
+                  {job.status === 'draft' && (
+                    <div className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest flex items-center gap-1 border border-amber-500/20">
+                      <AlertCircle size={10} /> Pending Payment
+                    </div>
+                  )}
+                </div>
 
-                   {canViewFinancials && totalMinistryFee > 0 && (
-                     <div className="text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 rounded-xl flex items-center gap-1.5">
-                       <Coins size={12} />
-                       FEES: {totalMinistryFee.toFixed(3)} OMR
-                     </div>
-                   )}
-                 </div>
-               </div>
+                <div className="flex items-center gap-3">
+                  <CustomSelect
+                    value={job.status}
+                    onChange={(v: string) => handleUpdateJobStatus(v)}
+                    options={[
+                      { value: 'draft', label: 'Draft (Pending)' },
+                      { value: 'active', label: 'In Progress' },
+                      { value: 'awaiting_govt', label: 'Awaiting Govt' },
+                      { value: 'completed', label: 'Completed' },
+                      { value: 'cancelled', label: 'Cancelled' }
+                    ]}
+                    className="bg-muted/30 border border-border rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground hover:border-primary/50 transition-colors min-w-[185px] text-left"
+                  />
 
-               {/* Client Info & Reassign */}
-               <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
-                 <div className="flex items-center gap-2">
-                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client</span>
-                   {canEditClient && (
-                     <button 
-                       onClick={handleOpenReassignModal}
-                       className="text-[9px] font-bold text-primary hover:underline uppercase tracking-wider"
-                     >
-                       Change
-                     </button>
-                   )}
-                 </div>
-                 <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
-                   <User size={13} className="text-primary shrink-0" />
-                   <span className="truncate max-w-[180px]">{job?.client?.full_name || job?.client_name || 'Client Not Assigned'}</span>
-                 </div>
-               </div>
+                  {canViewFinancials && totalMinistryFee > 0 && (
+                    <div className="text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 rounded-xl flex items-center gap-1.5">
+                      <Coins size={12} />
+                      FEES: {totalMinistryFee.toFixed(3)} OMR
+                    </div>
+                  )}
+                </div>
+              </div>
 
-               {/* Assigned By Info */}
-               <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
-                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned By</span>
-                 <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
-                   <UserCheck size={13} className="text-amber-400 shrink-0" />
-                   <span className="truncate max-w-[180px] font-semibold text-amber-300">
-                     {resolvedAssigner || 'Direct / System'}
-                   </span>
-                 </div>
-               </div>
+              {/* Client Info */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client</span>
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
+                  <User size={13} className="text-primary shrink-0" />
+                  <span className="truncate max-w-[180px]">{job?.client?.full_name || job?.client_name || 'Client Not Assigned'}</span>
+                </div>
+              </div>
 
-               {/* Invoice actions */}
-               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0 self-end sm:self-center">
-                 {canViewFinancials && (
-                   existingInvoice ? (
-                     <>
-                       <button 
-                         onClick={() => navigate(`/employee/invoices/${existingInvoice.id}`)}
-                         className="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-3 rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
-                       >
-                         <FileText size={14} /> Update Invoice
-                       </button>
-                       
-                       {existingInvoice.status !== 'paid' ? (
-                         <button 
-                           onClick={() => setIsPayModalOpen(true)}
-                           className="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 px-4 py-3 rounded-xl border border-blue-500/20 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap animate-pulse"
-                         >
-                           <CheckCircle2 size={14} /> Mark Paid
-                         </button>
-                       ) : (
-                         <div className="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 rounded-xl flex items-center justify-center gap-1.5 whitespace-nowrap">
-                           <CheckCircle2 size={14} className="text-emerald-500" /> Invoice Paid
-                         </div>
-                       )}
-                     </>
-                   ) : (
-                     <button 
-                       onClick={() => {
-                         const url = new URLSearchParams({
-                           job_id: job.id,
-                           client_id: job.client_id,
-                           base_fee: job.work_fee?.toString() || '0',
-                           min_fee: totalMinistryFee > 0 ? totalMinistryFee.toString() : (job.ministry_fee?.toString() || '0')
-                         });
-                         navigate(`/employee/invoices/new?${url.toString()}`);
-                       }}
-                       className="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-3 rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
-                     >
-                       <FileText size={14} /> Generate Invoice
-                     </button>
-                   )
-                 )}
-               </div>
-             </div>
+              {/* Assigned By Info */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned By</span>
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
+                  <UserCheck size={13} className="text-amber-400 shrink-0" />
+                  <span className="truncate max-w-[180px] font-semibold text-amber-300">
+                    {resolvedAssigner || 'Direct / System'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-             {/* Operations Content */}
-             <OperationsPanel
-               job={job}
-               employees={employees}
-               onDataRefresh={() => {
-                 loadData();
-                 if (onUpdated) onUpdated();
-               }}
-             />
-           </div>
+            {/* Operations Content */}
+            <OperationsPanel
+              job={job}
+              employees={employees}
+              onDataRefresh={() => {
+                loadData();
+                if (onUpdated) onUpdated();
+              }}
+            />
+          </div>
         ) : activeTab === 'documents' ? (
-           <div className="max-w-4xl mx-auto pb-12">
-             <DocumentsTab jobId={job.id} documents={jobDocuments} isEmployee={true} isAdmin={false} />
-           </div>
-         ) : activeTab === 'messages' ? (
+          <div className="max-w-4xl mx-auto pb-12">
+            <DocumentsTab jobId={job.id} documents={jobDocuments} isEmployee={true} isAdmin={false} />
+          </div>
+        ) : activeTab === 'messages' ? (
           <div className="max-w-3xl mx-auto h-[600px] pb-12">
             <MessagesTab jobId={job.id} messages={messages} isAdmin={false} currentUserType="employee" scope="staff_client" />
           </div>
         ) : (
-          <JobLedger 
-            job={job} 
+          <JobLedger
+            job={job}
             onPaymentReceived={() => {
               loadData();
               if (onUpdated) onUpdated();
-            }} 
+            }}
           />
         )}
       </div>
@@ -2739,7 +2953,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
                   <button onClick={() => setIsCustomStepModalOpen(false)} className="px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted rounded-xl transition-colors">Cancel</button>
-                  <button 
+                  <button
                     onClick={submitCustomStep}
                     disabled={!customStepName.trim() || isAddingStep}
                     className="px-6 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -2752,127 +2966,127 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
           </div>
         )}
 
-          {/* Select Payment Mode Modal */}
-          {isPayModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsPayModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="relative w-full max-w-sm bg-card border border-border rounded-3xl shadow-2xl overflow-hidden p-6"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                      <CheckCircle2 size={18} className="text-blue-500" /> Select Payment Mode
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">Specify how the payment was processed.</p>
-                  </div>
-                  <button onClick={() => setIsPayModalOpen(false)} className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors">
-                    <X size={16} />
-                  </button>
+        {/* Select Payment Mode Modal */}
+        {isPayModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsPayModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-sm bg-card border border-border rounded-3xl shadow-2xl overflow-hidden p-6"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-blue-500" /> Select Payment Mode
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">Specify how the payment was processed.</p>
                 </div>
+                <button onClick={() => setIsPayModalOpen(false)} className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Payment Mode</label>
-                    <select
-                      value={selectedPayMode}
-                      onChange={(e) => setSelectedPayMode(e.target.value as 'cash' | 'bank_transfer' | 'pos' | 'online')}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary transition-colors"
-                    >
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="cash">Cash</option>
-                      <option value="pos">Card / POS</option>
-                      <option value="online">Online Payment</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-                    <button onClick={() => setIsPayModalOpen(false)} className="px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted rounded-xl transition-colors">Cancel</button>
-                    <button 
-                      onClick={handleMarkInvoicePaid}
-                      className="px-6 py-2 bg-blue-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all flex items-center gap-2"
-                    >
-                      Confirm Payment
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* Reassign Client Modal */}
-        <AnimatePresence>
-          {isReassignClientOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsReassignClientOpen(false)}
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-              />
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4"
-              >
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <h3 className="font-syne font-bold text-lg text-foreground">Reassign Task Client</h3>
-                  <button onClick={() => setIsReassignClientOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Client</label>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Payment Mode</label>
                   <select
-                    value={selectedNewClientId}
-                    onChange={(e) => setSelectedNewClientId(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl py-3 px-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all cursor-pointer"
+                    value={selectedPayMode}
+                    onChange={(e) => setSelectedPayMode(e.target.value as 'cash' | 'bank_transfer' | 'pos' | 'online')}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary transition-colors"
                   >
-                    <option value="">-- Choose Client --</option>
-                    {clientOptions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.full_name} {c.phone ? `(${c.phone})` : ''}
-                      </option>
-                    ))}
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="pos">Card / POS</option>
+                    <option value="online">Online Payment</option>
                   </select>
-                  <p className="text-[10px] text-muted-foreground">Only registered clients (role: client) are listed. Staff accounts are strictly excluded.</p>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                  <button onClick={() => setIsPayModalOpen(false)} className="px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted rounded-xl transition-colors">Cancel</button>
                   <button
-                    type="button"
-                    onClick={() => setIsReassignClientOpen(false)}
-                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={handleMarkInvoicePaid}
+                    className="px-6 py-2 bg-blue-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all flex items-center gap-2"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveReassignedClient}
-                    disabled={isSavingClient || !selectedNewClientId}
-                    className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
-                  >
-                    {isSavingClient ? 'Saving...' : 'Update Client'}
+                    Confirm Payment
                   </button>
                 </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-        {/* Case Dossier & Handoff Briefing Modal */}
-        <TaskAssignmentBriefing
-          jobId={job.id}
-          isOpen={isBriefingOpen}
-          onClose={() => setIsBriefingOpen(false)}
-        />
+      {/* Reassign Client Modal */}
+      <AnimatePresence>
+        {isReassignClientOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsReassignClientOpen(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="font-syne font-bold text-lg text-foreground">Reassign Task Client</h3>
+                <button onClick={() => setIsReassignClientOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Client</label>
+                <select
+                  value={selectedNewClientId}
+                  onChange={(e) => setSelectedNewClientId(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl py-3 px-4 text-sm text-foreground focus:border-primary/50 outline-none transition-all cursor-pointer"
+                >
+                  <option value="">-- Choose Client --</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name} {c.phone ? `(${c.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground">Only registered clients (role: client) are listed. Staff accounts are strictly excluded.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReassignClientOpen(false)}
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveReassignedClient}
+                  disabled={isSavingClient || !selectedNewClientId}
+                  className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  {isSavingClient ? 'Saving...' : 'Update Client'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Case Dossier & Handoff Briefing Modal */}
+      <TaskAssignmentBriefing
+        jobId={job.id}
+        isOpen={isBriefingOpen}
+        onClose={() => setIsBriefingOpen(false)}
+      />
     </div>
   );
 };
