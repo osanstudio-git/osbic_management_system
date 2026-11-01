@@ -24,7 +24,7 @@ interface BranchContextType {
   selectedBranch: Branch | null;        // full object for the selected branch
   isBranchManager: boolean;
   isSuperAdmin: boolean;
-  createBranch: (data: Omit<Branch, 'id' | 'created_at'>) => Promise<void>;
+  createBranch: (data: Omit<Branch, 'id' | 'created_at'>) => Promise<Branch>;
   updateBranch: (id: string, data: Partial<Branch>) => Promise<void>;
 }
 
@@ -106,10 +106,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const selectedBranch = branches.find(b => b.id === effectiveBranchId) || null;
 
   // Create branch
-  const createBranch = async (data: Omit<Branch, 'id' | 'created_at'>) => {
-    const { error } = await supabase.from('branches').insert(data);
+  const createBranch = async (data: Omit<Branch, 'id' | 'created_at'>): Promise<Branch> => {
+    const { data: inserted, error } = await supabase.from('branches').insert(data).select().single();
     if (error) throw error;
     queryClient.invalidateQueries({ queryKey: ['branches'] });
+    return inserted as Branch;
   };
 
   // Update branch

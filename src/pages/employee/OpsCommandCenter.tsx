@@ -4,7 +4,7 @@ import {
   Briefcase, CheckCircle2, Clock, AlertTriangle, Layers,
   Search, Download, RefreshCw, X, ArrowUpRight, Shield, 
   Filter, ChevronRight, UserCheck, Users, Sparkles, UserPlus,
-  ArrowRight, Phone, ExternalLink, AlertCircle
+  ArrowRight, Phone, ExternalLink, AlertCircle, LayoutGrid, List
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -30,6 +30,7 @@ export default function OpsCommandCenter() {
   );
 
   const [activeTab, setActiveTab] = useState<CommandCenterTab>('unassigned');
+  const [teamViewMode, setTeamViewMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedServiceForAssign, setSelectedServiceForAssign] = useState<OpsCommandService | null>(null);
@@ -93,6 +94,18 @@ export default function OpsCommandCenter() {
     }
 
     return true;
+  });
+
+  // Filtered employees for Team Workload tab
+  const filteredEmployees = employees.filter(emp => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      emp.full_name.toLowerCase().includes(q) ||
+      (emp.employee_code || '').toLowerCase().includes(q) ||
+      (emp.email || '').toLowerCase().includes(q) ||
+      services.some(s => s.ops_employee_id === emp.id && s.service_name.toLowerCase().includes(q))
+    );
   });
 
   // Group by Jobs for Jobs View
@@ -309,16 +322,50 @@ export default function OpsCommandCenter() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search service, client, job code..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all"
-          />
+        {/* Search & View Mode Toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab === 'team' && (
+            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border shrink-0">
+              <button
+                type="button"
+                onClick={() => setTeamViewMode('list')}
+                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold ${
+                  teamViewMode === 'list'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="List View"
+              >
+                <List size={13} />
+                <span>List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeamViewMode('grid')}
+                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold ${
+                  teamViewMode === 'grid'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid size={13} />
+                <span>Grid</span>
+              </button>
+            </div>
+          )}
+
+          {/* Search */}
+          <div className="relative min-w-[240px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search service, client, job code..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all"
+            />
+          </div>
         </div>
       </div>
 
@@ -410,75 +457,197 @@ export default function OpsCommandCenter() {
 
       {/* TAB: TEAM WORKLOAD */}
       {activeTab === 'team' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {employees.map(emp => {
-            const empServices = services.filter(s => s.ops_employee_id === emp.id && s.status !== 'completed' && s.status !== 'cancelled');
-            const isHeavy = emp.active_tasks_count >= 6;
-            const isModerate = emp.active_tasks_count >= 3 && emp.active_tasks_count < 6;
+        <>
+          {filteredEmployees.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-card border border-border">
+              <Users size={32} className="mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-sm font-semibold text-foreground">No specialists found</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {searchQuery ? `No team members match "${searchQuery}"` : 'No active operations specialists available.'}
+              </p>
+            </div>
+          ) : teamViewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEmployees.map(emp => {
+                const empServices = services.filter(s => s.ops_employee_id === emp.id && s.status !== 'completed' && s.status !== 'cancelled');
+                const isHeavy = emp.active_tasks_count >= 6;
+                const isModerate = emp.active_tasks_count >= 3 && emp.active_tasks_count < 6;
 
-            return (
-              <div key={emp.id} className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm">
-                      {emp.full_name.charAt(0)}
+                return (
+                  <div key={emp.id} className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm">
+                          {emp.full_name.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                            <span>{emp.full_name}</span>
+                            {emp.is_ops_head && (
+                              <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                                Head
+                              </span>
+                            )}
+                            {emp.is_pro && (
+                              <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded">
+                                PRO
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-[10px] text-muted-foreground">{emp.email || emp.phone || 'Operations'}</p>
+                        </div>
+                      </div>
+
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                        isHeavy
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          : isModerate
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        {emp.active_tasks_count} active tasks
+                      </span>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                        <span>{emp.full_name}</span>
-                        {emp.is_ops_head && (
-                          <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
-                            Head
-                          </span>
-                        )}
-                        {emp.is_pro && (
-                          <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded">
-                            PRO
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-[10px] text-muted-foreground">{emp.email || emp.phone || 'Operations'}</p>
+
+                    {/* Services list for this employee */}
+                    <div className="space-y-1.5 pt-2 border-t border-border/50">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">
+                        Assigned Operations ({empServices.length}):
+                      </span>
+                      {empServices.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/60 italic py-2">Available for new assignments</p>
+                      ) : (
+                        <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+                          {empServices.map(s => (
+                            <div key={s.id} className="p-2 rounded-lg bg-muted/20 border border-border/40 text-xs flex items-center justify-between gap-2">
+                              <span className="font-medium text-foreground truncate">{s.service_name}</span>
+                              <button
+                                onClick={() => setSelectedServiceForAssign(s)}
+                                className="text-[9px] text-primary hover:underline shrink-0"
+                              >
+                                Reassign
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider font-bold text-[10px] border-b border-border">
+                    <tr>
+                      <th className="py-3.5 px-4">Specialist / PRO</th>
+                      <th className="py-3.5 px-4">Contact Info</th>
+                      <th className="py-3.5 px-4 text-center">Active Workload</th>
+                      <th className="py-3.5 px-4">Current Assigned Operations</th>
+                      <th className="py-3.5 px-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredEmployees.map(emp => {
+                      const empServices = services.filter(s => s.ops_employee_id === emp.id && s.status !== 'completed' && s.status !== 'cancelled');
+                      const isHeavy = emp.active_tasks_count >= 6;
+                      const isModerate = emp.active_tasks_count >= 3 && emp.active_tasks_count < 6;
 
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                    isHeavy
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      : isModerate
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  }`}>
-                    {emp.active_tasks_count} active tasks
-                  </span>
-                </div>
+                      return (
+                        <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                                {emp.full_name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-foreground flex items-center gap-1.5">
+                                  <span>{emp.full_name}</span>
+                                  {emp.is_ops_head && (
+                                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                                      Head
+                                    </span>
+                                  )}
+                                  {emp.is_pro && (
+                                    <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded">
+                                      PRO
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground font-mono">
+                                  {emp.employee_code || 'OPS-STAFF'}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
 
-                {/* Services list for this employee */}
-                <div className="space-y-1.5 pt-2 border-t border-border/50">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    Assigned Operations ({empServices.length}):
-                  </span>
-                  {empServices.length === 0 ? (
-                    <p className="text-xs text-muted-foreground/60 italic py-2">Available for new assignments</p>
-                  ) : (
-                    <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-                      {empServices.map(s => (
-                        <div key={s.id} className="p-2 rounded-lg bg-muted/20 border border-border/40 text-xs flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground truncate">{s.service_name}</span>
-                          <button
-                            onClick={() => setSelectedServiceForAssign(s)}
-                            className="text-[9px] text-primary hover:underline shrink-0"
-                          >
-                            Reassign
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                          <td className="py-3.5 px-4 text-muted-foreground">
+                            <p className="text-xs">{emp.email || '—'}</p>
+                            {emp.phone && <p className="text-[10px] text-muted-foreground/70">{emp.phone}</p>}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                              isHeavy
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : isModerate
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            }`}>
+                              {emp.active_tasks_count} active
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {empServices.length === 0 ? (
+                              <span className="text-xs text-muted-foreground/60 italic">Available for assignments</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5 max-w-lg">
+                                {empServices.map(s => (
+                                  <div
+                                    key={s.id}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/40 border border-border/60 text-[11px]"
+                                  >
+                                    <span className="font-medium text-foreground truncate max-w-[180px]">{s.service_name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedServiceForAssign(s)}
+                                      className="text-[9px] font-bold text-primary hover:underline shrink-0"
+                                    >
+                                      Reassign
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            {empServices.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedServiceForAssign(empServices[0])}
+                                className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-all"
+                              >
+                                Reassign
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                Ready
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* TAB: JOBS VIEW */}

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { 
-  X, CheckCircle2, Clock, AlertCircle, FileText, Download, 
+import {
+  X, CheckCircle2, Clock, AlertCircle, FileText, Download,
   ExternalLink, User, Phone, Mail, Globe, Building2, Shield,
-  ArrowRight, History, Layers, Sparkles
+  ArrowRight, History, Layers, Sparkles, UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -38,13 +38,14 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
 
     const fetchCaseData = async () => {
       try {
-        // 1. Fetch Job + Client + Package + Sales Employee
+        // 1. Fetch Job + Client + Package + Sales Employee + Assigner
         const { data: job, error: jobErr } = await supabase
           .from('jobs')
           .select(`
             *,
             client:profiles!client_id(*),
-            sales_employee:profiles!sales_employee_id(full_name, email, phone)
+            sales_employee:profiles!sales_employee_id(full_name, email, phone),
+            assigner:profiles!assigned_by(full_name, email, phone)
           `)
           .eq('id', jobId)
           .single();
@@ -58,6 +59,7 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
             *,
             ops_employee:profiles!job_services_ops_employee_id_fkey(full_name),
             pro_agent:profiles!job_services_pro_id_fkey(full_name),
+            assigner:profiles!job_services_assigned_by_fkey(full_name),
             steps:job_service_steps(*)
           `)
           .eq('job_id', jobId)
@@ -189,7 +191,7 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
               </h2>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 hover:bg-muted/80 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -201,41 +203,37 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
         <div className="px-6 border-b border-border bg-muted/10 flex items-center gap-2 overflow-x-auto shrink-0">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'overview'
+            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'overview'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <User size={14} /> Client & Job Brief
           </button>
           <button
             onClick={() => setActiveTab('workflow')}
-            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'workflow'
+            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'workflow'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <Layers size={14} /> Package Workflow ({services.length})
           </button>
           <button
             onClick={() => setActiveTab('timeline')}
-            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'timeline'
+            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'timeline'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <History size={14} /> Handoff & Activity Log ({timeline.length})
           </button>
           <button
             onClick={() => setActiveTab('docs')}
-            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'docs'
+            className={`py-3 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'docs'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <FileText size={14} /> Case Documents ({allDocs.length})
           </button>
@@ -261,11 +259,10 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                           <span className="text-[9px] font-extrabold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md">
                             Your Assigned Service
                           </span>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                            currentService.status === 'completed'
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${currentService.status === 'completed'
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
+                            }`}>
                             {currentService.status.replace('_', ' ')}
                           </span>
                         </div>
@@ -354,6 +351,14 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                       </div>
                       <div className="space-y-1">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <UserCheck size={11} className="text-amber-400" /> Assigned By
+                        </span>
+                        <p className="text-xs font-semibold text-amber-300">
+                          {currentService?.assigner?.full_name || jobData?.assigner?.full_name || jobData?.sales_employee?.full_name || 'Direct / System'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                           <Clock size={11} /> Job Created
                         </span>
                         <p className="text-xs font-semibold text-foreground">
@@ -415,7 +420,7 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                   <p className="text-xs text-muted-foreground">
                     This job is divided into sequential operations. Here is the status of each service and who handled it:
                   </p>
-                  
+
                   <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
                     {services.map((svc, idx) => {
                       const isCurrent = svc.id === currentServiceId;
@@ -425,21 +430,19 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                       return (
                         <div key={svc.id} className="relative">
                           {/* Dot marker */}
-                          <div className={`absolute -left-[27px] top-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
-                            isComplete
+                          <div className={`absolute -left-[27px] top-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${isComplete
                               ? 'bg-emerald-500 border-emerald-500 text-white'
                               : isCurrent
-                              ? 'bg-primary border-primary text-primary-foreground animate-pulse'
-                              : 'bg-card border-border text-muted-foreground'
-                          }`}>
+                                ? 'bg-primary border-primary text-primary-foreground animate-pulse'
+                                : 'bg-card border-border text-muted-foreground'
+                            }`}>
                             {isComplete ? '✓' : idx + 1}
                           </div>
 
-                          <div className={`p-4 rounded-xl border transition-all ${
-                            isCurrent
+                          <div className={`p-4 rounded-xl border transition-all ${isCurrent
                               ? 'bg-primary/5 border-primary ring-1 ring-primary/30'
                               : 'bg-card border-border/80'
-                          }`}>
+                            }`}>
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
                                 <div className="flex items-center gap-2">
@@ -458,13 +461,12 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                  isComplete
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isComplete
                                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                     : isPending
-                                    ? 'bg-muted/40 text-muted-foreground border border-border'
-                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                }`}>
+                                      ? 'bg-muted/40 text-muted-foreground border border-border'
+                                      : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  }`}>
                                   {svc.status.replace('_', ' ')}
                                 </span>
                               </div>
@@ -475,8 +477,14 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                                 <User size={12} className="text-primary" />
                                 Handler: <span className="font-semibold text-foreground">{svc.ops_employee?.full_name || 'Unassigned'}</span>
                               </span>
-                              {svc.pro_agent && (
+                              {(svc.assigner?.full_name || jobData?.sales_employee?.full_name || jobData?.assigner?.full_name) && (
                                 <span className="flex items-center gap-1.5 text-amber-400">
+                                  <UserCheck size={12} />
+                                  Assigned by: <span className="font-semibold text-amber-300">{svc.assigner?.full_name || jobData?.sales_employee?.full_name || jobData?.assigner?.full_name}</span>
+                                </span>
+                              )}
+                              {svc.pro_agent && (
+                                <span className="flex items-center gap-1.5 text-sky-400">
                                   <Shield size={12} />
                                   PRO: <span className="font-semibold">{svc.pro_agent.full_name}</span>
                                 </span>

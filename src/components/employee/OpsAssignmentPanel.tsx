@@ -152,19 +152,6 @@ export const OpsAssignmentPanel: React.FC<OpsAssignmentPanelProps> = ({
             )}
           </div>
 
-          {/* Marketplace / Pool Quick Release Button */}
-          {onPostToPool && service.assignment_model !== 'pool' && (
-            <button
-              type="button"
-              onClick={handleReleaseToPool}
-              disabled={isPostingToPool}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all flex items-center justify-center gap-2"
-            >
-              <Sparkles size={14} />
-              <span>{isPostingToPool ? 'Releasing to Pool...' : 'Release to Open Marketplace Pool (Any Specialist Can Claim)'}</span>
-            </button>
-          )}
-
           {/* Select Specialist */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">

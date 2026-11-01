@@ -114,6 +114,7 @@ export interface JobService {
   service?: { name_en: string; name_ar: string; category: string; icon: string; requires_pro: boolean } | null;
   ops_employee?: { full_name: string } | null;
   pro_agent?: { full_name: string } | null;
+  assigner?: { full_name: string } | null;
   steps?: JobServiceStep[];
   documents?: JobServiceDocument[];
 }
@@ -132,6 +133,7 @@ export const useJobServices = (jobId: string | undefined) => {
           service:services(name_en, name_ar, category, icon, requires_pro),
           ops_employee:profiles!job_services_ops_employee_id_fkey(full_name),
           pro_agent:profiles!job_services_pro_id_fkey(full_name),
+          assigner:profiles!job_services_assigned_by_fkey(full_name),
           steps:job_service_steps(
             *,
             assigned_employee:profiles!job_service_steps_assigned_to_fkey(full_name),

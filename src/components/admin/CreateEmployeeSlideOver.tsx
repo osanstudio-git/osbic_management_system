@@ -309,6 +309,25 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                           </button>
                         </div>
 
+                        {/* Branch Manager Toggle */}
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                          <div>
+                            <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                              Branch Manager (Branch Head Position)
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block">
+                              Appoints this employee as the managing head for their selected branch with full branch supervision.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, is_manager: !formData.is_manager })}
+                            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_manager ? 'bg-purple-500' : 'bg-white/10'}`}
+                          >
+                            <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_manager ? 'translate-x-5' : ''}`} />
+                          </button>
+                        </div>
+
                         {/* Capabilities & Roles */}
                         <div className="space-y-2 pt-1">
                           <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Capabilities & Role Access</label>

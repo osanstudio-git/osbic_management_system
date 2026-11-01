@@ -326,16 +326,20 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                   <div className="space-y-4 pt-4 border-t border-border">
                     <h4 className="text-sm font-bold text-foreground">Permissions & Roles</h4>
                     
-                    {/* Is Manager Toggle */}
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-border">
+                    {/* Branch Manager Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Is Manager</p>
-                        <p className="text-[10px] text-muted-foreground/60">Grants full manager pipeline and data access</p>
+                        <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                          Branch Manager (Branch Head Position)
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Appoints this employee as the managing head for their selected branch with full branch supervision.
+                        </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, is_manager: !formData.is_manager })}
-                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_manager ? 'bg-primary' : 'bg-white/10'}`}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_manager ? 'bg-purple-500' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_manager ? 'translate-x-5' : ''}`} />
                       </button>

@@ -517,14 +517,19 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                       {job.service_name}
                     </h3>
                     
-                    <div className="flex items-center justify-between mt-4">
-                       <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-widest ${
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/40 text-[10px]">
+                       <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
                          job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
                          job.status === 'draft' ? 'bg-muted text-muted-foreground' :
                          'bg-amber-500/10 text-amber-500'
                        }`}>
                          {job.status}
                        </span>
+                       {(job.sales_employee?.full_name || job.assigner?.full_name) && (
+                         <span className="text-muted-foreground truncate max-w-[160px]">
+                           By: <strong className="text-foreground/80">{job.sales_employee?.full_name || job.assigner?.full_name}</strong>
+                         </span>
+                       )}
                     </div>
                   </div>
                 ))}

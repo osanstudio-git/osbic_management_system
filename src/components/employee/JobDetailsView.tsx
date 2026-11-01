@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, Plus, Calendar, MessageSquare, 
   CheckCircle2, AlertCircle, Clock, User, X, Coins,
   Upload, FileText, Eye, Download, Loader2, Layers,
-  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus
+  Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus, UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JobLedger } from './JobLedger';
@@ -127,6 +127,14 @@ const ApplicantCard = ({
     profile?.is_manager || 
     profile?.role === 'admin'
   );
+
+  const assignerName = 
+    js.assigner?.full_name || 
+    job?.sales_employee?.full_name || 
+    job?.assigner?.full_name || 
+    job?.sales_rep?.full_name || 
+    (job?.assigned_by_profile as any)?.full_name ||
+    null;
 
   const handleToggleLock = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -407,10 +415,18 @@ const ApplicantCard = ({
               <StatusBadge status={js.status} />
               <DeadlineBadge dateStr={js.deadline} status={js.status} />
               {js.ops_employee ? (
-                <span className="text-[9px] font-bold text-foreground/80 bg-muted/60 border border-border/50 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
-                  <User size={10} className="text-primary" />
-                  Ops: {(js.ops_employee as any).full_name}
-                </span>
+                <>
+                  <span className="text-[9px] font-bold text-foreground/80 bg-muted/60 border border-border/50 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                    <User size={10} className="text-primary" />
+                    Ops: {(js.ops_employee as any).full_name}
+                  </span>
+                  {assignerName && (
+                    <span className="text-[9px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                      <UserCheck size={10} className="text-amber-400 shrink-0" />
+                      <span>Assigned by: <strong className="font-bold text-amber-300">{assignerName}</strong></span>
+                    </span>
+                  )}
+                </>
               ) : (
                 <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                   <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap animate-pulse">
@@ -2563,6 +2579,17 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                  <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
                    <User size={13} className="text-primary shrink-0" />
                    <span className="truncate max-w-[180px]">{job?.client?.full_name || job?.client_name || 'Client Not Assigned'}</span>
+                 </div>
+               </div>
+
+               {/* Assigned By Info */}
+               <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned By</span>
+                 <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
+                   <UserCheck size={13} className="text-amber-400 shrink-0" />
+                   <span className="truncate max-w-[180px] font-semibold text-amber-300">
+                     {job?.sales_employee?.full_name || job?.assigner?.full_name || job?.sales_rep?.full_name || (job?.assigned_by_profile as any)?.full_name || 'Direct / System'}
+                   </span>
                  </div>
                </div>
 

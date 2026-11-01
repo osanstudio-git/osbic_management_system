@@ -127,6 +127,7 @@ export const useAdminJobs = (branchIdFilter?: string | null, enabled: boolean = 
           client:profiles!client_id(full_name, avatar_url),
           employee:profiles!employee_id(full_name, avatar_url),
           sales_employee:profiles!sales_employee_id(full_name),
+          assigner:profiles!assigned_by(full_name, role),
           service:services!service_id(name_en, category, estimated_days),
           job_steps(status, actual_gov_fee, workflow_step_id, step_def:workflow_steps!workflow_step_id(estimated_gov_fee))
         `)
@@ -197,7 +198,8 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
         .from('jobs')
         .select(`
           *,
-          assigner:profiles!assigned_by(role),
+          assigner:profiles!assigned_by(full_name, role),
+          sales_employee:profiles!sales_employee_id(full_name),
           client:profiles!client_id(full_name, avatar_url),
           service:services!service_id(name_en, category, estimated_days),
           job_steps(id, status, actual_gov_fee, workflow_step_id, assigned_to, assigned_by),
@@ -234,7 +236,8 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
           .from('jobs')
           .select(`
             *,
-            assigner:profiles!assigned_by(role),
+            assigner:profiles!assigned_by(full_name, role),
+            sales_employee:profiles!sales_employee_id(full_name),
             client:profiles!client_id(full_name, avatar_url),
             service:services!service_id(name_en, category, estimated_days),
             job_steps(id, status, actual_gov_fee, workflow_step_id, assigned_to, assigned_by),
