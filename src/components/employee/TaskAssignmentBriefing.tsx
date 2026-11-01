@@ -43,9 +43,8 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
           .from('jobs')
           .select(`
             *,
-            client:clients(*),
-            package:packages(name_en, name_ar),
-            sales_employee:profiles!jobs_sales_employee_id_fkey(full_name, email, phone)
+            client:profiles!client_id(*),
+            sales_employee:profiles!sales_employee_id(full_name, email, phone)
           `)
           .eq('id', jobId)
           .single();
@@ -76,14 +75,14 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
         if (docErr) throw docErr;
 
         // 4. Fetch job timeline history
-        const { data: timelineData, error: timeErr } = await supabase
+        const { data: timelineData, error: timeErr } = await (supabase
           .from('job_service_timeline')
           .select(`
             *,
             changer:profiles!job_service_timeline_changed_by_fkey(full_name, role)
           `)
           .eq('job_id', jobId)
-          .order('changed_at', { ascending: false });
+          .order('changed_at', { ascending: false }) as any);
 
         if (timeErr) throw timeErr;
 

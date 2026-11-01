@@ -2267,7 +2267,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     try {
       const { data: freshJob } = await supabase
         .from('jobs')
-        .select('*, client:clients(*)')
+        .select('*, client:profiles!client_id(*)')
         .eq('id', initialJob.id)
         .single();
       if (freshJob) setJob(freshJob);

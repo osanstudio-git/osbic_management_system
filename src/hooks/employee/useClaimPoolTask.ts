@@ -66,20 +66,17 @@ export const useClaimPoolTask = (branchId?: string | null) => {
           pool_posted_at, status, deadline, work_fee, total_fee, created_at,
           job:jobs!job_services_job_id_fkey(
             id, job_code, status, branch_id, custom_name, created_at,
-            client:clients(id, full_name, phone, email, nationality, company_name),
-            package:packages(name_en, name_ar)
+            client:profiles!client_id(id, full_name, phone, email, nationality, company_name)
           ),
           steps:job_service_steps(id, step_name, status, display_order)
         `)
-        .eq('assignment_model', 'pool')
         .is('ops_employee_id', null)
         .not('status', 'in', '("completed","cancelled")')
-        .order('pool_posted_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       const { data, error } = await (query as any);
       if (error) {
-        // If assignment_model column doesn't exist yet, return empty list gracefully
-        console.warn('Pool query issue:', error);
+        console.error('Pool query error:', error);
         return [];
       }
 

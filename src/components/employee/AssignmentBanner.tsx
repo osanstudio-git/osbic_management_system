@@ -39,7 +39,7 @@ export const AssignmentBanner = ({ onAccept }: { onAccept?: () => void }) => {
             id,
             job_code,
             custom_name,
-            client:clients(id, full_name, phone, company_name),
+            client:profiles!client_id(id, full_name, phone, company_name),
             sales_employee:profiles!sales_employee_id(full_name)
           )
         `)

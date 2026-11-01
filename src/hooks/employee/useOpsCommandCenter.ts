@@ -94,8 +94,7 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
           pro_id, total_fee, work_fee, ministry_fee, created_at,
           job:jobs!job_services_job_id_fkey(
             id, job_code, status, branch_id, created_at, custom_name,
-            client:clients(id, full_name, phone, email, nationality, company_name),
-            package:packages(name_en, name_ar)
+            client:profiles!client_id(id, full_name, phone, email, nationality, company_name)
           ),
           ops_employee:profiles!job_services_ops_employee_id_fkey(id, full_name, avatar_url, employee_code),
           pro_agent:profiles!job_services_pro_id_fkey(id, full_name),

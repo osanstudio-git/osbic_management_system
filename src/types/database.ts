@@ -675,6 +675,24 @@ export interface Database {
         created_at: string
       }, 'id' | 'created_at'>
 
+      job_service_timeline: TableDef<{
+        id: string
+        job_service_id: string
+        job_id: string
+        from_status: string | null
+        to_status: string
+        changed_by: string | null
+        changed_by_name: string | null
+        changed_by_role: 'ops' | 'pro' | 'sales' | 'admin' | 'manager' | null
+        days_in_previous_stage: number | null
+        changed_at: string
+        reason: string | null
+        government_ref: string | null
+        is_delay_event: boolean | null
+        is_client_caused: boolean | null
+        service_name: string | null
+      }, 'id' | 'changed_at', 'is_delay_event' | 'is_client_caused' | 'service_name'>
+
       job_service_documents: TableDef<{
         id: string
         job_service_id: string
