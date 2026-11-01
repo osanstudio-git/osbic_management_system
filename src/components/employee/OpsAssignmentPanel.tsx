@@ -36,6 +36,7 @@ export const OpsAssignmentPanel: React.FC<OpsAssignmentPanelProps> = ({
 
   const activeOpsEmployees = React.useMemo(() => {
     return (employees || []).filter(emp => 
+      (emp as any).role === 'employee' &&
       (emp as any).is_active !== false && 
       (emp.can_do_ops || (emp as any).department === 'operations' || emp.is_pro || emp.is_ops_head)
     );

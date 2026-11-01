@@ -525,9 +525,9 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                        }`}>
                          {job.status}
                        </span>
-                       {(job.sales_employee?.full_name || job.assigner?.full_name) && (
+                       {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
                          <span className="text-muted-foreground truncate max-w-[160px]">
-                           By: <strong className="text-foreground/80">{job.sales_employee?.full_name || job.assigner?.full_name}</strong>
+                           By: <strong className="text-amber-400 font-bold">{job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name}</strong>
                          </span>
                        )}
                     </div>

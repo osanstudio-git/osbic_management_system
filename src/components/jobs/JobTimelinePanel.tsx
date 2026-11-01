@@ -8,14 +8,21 @@ import toast from 'react-hot-toast';
 
 interface Props {
   jobId: string;
-  job: any;
-  steps: any[];
-  isEmployee: boolean;
+  job?: any;
+  steps?: any[];
+  isEmployee?: boolean;
   isAdmin?: boolean;
   onSwitchTab?: (tab: any) => void;
 }
 
-export const JobTimelinePanel = ({ jobId, job, steps, isEmployee, isAdmin, onSwitchTab }: Props) => {
+export const JobTimelinePanel = ({ 
+  jobId, 
+  job, 
+  steps = [], 
+  isEmployee = false, 
+  isAdmin = false, 
+  onSwitchTab 
+}: Props) => {
   const { data: timeline = [], isLoading: isTimelineLoading } = useJobTimeline(jobId);
 
   // Query payments for the job

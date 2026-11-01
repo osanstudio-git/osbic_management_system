@@ -105,6 +105,14 @@ export interface JobService {
   work_fee: number;
   ministry_fee: number;
   total_fee: number;
+  ministry_fee_allocated?: number | null;
+  service_fee_allocated?: number | null;
+  ministry_fee_pending?: number | null;
+  service_fee_pending?: number | null;
+  is_funded?: boolean;
+  credit_authorized_by?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
   started_at: string | null;
   completed_at: string | null;
   deadline: string | null;

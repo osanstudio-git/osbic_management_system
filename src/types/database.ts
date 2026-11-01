@@ -186,7 +186,7 @@ export interface Database {
         verified_at: string | null
         proof_url?: string | null
         created_at: string
-      }, 'id' | 'created_at' | 'status'>
+      }, 'id' | 'created_at', 'status'>
 
       job_steps: TableDef<{
         id: string
@@ -632,9 +632,13 @@ export interface Database {
         pool_claimed_at: string | null
         pool_claimed_by: string | null
         notes: string | null
+        is_funded: boolean
+        credit_authorized_by: string | null
+        issue_date: string | null
+        expiry_date: string | null
         created_at: string
         updated_at: string
-      }, 'id' | 'created_at' | 'updated_at'>
+      }, 'id' | 'created_at' | 'updated_at', 'is_funded'>
 
       job_service_steps: TableDef<{
         id: string

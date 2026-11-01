@@ -74,6 +74,9 @@ export interface OpsEmployeeRoster {
   is_pro: boolean;
   can_do_ops: boolean;
   branch_id: string | null;
+  role?: string;
+  department?: string | null;
+  is_active?: boolean;
   active_tasks_count: number;
   completed_tasks_count: number;
 }
@@ -120,8 +123,9 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
     queryFn: async (): Promise<OpsEmployeeRoster[]> => {
       let q = supabase
         .from('profiles')
-        .select('id, full_name, email, phone, avatar_url, employee_code, is_ops_head, is_pro, can_do_ops, department, is_active, branch_id')
-        .or('can_do_ops.eq.true,department.eq.operations,is_pro.eq.true,is_ops_head.eq.true');
+        .select('id, full_name, email, phone, avatar_url, employee_code, is_ops_head, is_pro, can_do_ops, department, is_active, branch_id, role')
+        .eq('role', 'employee')
+        .eq('is_active', true);
 
       if (branchId) {
         q = q.eq('branch_id', branchId);
@@ -130,9 +134,10 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
       const { data: emps, error } = await q;
       if (error) throw error;
 
-      // Filter: ONLY active employees belonging to Operations
+      // Filter: ONLY real active employees belonging to Operations
       const opsEmps = (emps || []).filter((emp: any) => 
-        emp.is_active !== false &&
+        emp.role === 'employee' &&
+        emp.is_active === true &&
         (emp.can_do_ops || emp.department === 'operations' || emp.is_pro || emp.is_ops_head)
       );
 
@@ -154,6 +159,9 @@ export const useOpsCommandCenter = (branchId?: string | null) => {
           is_pro: Boolean(emp.is_pro),
           can_do_ops: Boolean(emp.can_do_ops),
           branch_id: emp.branch_id,
+          role: emp.role,
+          department: emp.department,
+          is_active: emp.is_active,
           active_tasks_count: active,
           completed_tasks_count: completed,
         };

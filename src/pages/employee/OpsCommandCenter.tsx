@@ -98,6 +98,8 @@ export default function OpsCommandCenter() {
 
   // Filtered employees for Team Workload tab
   const filteredEmployees = employees.filter(emp => {
+    if (emp.role && emp.role !== 'employee') return false;
+    if (emp.is_active === false) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -304,7 +306,7 @@ export default function OpsCommandCenter() {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {[
             { id: 'unassigned', label: `Unassigned (${unassignedServices.length})` },
-            { id: 'team', label: `Team Workload (${employees.length})` },
+            { id: 'team', label: `Team Workload (${filteredEmployees.length})` },
             { id: 'jobs', label: `Jobs View (${jobsList.length})` },
             { id: 'services', label: `All Services (${services.length})` },
           ].map(tab => (

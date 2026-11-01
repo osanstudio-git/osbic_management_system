@@ -44,6 +44,10 @@ export interface Job {
   entry_type?: 'lead' | 'walkin' | 'direct' | 'renewal' | null;
   client_pays_ministry_fee?: boolean;
   estimated_days?: number | null;
+  assigner?: { full_name: string; role?: string } | null;
+  sales_employee?: { full_name: string } | null;
+  job_services?: any[];
+  assigner_name?: string | null;
 }
 
 export interface JobStep {
@@ -203,7 +207,7 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
           client:profiles!client_id(full_name, avatar_url),
           service:services!service_id(name_en, category, estimated_days),
           job_steps(id, status, actual_gov_fee, workflow_step_id, assigned_to, assigned_by),
-          job_services(id, ops_employee_id)
+          job_services(id, ops_employee_id, assigned_by, assigner:profiles!job_services_assigned_by_fkey(full_name))
         `)
         .or(`employee_id.eq.${employeeId},assigned_by.eq.${employeeId},ops_employee_id.eq.${employeeId},sales_employee_id.eq.${employeeId}`);
 
@@ -241,7 +245,7 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
             client:profiles!client_id(full_name, avatar_url),
             service:services!service_id(name_en, category, estimated_days),
             job_steps(id, status, actual_gov_fee, workflow_step_id, assigned_to, assigned_by),
-            job_services(id, ops_employee_id)
+            job_services(id, ops_employee_id, assigned_by, assigner:profiles!job_services_assigned_by_fkey(full_name))
           `)
           .in('id', delegatedJobIds);
           
@@ -262,6 +266,11 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
         let resolvedAssignedBy = j.assigned_by;
         let resolvedAssignedByRole = j.assigner?.role;
         
+        // Check services for assigner
+        const specificService = j.job_services?.find((s: any) => s.ops_employee_id === employeeId);
+        const anyServiceWithAssigner = j.job_services?.find((s: any) => s.assigner?.full_name);
+        const serviceAssignerName = specificService?.assigner?.full_name || anyServiceWithAssigner?.assigner?.full_name;
+
         if (j.employee_id !== employeeId) {
            const specificStep = j.job_steps?.find((s: any) => s.assigned_to === employeeId);
            if (specificStep) {
@@ -275,8 +284,16 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
                 // Fallback: assume manager if delegated by someone else
                 resolvedAssignedByRole = 'manager';
               }
+           } else if (specificService?.assigned_by) {
+              resolvedAssignedBy = specificService.assigned_by;
            }
         }
+
+        const assignerName = 
+          serviceAssignerName || 
+          j.assigner?.full_name || 
+          j.sales_employee?.full_name || 
+          null;
 
         const isOperator = 
           j.employee_id === employeeId || 
@@ -316,6 +333,10 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
           service_id: j.service_id,
           client_pays_ministry_fee: j.client_pays_ministry_fee ?? false,
           estimated_days: j.service?.estimated_days ?? null,
+          assigner: j.assigner,
+          sales_employee: j.sales_employee,
+          job_services: j.job_services,
+          assigner_name: assignerName,
         };
       }).sort((a, b) => new Date(b.started_date).getTime() - new Date(a.started_date).getTime());
     },

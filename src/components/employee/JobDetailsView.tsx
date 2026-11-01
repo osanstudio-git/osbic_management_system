@@ -130,8 +130,9 @@ const ApplicantCard = ({
 
   const assignerName = 
     js.assigner?.full_name || 
-    job?.sales_employee?.full_name || 
+    job?.assigner_name ||
     job?.assigner?.full_name || 
+    job?.sales_employee?.full_name || 
     job?.sales_rep?.full_name || 
     (job?.assigned_by_profile as any)?.full_name ||
     null;
@@ -830,12 +831,14 @@ const DeadlineBadge = ({ dateStr, status }: { dateStr: string | null; status: st
 const ServiceStatusSheet = ({
   service,
   jobId,
+  job,
   employees,
   onClose,
   onUpdated,
 }: {
   service: JobService;
   jobId: string;
+  job?: any;
   employees: any[];
   onClose: () => void;
   onUpdated: () => void;
@@ -2000,6 +2003,7 @@ const OperationsPanel = ({ job, employees, onDataRefresh }: { job: any; employee
           <ServiceStatusSheet
             service={selectedService}
             jobId={job.id}
+            job={job}
             employees={employees}
             onClose={() => setSelectedService(null)}
             onUpdated={() => {
@@ -2023,6 +2027,8 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   useEffect(() => {
     setJob(initialJob);
   }, [initialJob]);
+
+  const { data: jobServices } = useJobServices(job?.id);
 
   const [activeTab, setActiveTab] = useState<'operations' | 'ledger' | 'timeline' | 'documents' | 'messages'>('operations');
   const [steps, setSteps] = useState<any[]>([]);
@@ -2058,6 +2064,21 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   });
 
   const { profile } = useAuth();
+
+  // Uniform real assigner across services and job records
+  const resolvedAssigner = 
+    jobServices?.find((s: any) => s.ops_employee_id === profile?.id && s.assigner?.full_name)?.assigner?.full_name ||
+    jobServices?.find((s: any) => s.assigner?.full_name)?.assigner?.full_name ||
+    job?.assigner_name ||
+    job?.assigner?.full_name || 
+    job?.sales_employee?.full_name || 
+    job?.sales_rep?.full_name || 
+    (job?.assigned_by_profile as any)?.full_name ||
+    initialJob?.assigner_name ||
+    initialJob?.assigner?.full_name ||
+    initialJob?.sales_employee?.full_name ||
+    null;
+
   const canViewFinancials = profile?.role === 'admin' || profile?.id === job?.sales_employee_id;
   const isManagerOrAdmin = profile?.role === 'admin' || (profile as any)?.is_manager === true;
   const canEditClient = isManagerOrAdmin || profile?.id === job?.sales_employee_id || profile?.id === job?.employee_id;
@@ -2114,7 +2135,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   const [isAddingStep, setIsAddingStep] = useState(false);
   const [existingInvoice, setExistingInvoice] = useState<{ id: string; status: string } | null>(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [selectedPayMode, setSelectedPayMode] = useState('Bank Transfer');
+  const [selectedPayMode, setSelectedPayMode] = useState<'cash' | 'bank_transfer' | 'pos' | 'online'>('bank_transfer');
 
   const fetchCombinedDocuments = async (jobId: string) => {
     const { data: docsData } = await supabase
@@ -2226,7 +2247,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         const { error: payErr } = await supabase.from('job_payments').insert({
           job_id: job.id,
           amount: remainingToPay,
-          payment_method: selectedPayMode.toLowerCase(),
+          payment_method: selectedPayMode,
           notes: `Manually marked as paid via invoice actions`,
           status: 'verified',
           recorded_by: profile?.id,
@@ -2284,7 +2305,12 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     try {
       const { data: freshJob } = await supabase
         .from('jobs')
-        .select('*, client:profiles!client_id(*)')
+        .select(`
+          *,
+          client:profiles!client_id(*),
+          sales_employee:profiles!sales_employee_id(full_name, email, phone),
+          assigner:profiles!assigned_by(full_name, role)
+        `)
         .eq('id', initialJob.id)
         .single();
       if (freshJob) setJob(freshJob);
@@ -2524,7 +2550,12 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                 <p className="text-xs text-muted-foreground">Historical trail of status changes and delays.</p>
               </div>
             </div>
-            <JobTimelinePanel jobId={job.id} />
+            <JobTimelinePanel 
+              jobId={job.id} 
+              job={job} 
+              isEmployee={true} 
+              isAdmin={profile?.role === 'admin'} 
+            />
           </div>
         ) : activeTab === 'operations' ? (
            <div className="max-w-4xl mx-auto pb-12 space-y-6">
@@ -2588,7 +2619,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                  <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
                    <UserCheck size={13} className="text-amber-400 shrink-0" />
                    <span className="truncate max-w-[180px] font-semibold text-amber-300">
-                     {job?.sales_employee?.full_name || job?.assigner?.full_name || job?.sales_rep?.full_name || (job?.assigned_by_profile as any)?.full_name || 'Direct / System'}
+                     {resolvedAssigner || 'Direct / System'}
                    </span>
                  </div>
                </div>
@@ -2748,12 +2779,13 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Payment Mode</label>
                     <select
                       value={selectedPayMode}
-                      onChange={(e) => setSelectedPayMode(e.target.value)}
+                      onChange={(e) => setSelectedPayMode(e.target.value as 'cash' | 'bank_transfer' | 'pos' | 'online')}
                       className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary transition-colors"
                     >
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Cash">Cash</option>
-                      <option value="Card / POS">Card / POS</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="cash">Cash</option>
+                      <option value="pos">Card / POS</option>
+                      <option value="online">Online Payment</option>
                     </select>
                   </div>
 
