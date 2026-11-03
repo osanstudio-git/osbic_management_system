@@ -249,6 +249,132 @@ export const useCreateLead = () => {
   });
 };
 
+export interface MatchedLeadDuplicate {
+  id: string;
+  lead_code?: string;
+  contact_name: string;
+  contact_phone?: string;
+  contact_whatsapp?: string;
+  company_name?: string;
+  status: string;
+  created_at: string;
+  assigned_to?: string;
+  assigned_by?: string;
+  assigned_to_profile?: {
+    full_name: string;
+    employee_code?: string;
+    email?: string;
+    branch_id?: string;
+  } | null;
+  assigned_by_profile?: {
+    full_name: string;
+    employee_code?: string;
+    email?: string;
+  } | null;
+}
+
+export interface MatchedClientDuplicate {
+  id: string;
+  full_name: string;
+  phone?: string | null;
+  company_name?: string | null;
+  email?: string | null;
+}
+
+export const useCheckDuplicateLead = (phone: string, name: string) => {
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  const searchDigits = cleanPhone.length >= 6 ? cleanPhone.slice(-8) : '';
+  const trimmedName = (name || '').trim();
+  const searchName = trimmedName.length >= 3 ? trimmedName : '';
+
+  return useQuery({
+    queryKey: ['check_lead_duplicates', searchDigits, searchName],
+    enabled: searchDigits.length >= 6 || searchName.length >= 3,
+    staleTime: 5000,
+    queryFn: async () => {
+      let phoneLeads: MatchedLeadDuplicate[] = [];
+      let nameLeads: MatchedLeadDuplicate[] = [];
+      let registeredClients: MatchedClientDuplicate[] = [];
+
+      // 1. Check by phone digits (most critical)
+      if (searchDigits) {
+        const { data: pLeads } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            lead_code,
+            contact_name,
+            contact_phone,
+            contact_whatsapp,
+            company_name,
+            status,
+            created_at,
+            assigned_to,
+            assigned_by,
+            assigned_to_profile:profiles!leads_assigned_to_fkey(full_name, employee_code, email, branch_id),
+            assigned_by_profile:profiles!leads_assigned_by_fkey(full_name, employee_code, email)
+          `)
+          .or(`contact_phone.ilike.%${searchDigits}%,contact_whatsapp.ilike.%${searchDigits}%`)
+          .limit(5);
+
+        phoneLeads = (pLeads as any) || [];
+
+        const { data: pClients } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, company_name, email')
+          .eq('role', 'client')
+          .ilike('phone', `%${searchDigits}%`)
+          .limit(3);
+
+        registeredClients = (pClients as any) || [];
+      }
+
+      // 2. Check by contact name (if at least 3 chars)
+      if (searchName) {
+        const { data: nLeads } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            lead_code,
+            contact_name,
+            contact_phone,
+            contact_whatsapp,
+            company_name,
+            status,
+            created_at,
+            assigned_to,
+            assigned_by,
+            assigned_to_profile:profiles!leads_assigned_to_fkey(full_name, employee_code, email, branch_id),
+            assigned_by_profile:profiles!leads_assigned_by_fkey(full_name, employee_code, email)
+          `)
+          .ilike('contact_name', `%${searchName}%`)
+          .limit(5);
+
+        const existingIds = new Set(phoneLeads.map(l => l.id));
+        nameLeads = ((nLeads as any) || []).filter((l: any) => !existingIds.has(l.id));
+
+        if (registeredClients.length === 0) {
+          const { data: nClients } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone, company_name, email')
+            .eq('role', 'client')
+            .ilike('full_name', `%${searchName}%`)
+            .limit(3);
+          registeredClients = (nClients as any) || [];
+        }
+      }
+
+      return {
+        hasDuplicate: phoneLeads.length > 0 || nameLeads.length > 0 || registeredClients.length > 0,
+        hasPhoneDuplicate: phoneLeads.length > 0,
+        phoneLeads,
+        nameLeads,
+        registeredClients,
+      };
+    }
+  });
+};
+
 export const useLeadInteractions = (leadId?: string) => {
   return useQuery({
     queryKey: ['lead_interactions', leadId],

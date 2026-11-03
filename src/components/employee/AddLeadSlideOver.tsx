@@ -1,10 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users, Calendar, Briefcase, Sparkles } from 'lucide-react';
-import { useLeads, useCreateLead } from '../../hooks/shared/useLeads';
+import { 
+  X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users, 
+  Calendar, Briefcase, Sparkles, AlertTriangle, UserCheck, 
+  Building2, Phone, Clock, Loader2, ShieldAlert
+} from 'lucide-react';
+import { useLeads, useCreateLead, useCheckDuplicateLead } from '../../hooks/shared/useLeads';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
+import { useAuth } from '../../contexts/AuthContext';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+
+const STATUS_BADGES: Record<string, { label: string; bg: string; text: string }> = {
+  new: { label: 'New', bg: 'bg-zinc-500/10 border-zinc-500/30', text: 'text-zinc-400' },
+  contacted: { label: 'Contacted', bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400' },
+  interested: { label: 'Interested', bg: 'bg-indigo-500/10 border-indigo-500/30', text: 'text-indigo-400' },
+  qualified: { label: 'Qualified', bg: 'bg-purple-500/10 border-purple-500/30', text: 'text-purple-400' },
+  quoted: { label: 'Quoted', bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-400' },
+  negotiating: { label: 'Negotiating', bg: 'bg-pink-500/10 border-pink-500/30', text: 'text-pink-400' },
+  converted: { label: 'Converted', bg: 'bg-emerald-500/10 border-emerald-500/30', text: 'text-emerald-400' },
+  lost: { label: 'Lost', bg: 'bg-red-500/10 border-red-500/30', text: 'text-red-400' },
+  on_hold: { label: 'On Hold', bg: 'bg-orange-500/10 border-orange-500/30', text: 'text-orange-400' },
+};
 
 interface Props {
   isOpen: boolean;
@@ -12,8 +30,12 @@ interface Props {
 }
 
 export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
+  const { profile } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
+  const [allowDuplicateProceed, setAllowDuplicateProceed] = useState(false);
+  const [debouncedPhone, setDebouncedPhone] = useState('');
+  const [debouncedName, setDebouncedName] = useState('');
   const [formData, setFormData] = useState({
     contact_name: '',
     contact_phone: '',
@@ -49,6 +71,9 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     if (!isOpen) {
       setStep(1);
       setIsSourceDropdownOpen(false);
+      setAllowDuplicateProceed(false);
+      setDebouncedPhone('');
+      setDebouncedName('');
       setFormData({
         contact_name: '',
         contact_phone: '',
@@ -71,6 +96,17 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     }
   }, [isOpen]);
 
+  // Debounce phone and name for duplicate check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPhone(formData.contact_phone);
+      setDebouncedName(formData.contact_name);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [formData.contact_phone, formData.contact_name]);
+
+  const { data: duplicateCheck, isLoading: isCheckingDuplicate } = useCheckDuplicateLead(debouncedPhone, debouncedName);
+
   // Sync whatsapp with phone if checkmark is toggled
   useEffect(() => {
     if (formData.whatsappSameAsPhone) {
@@ -81,6 +117,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
   const handleNext = () => {
     if (!formData.contact_name || !formData.contact_phone || !formData.source_id) {
       toast.error('Please fill in all required fields (Name, Phone, Source)');
+      return;
+    }
+    if (duplicateCheck?.hasPhoneDuplicate && !allowDuplicateProceed) {
+      toast.error('Duplicate phone number detected! Please review the existing lead or tick the confirmation box to proceed.');
       return;
     }
     if (isOtherSource && !formData.custom_source_text.trim()) {
@@ -98,6 +138,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     // Final check
     if (!formData.contact_name || !formData.contact_phone || !formData.source_id) {
       toast.error('Please fill in all required fields (Name, Phone, Source)');
+      return;
+    }
+    if (duplicateCheck?.hasPhoneDuplicate && !allowDuplicateProceed) {
+      toast.error('Duplicate phone number detected! Please review the existing lead or tick the confirmation box to proceed.');
       return;
     }
     if (isOtherSource && !formData.custom_source_text.trim()) {
@@ -204,16 +248,189 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Phone Number *</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-muted-foreground">Phone Number *</label>
+                      {isCheckingDuplicate && (
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                          <Loader2 size={11} className="animate-spin text-primary" />
+                          Checking duplicates...
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="tel"
                       value={formData.contact_phone}
                       onChange={e => setFormData({ ...formData, contact_phone: e.target.value })}
                       placeholder="e.g. 91234567"
-                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm font-mono"
+                      className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-foreground focus:outline-none transition-all text-sm font-mono ${
+                        duplicateCheck?.hasPhoneDuplicate 
+                          ? 'border-amber-500/70 focus:border-amber-500 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
+                          : 'border-border focus:border-gold'
+                      }`}
                       required
                     />
                   </div>
+
+                  {/* ─── LIVE DUPLICATE INTELLIGENCE BOX ─── */}
+                  <AnimatePresence>
+                    {(duplicateCheck?.hasDuplicate || isCheckingDuplicate) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                        className={`rounded-2xl border p-4 space-y-3.5 shadow-xl transition-all ${
+                          duplicateCheck?.hasPhoneDuplicate 
+                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-200' 
+                            : 'bg-blue-500/10 border-blue-500/40 text-blue-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5">
+                            {duplicateCheck?.hasPhoneDuplicate ? (
+                              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                                <AlertTriangle size={18} />
+                              </div>
+                            ) : (
+                              <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 shrink-0">
+                                <ShieldAlert size={18} />
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="text-xs font-bold text-foreground flex items-center gap-2">
+                                {duplicateCheck?.hasPhoneDuplicate 
+                                  ? 'DUPLICATE RECORD FOUND (Matching Phone)' 
+                                  : 'POTENTIAL MATCH (Matching Client Name)'}
+                              </h4>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {duplicateCheck?.hasPhoneDuplicate 
+                                  ? 'This phone number already exists in OSBIC. Details below show who currently handles it:' 
+                                  : 'A record with a matching contact name was found:'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* List of Matched Existing Leads */}
+                        <div className="space-y-2">
+                          {duplicateCheck?.phoneLeads?.map(lead => {
+                            const isOwnLead = lead.assigned_to === profile?.id;
+                            const badge = STATUS_BADGES[lead.status] || { label: lead.status, bg: 'bg-muted', text: 'text-foreground' };
+                            const addedDate = lead.created_at ? format(new Date(lead.created_at), 'dd MMM yyyy') : '';
+
+                            return (
+                              <div key={lead.id} className="bg-card/90 border border-border rounded-xl p-3 space-y-2.5 text-xs shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-primary tracking-wide">{lead.lead_code || 'LEAD'}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badge.bg} ${badge.text}`}>
+                                      {badge.label}
+                                    </span>
+                                  </div>
+                                  {addedDate && (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                      <Clock size={11} /> Added {addedDate}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <p className="font-bold text-foreground text-sm">
+                                    {lead.contact_name} 
+                                    {lead.company_name && <span className="text-muted-foreground font-normal text-xs ml-1">({lead.company_name})</span>}
+                                  </p>
+                                  <p className="text-muted-foreground font-mono text-xs mt-0.5">
+                                    📞 {lead.contact_phone || lead.contact_whatsapp || 'No phone'}
+                                  </p>
+                                </div>
+
+                                {/* CRITICAL: WITH WHOM IT CURRENTLY IS & WHO ADDED */}
+                                <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                  <div className="p-2 rounded-lg bg-background/60 border border-border">
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">
+                                      Currently Handled By:
+                                    </span>
+                                    <p className={`font-bold flex items-center gap-1.5 ${isOwnLead ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                      <UserCheck size={13} className="shrink-0" />
+                                      <span>{lead.assigned_to_profile?.full_name || 'Unassigned'}</span>
+                                      {isOwnLead && <span className="text-[10px] font-normal text-emerald-400/80">(Your Lead)</span>}
+                                    </p>
+                                    {lead.assigned_to_profile?.employee_code && (
+                                      <span className="text-[10px] text-muted-foreground font-mono block">Code: {lead.assigned_to_profile.employee_code}</span>
+                                    )}
+                                  </div>
+
+                                  <div className="p-2 rounded-lg bg-background/60 border border-border">
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">
+                                      Originally Added By:
+                                    </span>
+                                    <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                      <Users size={13} className="shrink-0 text-muted-foreground" />
+                                      <span>{lead.assigned_by_profile?.full_name || 'Direct / System'}</span>
+                                    </p>
+                                    {lead.assigned_by_profile?.employee_code && (
+                                      <span className="text-[10px] text-muted-foreground font-mono block">Code: {lead.assigned_by_profile.employee_code}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Matched Registered Client Profiles */}
+                          {duplicateCheck?.registeredClients?.map(client => (
+                            <div key={client.id} className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 space-y-1 text-xs">
+                              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px]">
+                                <Building2 size={13} />
+                                <span>Official Registered Client Profile in OSBIC</span>
+                              </div>
+                              <p className="font-bold text-foreground text-sm">
+                                {client.full_name} 
+                                {client.company_name && <span className="text-muted-foreground text-xs font-normal ml-1">({client.company_name})</span>}
+                              </p>
+                              <p className="text-muted-foreground font-mono text-[11px]">{client.phone || client.email}</p>
+                            </div>
+                          ))}
+
+                          {/* Matched by Name (when phone didn't match) */}
+                          {!duplicateCheck?.hasPhoneDuplicate && duplicateCheck?.nameLeads?.map(lead => {
+                            const isOwnLead = lead.assigned_to === profile?.id;
+                            const badge = STATUS_BADGES[lead.status] || { label: lead.status, bg: 'bg-muted', text: 'text-foreground' };
+                            return (
+                              <div key={lead.id} className="bg-card/90 border border-border rounded-xl p-3 space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-mono font-bold text-primary">{lead.lead_code || 'LEAD'}</span>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${badge.bg} ${badge.text}`}>
+                                    {badge.label}
+                                  </span>
+                                </div>
+                                <p className="font-bold text-foreground">{lead.contact_name}</p>
+                                <p className="text-muted-foreground text-[11px]">
+                                  Currently with: <strong className={isOwnLead ? 'text-primary' : 'text-foreground'}>{lead.assigned_to_profile?.full_name || 'Unassigned'}</strong>
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Confirmation Override Checkbox */}
+                        {duplicateCheck?.hasPhoneDuplicate && (
+                          <div className="pt-2 border-t border-amber-500/20">
+                            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={allowDuplicateProceed}
+                                onChange={e => setAllowDuplicateProceed(e.target.checked)}
+                                className="mt-0.5 accent-primary rounded w-4 h-4"
+                              />
+                              <span className="text-[11px] text-amber-200/90 leading-tight">
+                                I confirm this contact is already known, but this is an <strong>authorized separate inquiry</strong> that I need to add.
+                              </span>
+                            </label>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">

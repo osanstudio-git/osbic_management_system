@@ -4,7 +4,7 @@ import {
   Users, BarChart3, TrendingUp, DollarSign, FileText, CheckCircle2,
   Calendar, Search, Download, Printer, RefreshCw, X, ArrowUpRight,
   Shield, Award, Send, Phone, Mail, ExternalLink, Filter, Sparkles,
-  ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle
+  ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle, Crown
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
