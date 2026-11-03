@@ -592,8 +592,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => handleTabChange('page1')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page1'
-                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                  ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                   }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 1</span>
@@ -604,8 +604,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => handleTabChange('page2')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page2'
-                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                  ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                   }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 2</span>
@@ -616,8 +616,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => handleTabChange('page3')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page3'
-                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                  ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                   }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 3</span>
@@ -628,8 +628,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => handleTabChange('page4')}
                 className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page4'
-                    ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                  ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                   }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 4</span>
@@ -659,8 +659,8 @@ export default function B2BProposalBuilder() {
                     type="button"
                     onClick={() => setRecipientType('partner')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'partner'
-                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     B2B Partner
@@ -669,8 +669,8 @@ export default function B2BProposalBuilder() {
                     type="button"
                     onClick={() => setRecipientType('lead')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'lead'
-                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     Saudi Lead
@@ -679,8 +679,8 @@ export default function B2BProposalBuilder() {
                     type="button"
                     onClick={() => setRecipientType('custom')}
                     className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'custom'
-                        ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     Custom
@@ -1384,8 +1384,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => setActivePreviewPage('all')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === 'all'
-                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 All Pages
@@ -1394,8 +1394,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => setActivePreviewPage('1')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '1'
-                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 Page 1
@@ -1404,8 +1404,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => setActivePreviewPage('2')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '2'
-                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 Page 2
@@ -1415,8 +1415,8 @@ export default function B2BProposalBuilder() {
                   type="button"
                   onClick={() => setActivePreviewPage('3')}
                   className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '3'
-                      ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                     }`}
                 >
                   Page 3 (Bank)
@@ -1426,8 +1426,8 @@ export default function B2BProposalBuilder() {
                 type="button"
                 onClick={() => setActivePreviewPage('4')}
                 className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '4'
-                    ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 Page {proposalData.showBankDetails ? '4' : '3'} (Selfie)
