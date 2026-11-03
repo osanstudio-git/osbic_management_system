@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, Sparkles, Search, Layers, Clock, DollarSign,
   User, CheckCircle2, ChevronRight, FileText, ArrowRight,
-  Shield, AlertCircle, RefreshCw, Briefcase, Eye, Building2
+  Shield, AlertCircle, RefreshCw, Briefcase, Eye, Building2, UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -238,31 +238,47 @@ export default function TaskPool() {
 
                 {/* Card Body */}
                 <div className="p-5 space-y-3.5 flex-1 text-xs">
-                  {/* Applicant & Client Info */}
-                  <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-2">
+                  {/* Client & Assigned Sales Person Info */}
+                  <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2.5">
+                    {/* Client info */}
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Applicant / Target
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Building2 size={11} className="text-primary" />
+                        <span>Client / Case</span>
                       </span>
-                      {task.applicant_name ? (
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                          Autofilled
+                      {task.job?.job_code && (
+                        <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                          #{task.job.job_code}
                         </span>
-                      ) : null}
+                      )}
                     </div>
+
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
                         <User size={13} />
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-foreground truncate">
-                          {applicantDisplay}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-foreground truncate text-xs">
+                          {clientName}
                         </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          Client: {clientName}
-                          {task.job?.job_code && <span className="ml-1 font-mono">#{task.job.job_code}</span>}
-                        </p>
+                        {task.applicant_name && task.applicant_name !== clientName && (
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Target: {task.applicant_name}
+                          </p>
+                        )}
                       </div>
+                    </div>
+
+                    {/* Assigned by Sales Person */}
+                    <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <UserCheck size={11} className="text-amber-400" />
+                        <span>Assigned by Sales:</span>
+                      </span>
+                      <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md truncate max-w-[170px]" title={task.job?.sales_rep?.full_name || task.job?.assigned_by_user?.full_name || 'Sales Team'}>
+                        {task.job?.sales_rep?.full_name || task.job?.assigned_by_user?.full_name || 'Sales Team'}
+                        {(task.job?.sales_rep?.employee_code || task.job?.assigned_by_user?.employee_code) ? ` (${task.job?.sales_rep?.employee_code || task.job?.assigned_by_user?.employee_code})` : ''}
+                      </span>
                     </div>
                   </div>
 

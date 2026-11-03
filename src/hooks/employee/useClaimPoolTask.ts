@@ -41,6 +41,18 @@ export interface PoolTask {
       name_en: string;
       name_ar: string;
     } | null;
+    sales_rep?: {
+      id: string;
+      full_name: string;
+      employee_code?: string | null;
+      email?: string | null;
+    } | null;
+    assigned_by_user?: {
+      id: string;
+      full_name: string;
+      employee_code?: string | null;
+      email?: string | null;
+    } | null;
   } | null;
   steps?: {
     id: string;
@@ -66,7 +78,9 @@ export const useClaimPoolTask = (branchId?: string | null) => {
           pool_posted_at, status, deadline, work_fee, total_fee, created_at,
           job:jobs!job_services_job_id_fkey(
             id, job_code, status, branch_id, custom_name, created_at,
-            client:profiles!client_id(id, full_name, phone, email, nationality, company_name)
+            client:profiles!client_id(id, full_name, phone, email, nationality, company_name),
+            sales_rep:profiles!jobs_sales_employee_id_fkey(id, full_name, employee_code, email),
+            assigned_by_user:profiles!jobs_assigned_by_fkey(id, full_name, employee_code, email)
           ),
           steps:job_service_steps(id, step_name, status, display_order)
         `)
