@@ -69,9 +69,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isMounted = true;
 
-    // Use onAuthStateChange as the single source of truth to avoid navigator lock race conditions
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+    // Safety timeout: Guarantee the app never hangs on "Authenticating..." indefinitely
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading((prev) => {
+          if (prev) {
+            console.warn('Auth initialization timed out, releasing loading state');
+            return false;
+          }
+          return prev;
+        });
+      }
+    }, 4000);
+
+    // 1. Initial session load
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!isMounted) return;
+      if (error) {
+        console.error('Session get error:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
+    }).catch((err) => {
+      console.error('getSession catch error:', err);
+      if (isMounted) setLoading(false);
+    });
+
+    // 2. Auth state change listener (skip INITIAL_SESSION to avoid duplicate calls / lock contention)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!isMounted) return;
+      if (event === 'INITIAL_SESSION') return;
+
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
@@ -84,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
