@@ -26,7 +26,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
   const [newPayment, setNewPayment] = useState({ amount: '', method: 'bank_transfer', reference: '', notes: '' });
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -186,36 +186,44 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
     if (!newPayment.amount) return;
     
     setIsUploading(true);
-    let filePath = '';
+    const uploadedReceipts: { path: string; name: string }[] = [];
     
     try {
-      if (receiptFile) {
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `${job.id}/receipt_${Date.now()}.${fileExt}`;
-        filePath = `documents/${fileName}`;
-        
-        const { error: storageError } = await supabase.storage.from('documents').upload(filePath, receiptFile);
-        if (storageError) throw storageError;
-        
-        // Also add it to documents table so it shows up in job documents if needed
-        await supabase.from('documents').insert({
-          job_id: job.id,
-          uploaded_by: profile?.id,
-          file_name: receiptFile.name,
-          file_path: filePath,
-          file_size: receiptFile.size,
-          file_type: receiptFile.type,
-          document_type: 'payment_receipt',
-          status: 'approved',
-          is_client_visible: false,
-          version: 1
-        });
+      if (receiptFiles.length > 0) {
+        for (let i = 0; i < receiptFiles.length; i++) {
+          const file = receiptFiles[i];
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${job.id}/receipt_${Date.now()}_${i}.${fileExt}`;
+          const filePath = `documents/${fileName}`;
+          
+          const { error: storageError } = await supabase.storage.from('documents').upload(filePath, file);
+          if (storageError) throw storageError;
+          
+          // Also add it to documents table so it shows up in job documents if needed
+          await supabase.from('documents').insert({
+            job_id: job.id,
+            uploaded_by: profile?.id,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type,
+            document_type: 'payment_receipt',
+            status: 'approved',
+            is_client_visible: false,
+            version: 1
+          });
+
+          uploadedReceipts.push({ path: filePath, name: file.name });
+        }
       }
 
       let finalNotes = newPayment.notes || null;
-      if (filePath) {
-        finalNotes = finalNotes ? `${finalNotes}\n[RECEIPT:${filePath}|${receiptFile?.name}]` : `[RECEIPT:${filePath}|${receiptFile?.name}]`;
+      if (uploadedReceipts.length > 0) {
+        const receiptTags = uploadedReceipts.map(r => `[RECEIPT:${r.path}|${r.name}]`).join('\n');
+        finalNotes = finalNotes ? `${finalNotes}\n${receiptTags}` : receiptTags;
       }
+
+      const firstProofUrl = uploadedReceipts.length > 0 ? uploadedReceipts[0].path : null;
 
       const insertPayload: any = {
         job_id: job.id,
@@ -229,7 +237,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
       // Try inserting with proof_url if available, with automatic fallback if column does not exist in schema
       let insertRes = await supabase.from('job_payments').insert({
         ...insertPayload,
-        ...(filePath ? { proof_url: filePath } : {})
+        ...(firstProofUrl ? { proof_url: firstProofUrl } : {})
       } as any).select('*, profiles:recorded_by(full_name)').single();
 
       // If proof_url column does not exist in database schema cache (PGRST204), retry without it
@@ -247,7 +255,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
       const updatedPayments = [...payments, data];
       setPayments(updatedPayments);
       setNewPayment({ amount: '', method: 'bank_transfer', reference: '', notes: '' });
-      setReceiptFile(null);
+      setReceiptFiles([]);
       setIsAddingPayment(false);
       setAllocatingPayment(data); // Trigger allocation modal
       
@@ -840,27 +848,72 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                     )}
 
                     <div className={cn(newPayment.method === 'cash' ? "sm:col-span-2" : "")}>
-                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5">Document Proof (Optional)</label>
-                      <div className="flex items-center gap-3">
-                        <label className="flex-1 flex items-center justify-center gap-2 border border-dashed border-border hover:border-primary/50 bg-card hover:bg-primary/5 transition-all rounded-xl p-2.5 cursor-pointer group">
-                          <Upload size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                          <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors truncate max-w-[200px]">
-                            {receiptFile ? receiptFile.name : 'Upload Invoice or Receipt (PDF, Image)'}
-                          </span>
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*,.pdf"
-                            onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                          />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block">
+                          Document Proof (Optional)
                         </label>
-                        {receiptFile && (
-                          <button 
-                            onClick={() => setReceiptFile(null)}
-                            className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-colors"
-                          >
-                            <X size={16} />
-                          </button>
+                        {receiptFiles.length > 0 && (
+                          <span className="text-[10px] font-bold text-primary">
+                            {receiptFiles.length} {receiptFiles.length === 1 ? 'file' : 'files'} selected
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <label className="flex-1 flex items-center justify-center gap-2 border border-dashed border-border hover:border-primary/50 bg-card hover:bg-primary/5 transition-all rounded-xl p-2.5 cursor-pointer group">
+                            <Upload size={16} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors truncate">
+                              {receiptFiles.length === 0 
+                                ? 'Upload Invoices or Receipts (PDF, Images - Multi-select)' 
+                                : '+ Add more documents'}
+                            </span>
+                            <input 
+                              type="file" 
+                              multiple
+                              className="hidden" 
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                  const newArr = Array.from(e.target.files);
+                                  setReceiptFiles(prev => [...prev, ...newArr]);
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                          </label>
+                          {receiptFiles.length > 0 && (
+                            <button 
+                              type="button"
+                              onClick={() => setReceiptFiles([])}
+                              title="Clear all selected files"
+                              className="p-2.5 bg-red-500/10 text-red-400 hover:text-red-300 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                            >
+                              <X size={14} /> Clear
+                            </button>
+                          )}
+                        </div>
+
+                        {receiptFiles.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-muted/20 border border-border/50 rounded-xl">
+                            {receiptFiles.map((file, idx) => (
+                              <span 
+                                key={idx} 
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-card border border-border rounded-lg text-[11px] text-foreground font-medium shadow-sm group"
+                              >
+                                <Paperclip size={12} className="text-primary shrink-0" />
+                                <span className="truncate max-w-[160px]" title={file.name}>{file.name}</span>
+                                <span className="text-[9px] text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setReceiptFiles(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-muted-foreground hover:text-red-400 ml-0.5 p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                                  title="Remove this file"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1098,22 +1151,27 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                       
                       {(() => {
                         if (!payment.notes) return null;
-                        const receiptMatch = payment.notes.match(/\[RECEIPT:(.*?)\|(.*?)\]/);
-                        if (receiptMatch) {
-                          const filePath = receiptMatch[1];
-                          const fileName = receiptMatch[2];
-                          return (
-                            <div className="mt-2 flex items-center gap-2">
-                              <button 
-                                onClick={() => handleViewReceipt(filePath)}
-                                className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-md transition-colors"
-                              >
-                                <Eye size={10} /> View Upload
-                              </button>
-                            </div>
-                          );
-                        }
-                        return null;
+                        const matches = Array.from(payment.notes.matchAll(/\[RECEIPT:(.*?)\|(.*?)\]/g));
+                        if (matches.length === 0) return null;
+                        return (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {matches.map((m: any, idx: number) => {
+                              const filePath = m[1];
+                              const fileName = m[2];
+                              return (
+                                <button 
+                                  key={idx}
+                                  onClick={() => handleViewReceipt(filePath)}
+                                  className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-md transition-colors max-w-[200px]"
+                                  title={fileName}
+                                >
+                                  <Eye size={10} className="shrink-0" />
+                                  <span className="truncate">{fileName || `Proof ${idx + 1}`}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
                       })()}
                       {(() => {
                         const totalMinistryBilled = jobServices.reduce((sum, s) => sum + (s.ministry_fee || 0), 0);

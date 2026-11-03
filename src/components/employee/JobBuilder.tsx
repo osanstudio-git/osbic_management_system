@@ -130,7 +130,7 @@ export const JobBuilder = ({
   onJobCreated: () => void;
   preSelectedClientId?: string | null;
   preSelectedServiceId?: string | null;
-  preSelectedEntryType?: 'lead' | 'walkin' | 'direct' | 'renewal' | null;
+  preSelectedEntryType?: 'lead' | 'walkin' | 'direct' | 'renewal' | 'referral' | 'other' | null;
 }) => {
   const { profile } = useAuth();
   const { data: services, isLoading: loadingServices } = useAdminServices();
@@ -158,8 +158,45 @@ export const JobBuilder = ({
   // Step 3: Configuration — service line items with quantities & fees
   const [serviceLines, setServiceLines] = useState<ServiceLineItem[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
-  const [entryType, setEntryType] = useState<'lead' | 'walkin' | 'direct' | 'renewal'>('direct');
+  const [entryType, setEntryType] = useState<'lead' | 'walkin' | 'direct' | 'renewal' | 'referral' | 'other'>('direct');
+  const [referralName, setReferralName] = useState<string>('');
   const [clientPaysMinistryFee, setClientPaysMinistryFee] = useState(false);
+
+  const handleAddCustomService = (customName?: string) => {
+    const id = `custom-${Date.now()}`;
+    const name = customName?.trim() || 'Custom Service / Renewal';
+    const customSvc: Service = {
+      id,
+      name_en: name,
+      name_ar: 'خدمة مخصصة',
+      category: 'Custom',
+      work_fee: 0,
+      ministry_fee: 0,
+      is_active: true,
+      requires_pro: false,
+    } as any;
+
+    setSelectedPackage(null);
+    setSelectedServices(prev => [...prev, customSvc]);
+    setServiceLines(prev => [
+      ...prev,
+      {
+        service_id: id,
+        service_name: name,
+        service_name_ar: 'خدمة مخصصة',
+        quantity: 1,
+        work_fee: 0,
+        ministry_fee: 0,
+        is_optional: false,
+        is_parallel: false,
+        notes: '',
+        estimated_days_min: 1,
+        estimated_days_max: 3,
+        requires_pro: false,
+        isCustom: true,
+      }
+    ]);
+  };
 
   // Init Data
   useEffect(() => {
@@ -323,7 +360,7 @@ export const JobBuilder = ({
         : (selectedServices.length > 0 ? selectedServices.map(s => s.name_en).join(' + ') : (primaryService.service_name || 'Standard Service'));
 
       // 1. Create the master Job record
-      const { data: jobData, error: jobError } = await (supabase.from('jobs').insert({
+      const jobInsertPayload: any = {
         job_code: `JOB-${Math.floor(Math.random() * 100000)}`,
         client_id: selectedClient.id,
         employee_id: profile?.id,
@@ -342,9 +379,21 @@ export const JobBuilder = ({
         remaining_paid: false,
         entry_type: entryType,
         sales_employee_id: profile?.id,
-        ops_employee_id: assignedTo || profile?.id,
+        ops_employee_id: assignedTo ? assignedTo : null,
         branch_id: profile?.branch_id,
+        notes: entryType === 'referral' && referralName ? `Referral: ${referralName.trim()}` : null,
+      };
+
+      let { data: jobData, error: jobError } = await (supabase.from('jobs').insert({
+        ...jobInsertPayload,
+        ...(entryType === 'referral' && referralName ? { referral_name: referralName.trim() } : {})
       } as any).select().single() as any);
+
+      if (jobError && (jobError.message?.includes('referral_name') || jobError.code === 'PGRST204')) {
+        const retryRes = await (supabase.from('jobs').insert(jobInsertPayload as any).select().single() as any);
+        jobData = retryRes.data;
+        jobError = retryRes.error;
+      }
 
       if (jobError) throw jobError;
       const job = jobData;
@@ -371,10 +420,14 @@ export const JobBuilder = ({
           work_fee: line.work_fee,
           ministry_fee: line.ministry_fee,
           total_fee: line.work_fee + line.ministry_fee,
-          ops_employee_id: assignedTo || profile?.id,
+          ops_employee_id: assignedTo ? assignedTo : null,
           assigned_by: profile?.id,
-          assigned_at: new Date().toISOString(),
-          acceptance_status: (assignedTo && assignedTo !== profile?.id) ? 'pending_acceptance' : 'accepted',
+          assigned_at: assignedTo ? new Date().toISOString() : null,
+          pool_posted_at: assignedTo ? null : new Date().toISOString(),
+          assignment_model: assignedTo ? 'direct' : 'marketplace',
+          acceptance_status: assignedTo 
+            ? (assignedTo !== profile?.id ? 'pending_acceptance' : 'accepted')
+            : 'marketplace',
           notes: line.notes || null,
         }));
 
@@ -383,7 +436,7 @@ export const JobBuilder = ({
         displayOrder += line.quantity;
       }
 
-      // Notify assigned ops employee if different from current creator
+      // Notify assigned ops employee if specified and different from current creator
       if (assignedTo && assignedTo !== profile?.id) {
         await supabase.from('notifications').insert({
           recipient_id: assignedTo,
@@ -559,7 +612,7 @@ export const JobBuilder = ({
                  </div>
               </div>
 
-              {/* Toolbar: Search & View toggle */}
+              {/* Toolbar: Search, Custom Service & View toggle */}
               <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div className="relative flex-1 w-full">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
@@ -572,25 +625,68 @@ export const JobBuilder = ({
                   />
                 </div>
                 
-                {serviceTab === 'services' && (
-                  <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 shrink-0">
-                    <button 
-                      onClick={() => setServiceViewMode('grid')}
-                      className={`p-1.5 rounded-lg transition-all ${serviceViewMode === 'grid' ? 'bg-white/10 text-gold' : 'text-white/40 hover:text-white'}`}
-                      title="Grid View"
-                    >
-                      <LayoutGrid size={14} />
-                    </button>
-                    <button 
-                      onClick={() => setServiceViewMode('list')}
-                      className={`p-1.5 rounded-lg transition-all ${serviceViewMode === 'list' ? 'bg-white/10 text-gold' : 'text-white/40 hover:text-white'}`}
-                      title="List View"
-                    >
-                      <List size={14} />
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomService()}
+                    className="px-4 py-2.5 bg-gold/10 hover:bg-gold/20 border border-gold/30 rounded-xl text-xs font-bold text-gold transition-all flex items-center gap-2 shrink-0 active:scale-95 shadow-sm"
+                    title="Add custom services or renewals not in the catalog"
+                  >
+                    <Plus size={14} /> + Add Custom Service
+                  </button>
+
+                  {serviceTab === 'services' && (
+                    <div className="flex bg-black/20 p-1 rounded-xl border border-white/5 shrink-0">
+                      <button 
+                        onClick={() => setServiceViewMode('grid')}
+                        className={`p-1.5 rounded-lg transition-all ${serviceViewMode === 'grid' ? 'bg-white/10 text-gold' : 'text-white/40 hover:text-white'}`}
+                        title="Grid View"
+                      >
+                        <LayoutGrid size={14} />
+                      </button>
+                      <button 
+                        onClick={() => setServiceViewMode('list')}
+                        className={`p-1.5 rounded-lg transition-all ${serviceViewMode === 'list' ? 'bg-white/10 text-gold' : 'text-white/40 hover:text-white'}`}
+                        title="List View"
+                      >
+                        <List size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Custom Services Added Banner / Chips */}
+              {selectedServices.some(s => (s as any).isCustom || s.category === 'Custom') && (
+                <div className="p-3 bg-gold/5 border border-gold/20 rounded-2xl flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
+                      Custom Services ({selectedServices.filter(s => (s as any).isCustom || s.category === 'Custom').length})
+                    </span>
+                    <span className="text-xs text-white/70">
+                      Custom services will be configured with fees & steps in the next screen.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {selectedServices.filter(s => (s as any).isCustom || s.category === 'Custom').map(cs => (
+                      <span key={cs.id} className="text-[11px] font-bold text-white bg-black/30 border border-white/10 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                        <span>{cs.name_en}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedServices(prev => prev.filter(s => s.id !== cs.id));
+                            setServiceLines(prev => prev.filter(l => l.service_id !== cs.id));
+                          }}
+                          className="text-white/40 hover:text-red-400 transition-colors"
+                          title="Remove custom service"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {serviceTab === 'packages' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto pr-1 no-scrollbar">
@@ -1056,38 +1152,69 @@ export const JobBuilder = ({
                 </button>
               </div>
 
-              {/* Assignment */}
-              <div className="bg-[#131824] border border-white/10 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Operations Handler</label>
-                  <select
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
-                  >
-                    {employees
-                      .filter(emp => emp.department === 'operations' || emp.id === profile?.id)
-                      .map(emp => (
-                        <option key={emp.id} value={emp.id} className="bg-[#131824] text-white">
-                          {emp.full_name}{emp.id === profile?.id ? ' (Me)' : ''}
-                        </option>
-                      ))}
-                  </select>
+              {/* Assignment & Intake Configuration */}
+              <div className="bg-[#131824] border border-white/10 rounded-2xl p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Operations Handler</label>
+                    <select
+                      value={assignedTo}
+                      onChange={(e) => setAssignedTo(e.target.value)}
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                    >
+                      <option value="" className="bg-[#131824] text-amber-300 font-bold">
+                        ⚡ Open Ops Marketplace (Unassigned - Pool)
+                      </option>
+                      {employees
+                        .filter(emp => emp.department === 'operations' || emp.id === profile?.id)
+                        .map(emp => (
+                          <option key={emp.id} value={emp.id} className="bg-[#131824] text-white">
+                            {emp.full_name}{emp.id === profile?.id ? ' (Me)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                    {!assignedTo && (
+                      <p className="text-[10px] text-amber-400/80 font-medium pt-0.5">
+                        Will be listed in the Live Task Marketplace for any ops employee to claim.
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Entry Type</label>
+                    <select
+                      value={entryType}
+                      onChange={(e) => setEntryType(e.target.value as any)}
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                    >
+                      <option value="direct" className="bg-[#131824]">Direct</option>
+                      <option value="referral" className="bg-[#131824]">Referral</option>
+                      <option value="lead" className="bg-[#131824]">From Lead</option>
+                      <option value="walkin" className="bg-[#131824]">Walk-in</option>
+                      <option value="renewal" className="bg-[#131824]">Renewal</option>
+                      <option value="other" className="bg-[#131824]">Other</option>
+                    </select>
+                  </div>
                 </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Entry Type</label>
-                  <select
-                    value={entryType}
-                    onChange={(e) => setEntryType(e.target.value as any)}
-                    className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+
+                {entryType === 'referral' && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="pt-2 border-t border-white/5 space-y-1.5"
                   >
-                    <option value="direct" className="bg-[#131824]">Direct</option>
-                    <option value="lead" className="bg-[#131824]">From Lead</option>
-                    <option value="walkin" className="bg-[#131824]">Walk-in</option>
-                    <option value="renewal" className="bg-[#131824]">Renewal</option>
-                  </select>
-                </div>
+                    <label className="text-[9px] font-bold text-amber-400 uppercase tracking-widest block">
+                      Referral Source / Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter referrer name, client, or partner (e.g. Ahmed Al-Balushi / Partner XYZ)"
+                      value={referralName}
+                      onChange={(e) => setReferralName(e.target.value)}
+                      className="w-full bg-black/30 border border-amber-500/30 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 outline-none transition-all"
+                    />
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           )}

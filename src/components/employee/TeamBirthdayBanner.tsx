@@ -1,9 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cake, Sparkles, Send, X, Check, Heart, MessageSquareHeart } from 'lucide-react';
+import { Cake, Send, X, Check, Heart, MessageSquareHeart } from 'lucide-react';
 import { useTodayBirthdays, useSendBirthdayWish, type BirthdayCelebrant } from '../../hooks/employee/useTeamBirthdays';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '../../lib/supabase';
+
+const resolveAvatarUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  try {
+    const { data } = supabase.storage.from('avatars').getPublicUrl(url);
+    return data?.publicUrl || url;
+  } catch {
+    return url;
+  }
+};
 
 export const TeamBirthdayBanner: React.FC = () => {
   const { profile } = useAuth();
@@ -16,6 +28,7 @@ export const TeamBirthdayBanner: React.FC = () => {
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const [customNote, setCustomNote] = useState('');
   const [sentCelebrants, setSentCelebrants] = useState<Record<string, boolean>>({});
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   // Filter out current user from team list (they already get their own personal popup modal)
   const otherCelebrants = celebrants.filter((c) => c.id !== profile?.id);
@@ -69,6 +82,9 @@ export const TeamBirthdayBanner: React.FC = () => {
         {otherCelebrants.map((celebrant) => {
           const alreadySent = sentCelebrants[celebrant.id];
           const isFemale = celebrant.gender === 'female';
+          const rawAvatar = celebrant.avatar_url || celebrant.avatarUrl;
+          const avatarUrl = resolveAvatarUrl(rawAvatar);
+          const hasImageFailed = failedImages[celebrant.id];
 
           return (
             <motion.div
@@ -85,12 +101,13 @@ export const TeamBirthdayBanner: React.FC = () => {
                 {/* Left: Avatar & Info */}
                 <div className="flex items-center gap-3.5">
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md shrink-0">
                       <div className="w-full h-full rounded-[10px] overflow-hidden bg-slate-900 flex items-center justify-center">
-                        {celebrant.avatarUrl ? (
+                        {avatarUrl && !hasImageFailed ? (
                           <img
-                            src={celebrant.avatarUrl}
+                            src={avatarUrl}
                             alt={celebrant.full_name}
+                            onError={() => setFailedImages((prev) => ({ ...prev, [celebrant.id]: true }))}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -170,22 +187,52 @@ export const TeamBirthdayBanner: React.FC = () => {
               className="relative w-full max-w-md bg-[#0d1424] border border-amber-500/30 rounded-2xl p-6 shadow-2xl z-10 text-foreground"
               dir={isRtl ? 'rtl' : 'ltr'}
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                <div className="flex items-center gap-2 text-gold">
-                  <Heart size={18} className="fill-gold" />
-                  <h3 className="font-syne font-bold text-base">
-                    {isRtl
-                      ? `تهنئة الزميل ${activeModalCelebrant.full_name}`
-                      : `Wish ${activeModalCelebrant.full_name} Happy Birthday!`}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setActiveModalCelebrant(null)}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-white transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              {(() => {
+                const modalRawAvatar = activeModalCelebrant.avatar_url || activeModalCelebrant.avatarUrl;
+                const modalAvatarUrl = resolveAvatarUrl(modalRawAvatar);
+                const hasModalImgFailed = failedImages[activeModalCelebrant.id];
+
+                return (
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md shrink-0">
+                        <div className="w-full h-full rounded-[9px] overflow-hidden bg-slate-900 flex items-center justify-center">
+                          {modalAvatarUrl && !hasModalImgFailed ? (
+                            <img
+                              src={modalAvatarUrl}
+                              alt={activeModalCelebrant.full_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="font-bold text-sm text-gold">
+                              {activeModalCelebrant.full_name?.[0]?.toUpperCase() || '★'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-gold">
+                          <Heart size={14} className="fill-gold shrink-0" />
+                          <h3 className="font-syne font-bold text-base truncate">
+                            {isRtl
+                              ? `تهنئة الزميل ${activeModalCelebrant.full_name}`
+                              : `Wish ${activeModalCelebrant.full_name} Happy Birthday!`}
+                          </h3>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30 font-semibold uppercase tracking-wider inline-block mt-0.5">
+                          {activeModalCelebrant.department || 'OSBIC Team'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveModalCelebrant(null)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-white transition-colors shrink-0"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                );
+              })()}
 
               <form onSubmit={handleSendWish} className="space-y-4">
                 <div>

@@ -597,6 +597,12 @@ const ApplicantCard = ({
                   <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap animate-pulse">
                     <AlertCircle size={10} /> Unassigned
                   </span>
+                  {assignerName && (
+                    <span className="text-[9px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                      <UserCheck size={10} className="text-amber-400 shrink-0" />
+                      <span>Assigned by: <strong className="font-bold text-amber-300">{assignerName}</strong></span>
+                    </span>
+                  )}
                   {isOpsHead && (
                     <button
                       type="button"
@@ -705,8 +711,8 @@ const ApplicantCard = ({
                       <div
                         key={step.id}
                         className={`flex items-start justify-between gap-3 p-3 border rounded-xl transition-all ${isStepLocked
-                            ? 'bg-muted/10 border-border/30 opacity-60'
-                            : 'bg-muted/20 border-border/40'
+                          ? 'bg-muted/10 border-border/30 opacity-60'
+                          : 'bg-muted/20 border-border/40'
                           }`}
                       >
                         <div className="flex items-start gap-3 min-w-0">
@@ -1669,8 +1675,8 @@ const ServiceStatusSheet = ({
                   disabled={isStatusDisabled}
                   onClick={() => setStatus(opt.value)}
                   className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-left ${status === opt.value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
                     } ${isStatusDisabled ? 'opacity-40 cursor-not-allowed border-dashed' : ''}`}
                 >
                   {opt.label}
@@ -1902,8 +1908,8 @@ const ServiceStatusSheet = ({
                         type="button"
                         onClick={() => handleAddPresetDoc(docName)}
                         className={`text-[9px] px-2.5 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 font-medium select-none ${isAdded
-                            ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/20 opacity-55 cursor-not-allowed"
-                            : "bg-muted/30 hover:bg-primary/10 text-muted-foreground hover:text-primary border-border/60 cursor-pointer"
+                          ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/20 opacity-55 cursor-not-allowed"
+                          : "bg-muted/30 hover:bg-primary/10 text-muted-foreground hover:text-primary border-border/60 cursor-pointer"
                           }`}
                         disabled={isAdded || isAddingDoc}
                       >
@@ -2753,59 +2759,74 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     <div className="w-full min-w-0 flex flex-col h-full bg-background overflow-hidden">
       {/* Header Tabs */}
       <div className="px-3 sm:px-6 pt-3 sm:pt-4 border-b border-border bg-card shrink-0">
-        <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar whitespace-nowrap pr-6">
-          <button
-            onClick={() => setActiveTab('operations')}
-            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'operations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            Operations
-          </button>
-          {canViewFinancials && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar whitespace-nowrap pr-2">
             <button
-              onClick={() => setActiveTab('ledger')}
-              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              onClick={() => setActiveTab('operations')}
+              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'operations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
             >
-              Financial Ledger
+              Operations
             </button>
-          )}
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-1.5 ${activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            <Clock size={14} /> Timeline
-          </button>
-          <button
-            onClick={() => setActiveTab('documents')}
-            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            Documents
-          </button>
-          <button
-            onClick={() => setActiveTab('messages')}
-            className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-2 ${activeTab === 'messages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            <span>Chat Support</span>
-            {unreadCount > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${activeTab === 'messages'
+            {canViewFinancials && (
+              <button
+                onClick={() => setActiveTab('ledger')}
+                className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                Financial Ledger
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab('timeline')}
+              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-1.5 ${activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              <Clock size={14} /> Timeline
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 ${activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              Documents
+            </button>
+            <button
+              onClick={() => setActiveTab('messages')}
+              className={`pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors shrink-0 flex items-center gap-2 ${activeTab === 'messages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              <span>Chat Support</span>
+              {unreadCount > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${activeTab === 'messages'
                   ? 'bg-primary/20 text-primary'
                   : 'bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse'
-                }`}>
-                {unreadCount}
-              </span>
+                  }`}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setIsBriefingOpen(true)}
+              className="pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 border-transparent text-amber-400 hover:text-amber-300 transition-colors shrink-0"
+              title="Open comprehensive job summary and overview"
+            >
+              Job Summary
+            </button>
+            {resolvedAssigner && (
+              <div className="pb-3 sm:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0 pl-2 border-l border-border/40">
+                <UserCheck size={12} className="text-amber-400 shrink-0" />
+                <span>By: <strong className="font-bold text-amber-300">{resolvedAssigner}</strong></span>
+              </div>
             )}
-          </button>
-          <button
-            onClick={() => setIsBriefingOpen(true)}
-            className="pb-3 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 border-transparent text-amber-400 hover:text-amber-300 transition-colors shrink-0"
-            title="Open comprehensive job summary and overview"
-          >
-            Job Summary
-          </button>
+          </div>
+
+          {resolvedAssigner && (
+            <div className="pb-3 hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 pl-3 border-l border-border/40">
+              <UserCheck size={13} className="text-amber-400 shrink-0" />
+              <span>Assigned by: <strong className="font-bold text-amber-300">{resolvedAssigner}</strong></span>
+            </div>
+          )}
         </div>
       </div>
 

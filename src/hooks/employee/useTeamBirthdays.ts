@@ -7,6 +7,7 @@ export interface BirthdayCelebrant {
   id: string;
   full_name: string;
   avatar_url: string | null;
+  avatarUrl?: string | null;
   department: string | null;
   gender: 'male' | 'female' | null;
   date_of_birth: string;
@@ -57,6 +58,7 @@ export const useTodayBirthdays = () => {
             id: emp.id,
             full_name: emp.full_name || 'Team Member',
             avatar_url: emp.avatar_url,
+            avatarUrl: emp.avatar_url,
             department: emp.department,
             gender: emp.gender,
             date_of_birth: emp.date_of_birth,
@@ -78,6 +80,7 @@ export const useTodayBirthdays = () => {
               id: emp.id,
               full_name: emp.full_name || 'Team Member',
               avatar_url: emp.avatar_url,
+              avatarUrl: emp.avatar_url,
               department: emp.department,
               gender: emp.gender,
               date_of_birth: emp.date_of_birth,

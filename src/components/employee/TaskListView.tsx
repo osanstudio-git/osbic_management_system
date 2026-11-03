@@ -158,9 +158,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <div>
             <div className="text-sm font-bold text-foreground">{getClientName(job)}</div>
             <div className={`text-[10px] font-bold uppercase tracking-widest ${isQuick ? 'text-amber-500' : 'text-muted-foreground'}`}>{job.job_code}</div>
-            {(job.sales_employee?.full_name || job.assigner?.full_name) && (
+            {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name) && (
               <div className="text-[10px] text-amber-400 font-medium">
-                By: {job.sales_employee?.full_name || job.assigner?.full_name}
+                By: {job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name}
               </div>
             )}
           </div>

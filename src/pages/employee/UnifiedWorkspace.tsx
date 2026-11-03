@@ -9,7 +9,7 @@ import { ClientDetailsView } from '../../components/employee/ClientDetailsView';
 import { ClientListView } from '../../components/employee/ClientListView';
 import { TaskListView } from '../../components/employee/TaskListView';
 import { TaskDashboard } from '../../components/employee/TaskDashboard';
-import { Filter, Search, Plus, Clock, AlertCircle, CheckCircle2, ArrowLeft, X, User, LayoutGrid, List, Zap, Briefcase } from 'lucide-react';
+import { Filter, Search, Plus, Clock, AlertCircle, CheckCircle2, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase } from 'lucide-react';
 import { JobBuilder } from '../../components/employee/JobBuilder';
 import CreateClientSlideOver from '../../components/shared/clients/CreateClientSlideOver';
 import WalkInModal from '../../components/employee/WalkInModal';
@@ -570,7 +570,15 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                   </button>
                   <div className="min-w-0">
                      <h2 className="text-base lg:text-xl font-syne font-bold text-foreground truncate">Job Details</h2>
-                     <p className="text-[10px] font-bold text-primary tracking-widest uppercase truncate">{selectedJob.job_code}</p>
+                     <div className="flex items-center gap-2 flex-wrap">
+                       <p className="text-[10px] font-bold text-primary tracking-widest uppercase truncate">{selectedJob.job_code}</p>
+                       {(selectedJob.assigner_name || selectedJob.sales_employee?.full_name || selectedJob.assigner?.full_name || (selectedJob as any)?.assigned_by_profile?.full_name) && (
+                         <span className="text-[10px] text-amber-400 font-medium truncate flex items-center gap-1">
+                           <UserCheck size={11} className="text-amber-400 shrink-0" />
+                           By: <strong className="font-bold text-amber-300">{selectedJob.assigner_name || selectedJob.sales_employee?.full_name || selectedJob.assigner?.full_name || (selectedJob as any)?.assigned_by_profile?.full_name}</strong>
+                         </span>
+                       )}
+                     </div>
                   </div>
                 </div>
              </div>

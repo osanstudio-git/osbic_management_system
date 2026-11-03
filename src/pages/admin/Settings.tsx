@@ -16,6 +16,7 @@ import { twMerge } from 'tailwind-merge';
 import { useAdminSettings } from '../../hooks/admin/useAdminSettings';
 import { useBranch } from '../../contexts/BranchContext';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -513,10 +514,10 @@ const Settings = () => {
                         setSavingBranch(true);
                         try {
                           const newBranch = await createBranch({
-                            name: branchForm.name,
-                            code: branchForm.code,
-                            address: branchForm.address || null,
-                            phone: branchForm.phone || null,
+                            name: branchForm.name.trim(),
+                            code: branchForm.code.trim().toUpperCase(),
+                            address: branchForm.address ? branchForm.address.trim() : null,
+                            phone: branchForm.phone ? branchForm.phone.trim() : null,
                             is_active: true
                           } as any);
 
@@ -528,9 +529,13 @@ const Settings = () => {
                             await refetchEmployees();
                           }
 
+                          toast.success(`Branch "${newBranch.name}" created successfully!`);
                           setShowAddBranch(false);
                           setBranchForm({ name: '', code: '', address: '', phone: '', manager_id: '' });
-                        } catch (err: any) { alert(err.message); }
+                        } catch (err: any) { 
+                          console.error('Create branch error:', err);
+                          toast.error(err.message || 'Failed to create branch'); 
+                        }
                         finally { setSavingBranch(false); }
                       }}
                       className="px-6 py-2 bg-primary text-[#0A0F1E] font-bold text-xs rounded-xl disabled:opacity-50 flex items-center gap-2"
@@ -658,24 +663,29 @@ const Settings = () => {
                               <>
                                 <button
                                   onClick={async () => {
-                                    await updateBranch(branch.id, {
-                                      name: editBranchForm.name,
-                                      code: editBranchForm.code,
-                                      address: editBranchForm.address,
-                                      phone: editBranchForm.phone
-                                    });
+                                    try {
+                                      await updateBranch(branch.id, {
+                                        name: editBranchForm.name.trim(),
+                                        code: editBranchForm.code.trim().toUpperCase(),
+                                        address: editBranchForm.address ? editBranchForm.address.trim() : null,
+                                        phone: editBranchForm.phone ? editBranchForm.phone.trim() : null
+                                      });
 
-                                    const prevManager = employees.find(e => e.branch_id === branch.id && e.is_manager);
-                                    if (editBranchForm.manager_id !== prevManager?.id) {
-                                      if (prevManager) {
-                                        await supabase.from('profiles').update({ is_manager: false }).eq('id', prevManager.id);
+                                      const prevManager = employees.find(e => e.branch_id === branch.id && e.is_manager);
+                                      if (editBranchForm.manager_id !== prevManager?.id) {
+                                        if (prevManager) {
+                                          await supabase.from('profiles').update({ is_manager: false }).eq('id', prevManager.id);
+                                        }
+                                        if (editBranchForm.manager_id) {
+                                          await supabase.from('profiles').update({ branch_id: branch.id, is_manager: true }).eq('id', editBranchForm.manager_id);
+                                        }
+                                        await refetchEmployees();
                                       }
-                                      if (editBranchForm.manager_id) {
-                                        await supabase.from('profiles').update({ branch_id: branch.id, is_manager: true }).eq('id', editBranchForm.manager_id);
-                                      }
-                                      await refetchEmployees();
+                                      toast.success('Branch updated successfully!');
+                                      setEditingBranch(null);
+                                    } catch (err: any) {
+                                      toast.error(err.message || 'Failed to update branch');
                                     }
-                                    setEditingBranch(null);
                                   }}
                                   className="px-3 py-1.5 bg-primary text-[#0A0F1E] font-bold text-xs rounded-lg"
                                 >Save</button>
@@ -699,7 +709,14 @@ const Settings = () => {
                                   title="Edit branch"
                                 ><Pencil size={14} /></button>
                                 <button
-                                  onClick={() => updateBranch(branch.id, { is_active: !branch.is_active })}
+                                  onClick={async () => {
+                                    try {
+                                      await updateBranch(branch.id, { is_active: !branch.is_active });
+                                      toast.success(branch.is_active ? `Branch "${branch.name}" deactivated` : `Branch "${branch.name}" activated`);
+                                    } catch (err: any) {
+                                      toast.error(err.message || 'Failed to toggle branch status');
+                                    }
+                                  }}
                                   className={`p-2 rounded-lg transition-colors ${
                                     branch.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                                   }`}

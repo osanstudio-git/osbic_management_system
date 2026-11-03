@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { TaskAssignmentBriefing } from '../../components/employee/TaskAssignmentBriefing';
+import { LogCompletedWorkModal } from '../../components/employee/LogCompletedWorkModal';
 
 // ─── Status Config ─────────────────────────────────────────────────────────────
 
@@ -746,6 +747,11 @@ const TaskRow = ({
             {task.quantity > 1 && (
               <span className="ml-1 text-muted-foreground/50">· Person {task.item_number}/{task.quantity}</span>
             )}
+            {assignedByName && (
+              <span className="ml-2 text-amber-400 font-medium">
+                · By: <strong className="font-bold text-amber-300">{assignedByName}</strong>
+              </span>
+            )}
           </p>
           {outputs.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1078,6 +1084,7 @@ const MyTasks: React.FC = () => {
   const [filter, setFilter] = useState<FilterTab>('all');
   const [briefingJobId, setBriefingJobId] = useState<string | null>(null);
   const [briefingServiceId, setBriefingServiceId] = useState<string | null>(null);
+  const [isLogCompletedModalOpen, setIsLogCompletedModalOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
 
@@ -1192,6 +1199,14 @@ const MyTasks: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsLogCompletedModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-all shadow-sm"
+            title={isRtl ? 'تسجيل عمل سابق مكتمل قبل تطبيق النظام' : 'Log completed past work done before system rollout'}
+          >
+            <CheckCircle2 size={13} />
+            <span>{isRtl ? 'تسجيل عمل سابق' : 'Log Completed Work'}</span>
+          </button>
           <button
             onClick={() => navigate('/employee/task-pool')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all"
@@ -1320,6 +1335,13 @@ const MyTasks: React.FC = () => {
           setBriefingJobId(null);
           setBriefingServiceId(null);
         }}
+      />
+
+      {/* Log Completed Historical Work Modal */}
+      <LogCompletedWorkModal
+        isOpen={isLogCompletedModalOpen}
+        onClose={() => setIsLogCompletedModalOpen(false)}
+        onSuccess={refetch}
       />
     </div>
   );

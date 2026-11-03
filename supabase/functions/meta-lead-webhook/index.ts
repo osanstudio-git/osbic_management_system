@@ -36,7 +36,7 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_URL') ?? '',
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
-        const metaAccessToken = Deno.env.get('META_PAGE_ACCESS_TOKEN');
+        const metaAccessToken = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAUdfaXl26oBS13blQ620mdvzhL88RdycJPBK3BAMMg2QaPXCupoNTNnzxXTeZARGtoBmFKOtrS48RPzoHwCvxsaF4QmUTNptAsKMxz1e4Sw1rlhqEhGoZBG2Y0lVroNlFUM68ExEAKrKsgvDZA2ayGNxUNy0Oh3MhfrlHQD4R0HbGPAhF4Vo7GEXn5wQZDZD';
 
         for (const entry of entries) {
           const changes = entry.changes || [];
@@ -47,6 +47,18 @@ serve(async (req) => {
               const createdTime = change.value?.created_time;
 
               if (leadgenId && metaAccessToken) {
+                // Check for duplicate ingestion
+                const { data: existingLead } = await supabase
+                  .from('leads')
+                  .select('id')
+                  .eq('leadgen_id', String(leadgenId))
+                  .maybeSingle();
+
+                if (existingLead) {
+                  console.log(`Lead ${leadgenId} already ingested, skipping.`);
+                  continue;
+                }
+
                 // Fetch full lead details from Meta Graph API
                 try {
                   const graphUrl = `https://graph.facebook.com/v20.0/${leadgenId}?access_token=${metaAccessToken}`;
@@ -85,7 +97,7 @@ serve(async (req) => {
                       .limit(1)
                       .maybeSingle();
 
-                    await supabase.from('leads').insert([{
+                    const { data: insertedLead } = await supabase.from('leads').insert([{
                       contact_name: fullName || 'Meta Ads Prospect',
                       contact_phone: cleanPhone || null,
                       contact_whatsapp: cleanPhone || null,
@@ -99,7 +111,33 @@ serve(async (req) => {
                       form_id: String(formId || ''),
                       notes: `Meta Lead Ad Form Submission. Form ID: ${formId}. Created: ${createdTime}`,
                       interested_services: [{ type: 'service', name: 'Company Registration in Oman', price: 0 }]
-                    }]);
+                    }]).select('id').maybeSingle();
+
+                    // Notify sales team
+                    try {
+                      const { data: salesStaff } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .or('can_do_sales.eq.true,role.eq.admin,is_manager.eq.true');
+
+                      if (salesStaff && salesStaff.length > 0) {
+                        const notifs = salesStaff.map((s: any) => ({
+                          recipient_id: s.id,
+                          type: 'alert',
+                          title_en: `⚡ New Meta Ad Lead: ${fullName || 'Prospect'}`,
+                          title_ar: `⚡ عميل محتمل جديد من إعلانات ميتا: ${fullName || 'عميل'}`,
+                          body_en: `New inbound lead from Facebook/Instagram (${cleanPhone || email || 'No contact'}).`,
+                          body_ar: `عميل وارد جديد من فيسبوك / انستغرام (${cleanPhone || email || ''}).`,
+                          action_url: '/employee/marketing',
+                          is_read: false,
+                          action_required: true,
+                          created_at: new Date().toISOString()
+                        }));
+                        await supabase.from('notifications').insert(notifs);
+                      }
+                    } catch (notifErr) {
+                      console.warn('Failed to dispatch notification:', notifErr);
+                    }
                   }
                 } catch (graphErr) {
                   console.error(`Failed to fetch Meta lead details for ${leadgenId}:`, graphErr);

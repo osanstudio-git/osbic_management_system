@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
-import { 
-  ArrowLeft, Printer, Save, Building2, User, Phone, 
-  Mail, ShieldCheck, Handshake, Globe, DollarSign, FileText, 
-  RotateCcw, Sparkles, ChevronRight, Eye, ZoomIn, ZoomOut, 
+import {
+  ArrowLeft, Printer, Save, Building2, User, Phone,
+  Mail, ShieldCheck, Handshake, Globe, DollarSign, FileText,
+  RotateCcw, Sparkles, ChevronRight, Eye, ZoomIn, ZoomOut,
   Maximize2, Sliders, CheckSquare, Layers, Landmark, HelpCircle, Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -39,7 +39,7 @@ export default function B2BProposalBuilder() {
   // View & Zoom controls for Live Preview
   const [zoomLevel, setZoomLevel] = useState<number>(0.68);
   const [activePreviewPage, setActivePreviewPage] = useState<'all' | '1' | '2' | '3' | '4'>('all');
-  
+
   // Page-Wise UX Tab on Left Panel
   const [pageTab, setPageTab] = useState<'page1' | 'page2' | 'page3' | 'page4'>('page1');
 
@@ -59,7 +59,7 @@ export default function B2BProposalBuilder() {
     preparedBy: string;
     ourPhone: string;
     currency: string;
-    
+
     // Page 1: Introduction text
     introP1: string;
     introP2: string;
@@ -249,7 +249,7 @@ export default function B2BProposalBuilder() {
   useEffect(() => {
     if (initialData && !isNew) {
       const meta = initialData.metadata || {};
-      
+
       if (initialData.b2b_partner_id) {
         setRecipientType('partner');
         setSelectedPartnerId(initialData.b2b_partner_id);
@@ -521,7 +521,7 @@ export default function B2BProposalBuilder() {
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          
+
           {/* Back & Breadcrumb */}
           <div className="flex items-center gap-3">
             <button
@@ -576,7 +576,7 @@ export default function B2BProposalBuilder() {
 
       {/* Main Workspace Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         {/* ================= LEFT: PAGE-WISE FORM CONTROLS (5 Cols) ================= */}
         <div className="lg:col-span-5 space-y-4 print:hidden">
 
@@ -586,16 +586,15 @@ export default function B2BProposalBuilder() {
               <span>Page-by-Page Editor</span>
               <span className="text-[#0088cc] font-semibold">Live Preview Synced</span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               <button
                 type="button"
                 onClick={() => handleTabChange('page1')}
-                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
-                  pageTab === 'page1'
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page1'
                     ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 1</span>
                 <span className="truncate w-full text-[11px]">Scope & Price</span>
@@ -604,11 +603,10 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => handleTabChange('page2')}
-                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
-                  pageTab === 'page2'
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page2'
                     ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 2</span>
                 <span className="truncate w-full text-[11px]">Partnership</span>
@@ -617,11 +615,10 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => handleTabChange('page3')}
-                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
-                  pageTab === 'page3'
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page3'
                     ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 3</span>
                 <span className="truncate w-full text-[11px]">Bank Details</span>
@@ -630,11 +627,10 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => handleTabChange('page4')}
-                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${
-                  pageTab === 'page4'
+                className={`py-2 px-2.5 rounded-xl font-bold text-xs transition flex flex-col items-center gap-1 text-center border ${pageTab === 'page4'
                     ? 'bg-[#0088cc] text-white border-[#0088cc] shadow-sm'
                     : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <span className="text-[10px] uppercase opacity-80">Page 4</span>
                 <span className="truncate w-full text-[11px]">Selfie & Notes</span>
@@ -647,7 +643,7 @@ export default function B2BProposalBuilder() {
           {/* ========================================================================= */}
           {pageTab === 'page1' && (
             <div className="space-y-4">
-              
+
               {/* Recipient & Header Box */}
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-border pb-3">
@@ -662,33 +658,30 @@ export default function B2BProposalBuilder() {
                   <button
                     type="button"
                     onClick={() => setRecipientType('partner')}
-                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                      recipientType === 'partner'
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'partner'
                         ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     B2B Partner
                   </button>
                   <button
                     type="button"
                     onClick={() => setRecipientType('lead')}
-                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                      recipientType === 'lead'
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'lead'
                         ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     Saudi Lead
                   </button>
                   <button
                     type="button"
                     onClick={() => setRecipientType('custom')}
-                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${
-                      recipientType === 'custom'
+                    className={`py-1.5 px-2 rounded-lg font-bold transition text-[11px] ${recipientType === 'custom'
                         ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     Custom
                   </button>
@@ -1382,7 +1375,7 @@ export default function B2BProposalBuilder() {
 
         {/* ================= RIGHT: LIVE DOCUMENT PREVIEW (7 Cols) ================= */}
         <div className="lg:col-span-7 flex flex-col items-center">
-          
+
           {/* Controls Bar */}
           <div className="w-full flex flex-wrap items-center justify-between gap-3 mb-3 text-xs bg-card border border-border p-2.5 rounded-2xl shadow-sm">
             {/* Page Filter Tabs */}
@@ -1390,33 +1383,30 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('all')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
-                  activePreviewPage === 'all'
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === 'all'
                     ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 All Pages
               </button>
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('1')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
-                  activePreviewPage === '1'
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '1'
                     ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Page 1
               </button>
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('2')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
-                  activePreviewPage === '2'
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '2'
                     ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Page 2
               </button>
@@ -1424,11 +1414,10 @@ export default function B2BProposalBuilder() {
                 <button
                   type="button"
                   onClick={() => setActivePreviewPage('3')}
-                  className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
-                    activePreviewPage === '3'
+                  className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '3'
                       ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Page 3 (Bank)
                 </button>
@@ -1436,11 +1425,10 @@ export default function B2BProposalBuilder() {
               <button
                 type="button"
                 onClick={() => setActivePreviewPage('4')}
-                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${
-                  activePreviewPage === '4'
+                className={`px-2.5 py-1 rounded-lg transition text-[11px] shrink-0 ${activePreviewPage === '4'
                     ? 'bg-card text-[#0088cc] dark:text-cyan-400 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Page {proposalData.showBankDetails ? '4' : '3'} (Selfie)
               </button>
@@ -1483,7 +1471,7 @@ export default function B2BProposalBuilder() {
 
           {/* Scaled Document Viewport Container */}
           <div className="w-full overflow-hidden bg-slate-900/10 dark:bg-black/40 p-4 sm:p-6 rounded-3xl border border-border shadow-inner flex justify-center items-start min-h-[750px]">
-            <div 
+            <div
               style={{
                 transform: `scale(${zoomLevel})`,
                 transformOrigin: 'top center',

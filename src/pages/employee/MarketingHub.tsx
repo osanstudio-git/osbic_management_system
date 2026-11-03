@@ -41,7 +41,8 @@ import {
   Share2,
   Smartphone,
   Eye,
-  UserCheck
+  UserCheck,
+  X
 } from 'lucide-react';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -70,6 +71,32 @@ export default function MarketingHub() {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [newLeadsSinceLoad, setNewLeadsSinceLoad] = useState(0);
   const queryClient = useQueryClient();
+
+  // Meta Webhook Details Modal
+  const [showMetaWebhookModal, setShowMetaWebhookModal] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [webhookTestResult, setWebhookTestResult] = useState<'success' | 'error' | null>(null);
+
+  const handleTestMetaWebhook = async () => {
+    setIsTestingWebhook(true);
+    setWebhookTestResult(null);
+    try {
+      const res = await fetch('https://wyzwpmwspvksgkmesaah.supabase.co/functions/v1/meta-lead-webhook?hub.mode=subscribe&hub.verify_token=osbic_meta_verify_secret_2026&hub.challenge=VERIFIED_200');
+      const text = await res.text();
+      if (res.ok && text.includes('VERIFIED_200')) {
+        setWebhookTestResult('success');
+        toast.success('Meta Webhook Handshake Verified! Status 200 OK');
+      } else {
+        setWebhookTestResult('error');
+        toast.error(`Verification returned: ${res.status} ${text}`);
+      }
+    } catch {
+      setWebhookTestResult('error');
+      toast.error('Network check failed');
+    } finally {
+      setIsTestingWebhook(false);
+    }
+  };
 
   // 1. Fetch Inbound Leads with full UTM attribution
   const { data: leads, isLoading: isLoadingLeads, refetch: refetchLeads } = useQuery({
@@ -704,19 +731,26 @@ export default function MarketingHub() {
         </div>
 
         {/* Meta Ads Webhook */}
-        <div className="p-4 rounded-2xl bg-card border border-border/60 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setShowMetaWebhookModal(true)}
+          className="p-4 rounded-2xl bg-card border border-border/60 hover:border-indigo-500/50 shadow-sm flex items-center justify-between cursor-pointer transition-all group"
+          title="Click to view Meta Webhook URL and verify connection"
+        >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-xs">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-xs group-hover:scale-110 transition-transform">
               M
             </div>
             <div>
-              <h4 className="text-xs font-bold text-foreground">Meta (FB / IG) Lead Ads</h4>
-              <p className="text-[10px] text-muted-foreground">Graph API Webhook Listener</p>
+              <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                Meta (FB / IG) Lead Ads
+                <ExternalLink size={10} className="text-muted-foreground opacity-60 group-hover:opacity-100" />
+              </h4>
+              <p className="text-[10px] text-muted-foreground">App ID: 61596335390056 · Click for Setup</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Ready
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Live & Ready
           </span>
         </div>
       </div>
@@ -1473,6 +1507,119 @@ export default function MarketingHub() {
           </div>
         </div>
       )}
+
+      {/* META ADS WEBHOOK CONFIG MODAL */}
+      <AnimatePresence>
+        {showMetaWebhookModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm" onClick={() => setShowMetaWebhookModal(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-sm">
+                    M
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Meta (FB / IG) Lead Ads Webhook</h3>
+                    <p className="text-[10px] text-muted-foreground">App ID: 61596335390056 · Permanent Token Configured</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMetaWebhookModal(false)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Status banner */}
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-400 font-semibold">
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Webhook Listener is Live & Ready
+                </span>
+                <button
+                  onClick={handleTestMetaWebhook}
+                  disabled={isTestingWebhook}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw size={10} className={isTestingWebhook ? 'animate-spin' : ''} />
+                  {isTestingWebhook ? 'Checking...' : 'Test Handshake'}
+                </button>
+              </div>
+
+              {/* Credentials to paste in Meta Developer Portal */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    1. Callback URL (Paste in Meta Developer Portal)
+                  </label>
+                  <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-xl p-2.5">
+                    <input
+                      readOnly
+                      value="https://wyzwpmwspvksgkmesaah.supabase.co/functions/v1/meta-lead-webhook"
+                      className="bg-transparent text-xs text-foreground font-mono w-full outline-none select-all"
+                    />
+                    <button
+                      onClick={() => handleCopy("https://wyzwpmwspvksgkmesaah.supabase.co/functions/v1/meta-lead-webhook", "meta_webhook_url")}
+                      className="p-1.5 rounded-lg bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                      title="Copy URL"
+                    >
+                      {copiedField === "meta_webhook_url" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    2. Verify Token (Paste in Meta Developer Portal)
+                  </label>
+                  <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-xl p-2.5">
+                    <input
+                      readOnly
+                      value="osbic_meta_verify_secret_2026"
+                      className="bg-transparent text-xs text-foreground font-mono w-full outline-none select-all"
+                    />
+                    <button
+                      onClick={() => handleCopy("osbic_meta_verify_secret_2026", "meta_verify_token")}
+                      className="p-1.5 rounded-lg bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                      title="Copy Token"
+                    >
+                      {copiedField === "meta_verify_token" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step instructions */}
+              <div className="p-3 rounded-xl bg-muted/20 border border-border/40 text-[11px] space-y-1.5 text-muted-foreground">
+                <p className="font-bold text-foreground">Steps in Meta for Developers:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>In your Meta App (<strong>61596335390056</strong>), open <strong>Webhooks</strong>.</li>
+                  <li>Select <strong>Page</strong> object ➔ Click <strong>Subscribe to this object</strong>.</li>
+                  <li>Paste the <strong>Callback URL</strong> and <strong>Verify Token</strong> above ➔ Click <strong>Verify & Save</strong>.</li>
+                  <li>In the fields list, find <strong>leadgen</strong> and click <strong>Subscribe</strong>.</li>
+                  <li>Test with <a href="https://developers.facebook.com/tools/lead-ads-testing" target="_blank" rel="noreferrer" className="text-primary underline">Meta Lead Ads Testing Tool</a> to see leads stream here in real time!</li>
+                </ol>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setShowMetaWebhookModal(false)}
+                  className="px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:bg-primary/90 transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
