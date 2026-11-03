@@ -247,6 +247,29 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                     />
                   </div>
 
+                  {/* Lead / Received Date */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Calendar size={14} className="text-primary" />
+                        <span>Lead Date (Received Date) *</span>
+                      </label>
+                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        Reports Date
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      value={formData.lead_date}
+                      onChange={e => setFormData({ ...formData, lead_date: e.target.value })}
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm font-mono"
+                      required
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Attributed to sales reports on this date (ideal if recording a lead from 1–2 days ago)
+                    </p>
+                  </div>
+
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-sm font-medium text-muted-foreground">Phone Number *</label>
@@ -455,28 +478,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                     />
                   </div>
 
-                  {/* Lead / Received Date */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Calendar size={14} className="text-primary" />
-                        <span>Lead Date (Received Date) *</span>
-                      </label>
-                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                        Reports Date
-                      </span>
-                    </div>
-                    <input
-                      type="date"
-                      value={formData.lead_date}
-                      onChange={e => setFormData({ ...formData, lead_date: e.target.value })}
-                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm font-mono"
-                      required
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Attributed to sales reports on this date (ideal if recording a lead from 1–2 days ago)
-                    </p>
-                  </div>
+
 
                   {/* Interested Service (Optional) */}
                   <div>
