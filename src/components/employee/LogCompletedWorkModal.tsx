@@ -424,6 +424,10 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
           government_ref: govRef || null,
           service_name: resolvedServiceName
         } as any);
+      } catch (timelineErr) {
+        console.warn('Timeline recording notice:', timelineErr);
+      }
+
       // 9. Suppress any auto-generated assignment notification for this completed job
       try {
         await supabase
