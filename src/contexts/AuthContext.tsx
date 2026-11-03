@@ -67,28 +67,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    let isMounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    // Use onAuthStateChange as the single source of truth to avoid navigator lock race conditions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!isMounted) return;
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        await fetchProfile(currentSession.user.id);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {
@@ -100,10 +97,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) {
-        // If profile doesn't exist but user does, it's a broken session or an incomplete test account.
-        // We suppress the PGRST116 "0 rows" error to avoid console spam during password resets.
-        if (error.code !== 'PGRST116') {
+        // If profile doesn't exist but user does, it's a broken session or deleted account.
+        if (error.code !== 'PGRST116' && (error as any).status !== 406) {
           console.error('Profile fetch failed:', error);
+        }
+        // Auto-purge the stale ghost session so it stops throwing 406/429 loops in the console
+        if (error.code === 'PGRST116' || (error as any).status === 406 || error.message?.includes('PGRST116')) {
+          try {
+            await supabase.auth.signOut();
+          } catch {
+            // ignore
+          }
+          setUser(null);
+          setSession(null);
         }
         setProfile(null);
       } else {
