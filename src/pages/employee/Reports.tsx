@@ -41,6 +41,8 @@ export default function EmployeeReports() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
+  const [jobScope, setJobScope] = useState<'all' | 'handled' | 'assigned'>('all');
+  const [leadScope, setLeadScope] = useState<'all' | 'handled' | 'distributed'>('all');
 
   // 1. Fetch Payments Data
   const { data: payments, isLoading: isLoadingPayments } = useQuery({
@@ -78,7 +80,7 @@ export default function EmployeeReports() {
     enabled: !!user?.id
   });
 
-  // 2. Fetch Jobs Data
+  // 2. Fetch Jobs Data (both handled directly and assigned out to Ops)
   const { data: jobs, isLoading: isLoadingJobs } = useQuery({
     queryKey: ['employee', 'reports', 'jobs', user?.id],
     queryFn: async () => {
@@ -88,31 +90,29 @@ export default function EmployeeReports() {
         .select(`
           *,
           client:profiles!client_id(full_name),
-          service:services!service_id(name_en, name_ar)
+          service:services!service_id(name_en, name_ar),
+          ops_specialist:profiles!jobs_ops_employee_id_fkey(full_name, employee_code)
         `)
-        .or(`sales_employee_id.eq.${user.id},employee_id.eq.${user.id}`)
+        .or(`sales_employee_id.eq.${user.id},employee_id.eq.${user.id},assigned_by.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return (data || []).filter((j: any) => {
-        if (j.sales_employee_id) {
-          return j.sales_employee_id === user.id;
-        }
-        return j.employee_id === user.id;
+        return j.sales_employee_id === user.id || j.employee_id === user.id || j.assigned_by === user.id;
       });
     },
     enabled: !!user?.id
   });
 
-  // 3. Fetch Leads Data for Sales Report
+  // 3. Fetch Leads Data for Sales Report (both assigned to me and distributed by me)
   const { data: leads, isLoading: isLoadingLeads } = useQuery({
     queryKey: ['employee', 'reports', 'leads', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('leads')
-        .select('*, lead_sources:source_id(name)')
-        .eq('assigned_to', user.id)
+        .select('*, lead_sources:source_id(name), assigned_to_profile:profiles!assigned_to(full_name, employee_code)')
+        .or(`assigned_to.eq.${user.id},assigned_by.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -198,12 +198,40 @@ export default function EmployeeReports() {
   };
 
   const filteredPayments = useMemo(() => getFilteredData(payments || [], 'created_at'), [payments, timeFilter, searchTerm, customStartDate, customEndDate, reportType]);
-  const filteredJobs = useMemo(() => getFilteredData(jobs || [], 'created_at'), [jobs, timeFilter, searchTerm, customStartDate, customEndDate, reportType]);
+  
+  const rawFilteredJobs = useMemo(() => getFilteredData(jobs || [], 'created_at'), [jobs, timeFilter, searchTerm, customStartDate, customEndDate, reportType]);
 
-  const filteredLeads = useMemo(() => {
+  const filteredJobs = useMemo(() => {
+    if (jobScope === 'handled') {
+      return rawFilteredJobs.filter(j => j.employee_id === user?.id || j.ops_employee_id === user?.id);
+    }
+    if (jobScope === 'assigned') {
+      return rawFilteredJobs.filter(j => (j.sales_employee_id === user?.id || j.assigned_by === user?.id) && j.ops_employee_id !== user?.id && j.employee_id !== user?.id);
+    }
+    return rawFilteredJobs;
+  }, [rawFilteredJobs, jobScope, user?.id]);
+
+  const rawFilteredLeads = useMemo(() => {
     if (reportType !== 'sales') return [];
     return getFilteredData(leads || [], 'created_at');
   }, [leads, timeFilter, searchTerm, customStartDate, customEndDate, reportType]);
+
+  const filteredLeads = useMemo(() => {
+    if (leadScope === 'handled') {
+      return rawFilteredLeads.filter(l => l.assigned_to === user?.id);
+    }
+    if (leadScope === 'distributed') {
+      return rawFilteredLeads.filter(l => l.assigned_by === user?.id && l.assigned_to !== user?.id);
+    }
+    return rawFilteredLeads;
+  }, [rawFilteredLeads, leadScope, user?.id]);
+
+  // Counts for scope filter pills
+  const jobsHandledCount = useMemo(() => (jobs || []).filter((j: any) => j.employee_id === user?.id || j.ops_employee_id === user?.id).length, [jobs, user?.id]);
+  const jobsAssignedCount = useMemo(() => (jobs || []).filter((j: any) => (j.sales_employee_id === user?.id || j.assigned_by === user?.id) && j.ops_employee_id !== user?.id && j.employee_id !== user?.id).length, [jobs, user?.id]);
+
+  const leadsHandledCount = useMemo(() => (leads || []).filter((l: any) => l.assigned_to === user?.id).length, [leads, user?.id]);
+  const leadsDistributedCount = useMemo(() => (leads || []).filter((l: any) => l.assigned_by === user?.id && l.assigned_to !== user?.id).length, [leads, user?.id]);
 
   const filteredQuotations = useMemo(() => {
     if (reportType !== 'sales') return [];
@@ -699,8 +727,41 @@ export default function EmployeeReports() {
 
           {/* Opportunities Detail Table */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col min-h-[400px]">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">{isRtl ? `الفرص النشطة (${filteredLeads.length})` : `Active Opportunities (${filteredLeads.length})`}</h3>
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">{isRtl ? `الفرص (${filteredLeads.length})` : `Opportunities (${filteredLeads.length})`}</h3>
+                <div className="flex bg-muted/40 border border-border rounded-lg p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setLeadScope('all')}
+                    className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                      leadScope === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {isRtl ? 'الكل' : 'All'} ({(leads || []).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeadScope('handled')}
+                    className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                      leadScope === 'handled' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {isRtl ? 'معالج بواسطتي' : 'Handling (Self)'} ({leadsHandledCount})
+                  </button>
+                  {leadsDistributedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLeadScope('distributed')}
+                      className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                        leadScope === 'distributed' ? 'bg-amber-500 text-black shadow-sm' : 'text-amber-400 hover:text-amber-300'
+                      }`}
+                    >
+                      {isRtl ? 'موزع للفريق' : 'Distributed to Team'} ({leadsDistributedCount})
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="relative w-full max-w-xs">
                 <Search className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-muted-foreground`} size={16} />
                 <input
@@ -731,6 +792,7 @@ export default function EmployeeReports() {
                     filteredLeads.map(lead => {
                       const leadQuotes = filteredQuotations.filter(q => q.lead_id === lead.id);
                       const leadQuotesTotal = leadQuotes.reduce((sum, q) => sum + Number(q.total_amount || 0), 0);
+                      const isDistributed = lead.assigned_by === user?.id && lead.assigned_to && lead.assigned_to !== user?.id;
                       
                       const getStatusLabelAr = (k: string) => {
                         switch (k) {
@@ -750,7 +812,15 @@ export default function EmployeeReports() {
                       return (
                         <tr key={lead.id} className="hover:bg-white/5 transition-colors text-start">
                           <td className="p-4 whitespace-nowrap text-xs font-mono font-bold text-muted-foreground">{lead.lead_code || '-'}</td>
-                          <td className="p-4 whitespace-nowrap text-xs font-bold text-foreground">{lead.contact_name}</td>
+                          <td className="p-4 whitespace-nowrap text-xs">
+                            <div className="font-bold text-foreground">{lead.contact_name}</div>
+                            {isDistributed && lead.assigned_to_profile?.full_name && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-semibold mt-0.5">
+                                <span>↗</span>
+                                <span>{isRtl ? 'مسند إلى:' : 'Assigned to:'} {lead.assigned_to_profile.full_name}</span>
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4 whitespace-nowrap text-xs text-muted-foreground">{lead.company_name || '-'}</td>
                           <td className="p-4 whitespace-nowrap text-xs text-muted-foreground">{format(new Date(lead.created_at), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy')}</td>
                           <td className="p-4 whitespace-nowrap text-xs">
@@ -908,8 +978,42 @@ export default function EmployeeReports() {
 
           {/* Data Table */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col h-[calc(100vh-320px)] min-h-[400px]">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="relative w-full max-w-sm">
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {reportType === 'jobs' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{isRtl ? 'النطاق:' : 'Scope:'}</span>
+                  <div className="flex bg-muted/40 border border-border rounded-lg p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setJobScope('all')}
+                      className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                        jobScope === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {isRtl ? 'جميع الحالات' : 'All Cases'} ({(jobs || []).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJobScope('handled')}
+                      className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                        jobScope === 'handled' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {isRtl ? 'معالج بواسطتي' : 'Handling (Self)'} ({jobsHandledCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJobScope('assigned')}
+                      className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                        jobScope === 'assigned' ? 'bg-cyan-500 text-black shadow-sm' : 'text-cyan-400 hover:text-cyan-300'
+                      }`}
+                    >
+                      {isRtl ? 'مسند للعمليات' : 'Assigned to Ops'} ({jobsAssignedCount})
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="relative w-full max-w-sm ml-auto">
                 <Search className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-muted-foreground`} size={16} />
                 <input
                   type="text"
@@ -990,9 +1094,27 @@ export default function EmployeeReports() {
                                 ? (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) 
                                 : (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en)}
                             </span>
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              {reportType === 'payments' ? item.job?.job_code : item.job_code}
-                            </span>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                {reportType === 'payments' ? item.job?.job_code : item.job_code}
+                              </span>
+                              {reportType === 'jobs' && (
+                                item.employee_id === user?.id || item.ops_employee_id === user?.id ? (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    {isRtl ? 'أقوم بتنفيذه' : 'Handling (Self)'}
+                                  </span>
+                                ) : item.ops_specialist?.full_name ? (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
+                                    <Briefcase size={10} />
+                                    <span>{isRtl ? 'مسند إلى:' : 'Assigned to Ops:'} {item.ops_specialist.full_name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                                    {isRtl ? 'في مجمع المهام المفتوح' : 'In Open Task Pool'}
+                                  </span>
+                                )
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="p-4">
@@ -1099,6 +1221,24 @@ export default function EmployeeReports() {
                           <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-widest font-mono truncate">
                             {reportType === 'payments' ? item.job?.job_code : item.job_code}
                           </div>
+                          {reportType === 'jobs' && (
+                            <div className="mt-1">
+                              {item.employee_id === user?.id || item.ops_employee_id === user?.id ? (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  {isRtl ? 'أقوم بتنفيذه' : 'Handling (Self)'}
+                                </span>
+                              ) : item.ops_specialist?.full_name ? (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1 w-fit">
+                                  <Briefcase size={10} />
+                                  <span>{isRtl ? 'مسند إلى:' : 'Assigned to Ops:'} {item.ops_specialist.full_name}</span>
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                                  {isRtl ? 'في مجمع المهام المفتوح' : 'In Open Task Pool'}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
                           getStatusStyle(reportType === 'payments' ? item.job?.status : item.status)

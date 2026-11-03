@@ -37,12 +37,19 @@ export interface RepPerformanceData {
   govtFeesTotal: number;
   netProfit: number;
   profitMargin: number; // percentage (0 - 100)
-  avgDealSize: number;
+  // Operations Work & Delegation Metrics
+  assignedJobsCount: number; // total jobs created/assigned out to ops
+  assignedJobsTotalFee: number; // total OMR volume of assigned work
+  assignedJobsWorkFee: number; // profit/work fee part
+  assignedJobsCompletedCount: number; // jobs completed
+  assignedJobsInProgressCount: number; // jobs in progress with ops
+  assignedJobsPoolCount: number; // jobs in Open Pool waiting for ops claim
   // Raw items for deep-dive
   leads: any[];
   distributedLeads: any[];
   quotations: any[];
   sales: any[];
+  assignedJobs: any[];
 }
 
 export interface SalesTeamSummary {
@@ -62,6 +69,8 @@ export interface SalesTeamSummary {
   totalGovtFees: number;
   totalNetProfit: number;
   overallProfitMargin: number;
+  totalAssignedJobs: number;
+  totalAssignedJobsFee: number;
   topPerformerByRevenue: RepPerformanceData | null;
   topPerformerByConversion: RepPerformanceData | null;
 }
@@ -216,17 +225,38 @@ export const useSalesTeamReports = (
         walkinQuery = walkinQuery.gte('date', startDay).lte('date', endDay);
       }
 
-      const [leadsRes, quotesRes, walkinRes] = await Promise.all([
+      // 5. Query Jobs created/assigned by these sales employees to Operations
+      let assignedJobsQuery = supabase
+        .from('jobs')
+        .select(`
+          id, job_code, custom_name, client_id, service_id, status, total_fee, work_fee, ministry_fee,
+          sales_employee_id, assigned_by, ops_employee_id, employee_id, created_at,
+          client:profiles!client_id(full_name, company_name, phone),
+          service:services!service_id(name_en, name_ar),
+          ops_specialist:profiles!jobs_ops_employee_id_fkey(full_name, employee_code, email),
+          services:job_services(id, service_name, ops_employee_id, status)
+        `)
+        .or(`sales_employee_id.in.(${salesEmpIds.join(',')}),assigned_by.in.(${salesEmpIds.join(',')})`);
+
+      if (dateRange.startIso && dateRange.endIso) {
+        assignedJobsQuery = assignedJobsQuery
+          .gte('created_at', dateRange.startIso)
+          .lte('created_at', dateRange.endIso);
+      }
+
+      const [leadsRes, quotesRes, walkinRes, jobsRes] = await Promise.all([
         leadsQuery,
         quotesQuery,
         walkinQuery,
+        assignedJobsQuery,
       ]);
 
       const leadsData = leadsRes.data || [];
       const invoicesData = quotesRes.data || [];
       const walkinData = walkinRes.data || [];
+      const jobsData = jobsRes.data || [];
 
-      // 5. Aggregate metrics per employee
+      // 6. Aggregate metrics per employee
       const reps: RepPerformanceData[] = salesEmployees.map(emp => {
         const empLeads = leadsData.filter(l => l.assigned_to === emp.id).map(l => {
           const isSelfAdded = !l.assigned_by || l.assigned_by === emp.id;
@@ -352,6 +382,41 @@ export const useSalesTeamReports = (
           };
         });
 
+        // Assigned Jobs to Operations (delegated work)
+        const empAssignedJobsRaw = jobsData.filter(j => j.sales_employee_id === emp.id || j.assigned_by === emp.id);
+        const empAssignedJobs = empAssignedJobsRaw.map(j => {
+          const svcList = (j.services as any[]) || [];
+          const hasPoolTask = svcList.some(s => !s.ops_employee_id);
+          const isAllCompleted = j.status === 'completed' || (svcList.length > 0 && svcList.every(s => s.status === 'completed'));
+          const isInProgress = !isAllCompleted && (svcList.some(s => !!s.ops_employee_id) || !!j.ops_employee_id);
+
+          return {
+            id: j.id,
+            jobCode: j.job_code || 'JOB',
+            clientName: (j.client as any)?.full_name || 'Client',
+            companyName: (j.client as any)?.company_name || null,
+            serviceName: (j.service as any)?.name_en || j.custom_name || 'Standard Service',
+            status: j.status,
+            totalFee: Number(j.total_fee) || 0,
+            workFee: Number(j.work_fee) || 0,
+            ministryFee: Number(j.ministry_fee) || 0,
+            createdAt: j.created_at,
+            opsSpecialistName: (j.ops_specialist as any)?.full_name || null,
+            opsSpecialistCode: (j.ops_specialist as any)?.employee_code || null,
+            hasPoolTask,
+            isAllCompleted,
+            isInProgress,
+            servicesCount: svcList.length,
+          };
+        });
+
+        const assignedJobsCount = empAssignedJobs.length;
+        const assignedJobsTotalFee = Number(empAssignedJobs.reduce((sum, j) => sum + j.totalFee, 0).toFixed(3));
+        const assignedJobsWorkFee = Number(empAssignedJobs.reduce((sum, j) => sum + j.workFee, 0).toFixed(3));
+        const assignedJobsCompletedCount = empAssignedJobs.filter(j => j.isAllCompleted).length;
+        const assignedJobsPoolCount = empAssignedJobs.filter(j => j.hasPoolTask && !j.isAllCompleted).length;
+        const assignedJobsInProgressCount = assignedJobsCount - assignedJobsCompletedCount - assignedJobsPoolCount;
+
         return {
           employeeId: emp.id,
           fullName: emp.full_name || 'Unnamed Employee',
@@ -382,10 +447,18 @@ export const useSalesTeamReports = (
           netProfit,
           profitMargin,
           avgDealSize,
+          // Delegation & Operations Work
+          assignedJobsCount,
+          assignedJobsTotalFee,
+          assignedJobsWorkFee,
+          assignedJobsCompletedCount,
+          assignedJobsInProgressCount,
+          assignedJobsPoolCount,
           leads: empLeads,
           distributedLeads: empDistributedLeads,
           quotations: empQuotes,
           sales: combinedSales,
+          assignedJobs: empAssignedJobs,
         };
       });
 
@@ -412,6 +485,8 @@ export const useSalesTeamReports = (
       const totalGovtFees = Number(reps.reduce((sum, r) => sum + r.govtFeesTotal, 0).toFixed(3));
       const totalNetProfit = Number(reps.reduce((sum, r) => sum + r.netProfit, 0).toFixed(3));
       const overallProfitMargin = totalWonRevenue > 0 ? Number(((totalNetProfit / totalWonRevenue) * 100).toFixed(1)) : 0;
+      const totalAssignedJobs = reps.reduce((sum, r) => sum + r.assignedJobsCount, 0);
+      const totalAssignedJobsFee = Number(reps.reduce((sum, r) => sum + r.assignedJobsTotalFee, 0).toFixed(3));
 
       const topPerformerByRevenue = reps.length > 0 && reps[0].wonRevenue > 0 ? reps[0] : null;
       const repsWithLeads = reps.filter(r => r.totalLeads >= 3);
@@ -438,6 +513,8 @@ export const useSalesTeamReports = (
           totalGovtFees,
           totalNetProfit,
           overallProfitMargin,
+          totalAssignedJobs,
+          totalAssignedJobsFee,
           topPerformerByRevenue,
           topPerformerByConversion,
         },

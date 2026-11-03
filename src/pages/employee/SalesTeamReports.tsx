@@ -4,7 +4,8 @@ import {
   Users, BarChart3, TrendingUp, DollarSign, FileText, CheckCircle2,
   Calendar, Search, Download, Printer, RefreshCw, X, ArrowUpRight,
   Shield, Award, Send, Phone, Mail, ExternalLink, Filter, Sparkles,
-  ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle, Crown
+  ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle, Crown,
+  Briefcase, Clock, Layers
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -37,7 +38,7 @@ export default function SalesTeamReports() {
   const [customEnd, setCustomEnd] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRep, setSelectedRep] = useState<RepPerformanceData | null>(null);
-  const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales'>('leads');
+  const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales' | 'jobs'>('leads');
   const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   // Fetch performance data
@@ -112,6 +113,11 @@ export default function SalesTeamReports() {
     return (currentSelectedRep.sales || []).filter(s => isDateInFilter(s.date, drawerDateFilter));
   }, [currentSelectedRep, drawerDateFilter]);
 
+  const filteredAssignedJobs = useMemo(() => {
+    if (!currentSelectedRep) return [];
+    return (currentSelectedRep.assignedJobs || []).filter(j => isDateInFilter(j.createdAt, drawerDateFilter));
+  }, [currentSelectedRep, drawerDateFilter]);
+
   // Printable document ref
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -143,7 +149,9 @@ export default function SalesTeamReports() {
       'Won Revenue (OMR)',
       'Govt Fees (OMR)',
       'Net Profit (OMR)',
-      'Profit Margin (%)'
+      'Profit Margin (%)',
+      'Assigned to Ops Count',
+      'Assigned Ops Volume (OMR)'
     ];
 
     const rows = filteredReps.map(r => [
@@ -163,7 +171,9 @@ export default function SalesTeamReports() {
       r.wonRevenue.toFixed(3),
       r.govtFeesTotal.toFixed(3),
       r.netProfit.toFixed(3),
-      `${r.profitMargin}%`
+      `${r.profitMargin}%`,
+      r.assignedJobsCount,
+      r.assignedJobsTotalFee.toFixed(3)
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -550,7 +560,16 @@ export default function SalesTeamReports() {
                                   <span>•</span>
                                   <span className="text-amber-400 font-semibold flex items-center gap-0.5" title="Leads delegated to other team members">
                                     <span>↗</span>
-                                    <span>{rep.assignedByMeCount} distributed to team</span>
+                                    <span>{rep.assignedByMeCount} distributed</span>
+                                  </span>
+                                </>
+                              )}
+                              {rep.assignedJobsCount > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-cyan-400 font-semibold flex items-center gap-1" title="Jobs assigned out to Operations specialists">
+                                    <Briefcase size={11} />
+                                    <span>{rep.assignedJobsCount} assigned to Ops</span>
                                   </span>
                                 </>
                               )}
@@ -789,60 +808,121 @@ export default function SalesTeamReports() {
                   </button>
                 </div>
 
-                {/* Consultant KPI Pills */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-                  <div
-                    onClick={() => setActiveRepTab('leads')}
-                    className="p-2.5 rounded-xl bg-muted/40 border border-border text-center cursor-pointer hover:border-primary/40 hover:bg-muted/60 transition-all"
-                    title="Click to view total leads"
-                  >
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Total Leads</span>
-                    <p className="text-base font-extrabold text-foreground mt-0.5">
-                      {currentSelectedRep ? currentSelectedRep.totalLeads : 0}
-                    </p>
-                    {currentSelectedRep && (
-                      <div className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground mt-0.5">
-                        <span className="text-teal-400 font-semibold">{currentSelectedRep.selfAddedCount} self-added</span>
-                        {currentSelectedRep.assignedToMeCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedToMeCount} assigned</span>
-                          </>
+                {/* Consultant Performance Overview: Handling (Self) & Delegation (Assigned Out) */}
+                <div className="space-y-3 mt-4">
+                  {/* Direct Handling (Self) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <TrendingUp size={12} className="text-primary" />
+                        <span>Direct Handling (Personal Pipeline)</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Self-acquired & directly managed</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div
+                        onClick={() => setActiveRepTab('leads')}
+                        className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
+                          activeRepTab === 'leads' ? 'bg-primary/10 border-primary/40' : 'bg-muted/40 border-border hover:bg-muted/60'
+                        }`}
+                        title="Click to view total leads"
+                      >
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Total Leads</span>
+                        <p className="text-base font-extrabold text-foreground mt-0.5">
+                          {currentSelectedRep ? currentSelectedRep.totalLeads : 0}
+                        </p>
+                        {currentSelectedRep && (
+                          <div className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground mt-0.5">
+                            <span className="text-teal-400 font-semibold">{currentSelectedRep.selfAddedCount} self-added</span>
+                            {currentSelectedRep.assignedToMeCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedToMeCount} assigned</span>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                    {currentSelectedRep && currentSelectedRep.assignedByMeCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveRepTab('distributed');
-                        }}
-                        className="text-[9px] text-amber-400 hover:text-amber-300 block mt-1 font-bold hover:underline mx-auto"
-                        title="Click to view distributed leads"
-                      >
-                        {currentSelectedRep.assignedByMeCount} distributed to team ↗
-                      </button>
-                    )}
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Won</span>
+                        <p className="text-base font-extrabold text-emerald-400 mt-0.5">
+                          {currentSelectedRep?.wonLeads || 0} ({currentSelectedRep?.conversionRate || 0}%)
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Won Revenue</span>
+                        <p className="text-base font-extrabold text-foreground mt-0.5">
+                          {(currentSelectedRep?.wonRevenue || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Net Margin</span>
+                        <p className="text-base font-extrabold text-purple-400 mt-0.5">
+                          {(currentSelectedRep?.netProfit || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Won</span>
-                    <p className="text-base font-extrabold text-emerald-400 mt-0.5">
-                      {currentSelectedRep?.wonLeads || 0} ({currentSelectedRep?.conversionRate || 0}%)
-                    </p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Won Revenue</span>
-                    <p className="text-base font-extrabold text-foreground mt-0.5">
-                      {(currentSelectedRep?.wonRevenue || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
-                    </p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Net Margin</span>
-                    <p className="text-base font-extrabold text-purple-400 mt-0.5">
-                      {(currentSelectedRep?.netProfit || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
-                    </p>
-                  </div>
+
+                  {/* Work Delegation & Operations (Assigned Out) */}
+                  {currentSelectedRep && (currentSelectedRep.assignedByMeCount > 0 || currentSelectedRep.assignedJobsCount > 0 || currentSelectedRep.isSalesHead || currentSelectedRep.canAssignLeads) && (
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-cyan-500/10 to-transparent border border-amber-500/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          <Layers size={13} />
+                          <span>Delegation & Assigned Work</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Work distributed to team & Ops</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Distributed Leads */}
+                        <div
+                          onClick={() => setActiveRepTab('distributed')}
+                          className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all flex items-center justify-between ${
+                            activeRepTab === 'distributed'
+                              ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                              : 'bg-card/70 border-border hover:bg-card text-foreground'
+                          }`}
+                        >
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Leads Distributed</span>
+                            <span className="text-sm font-extrabold text-amber-400">{currentSelectedRep.assignedByMeCount} leads passed to team</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground font-bold">↗</span>
+                        </div>
+
+                        {/* Assigned Jobs to Ops */}
+                        <div
+                          onClick={() => setActiveRepTab('jobs')}
+                          className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all flex items-center justify-between ${
+                            activeRepTab === 'jobs'
+                              ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                              : 'bg-card/70 border-border hover:bg-card text-foreground'
+                          }`}
+                        >
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Jobs Assigned to Ops</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-sm font-extrabold text-cyan-400">{currentSelectedRep.assignedJobsCount} jobs</span>
+                              <span className="text-[10px] text-muted-foreground">({currentSelectedRep.assignedJobsTotalFee.toFixed(3)} OMR)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
+                              <span className="text-emerald-400 font-semibold">{currentSelectedRep.assignedJobsCompletedCount} done</span>
+                              <span>•</span>
+                              <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedJobsInProgressCount} in ops</span>
+                              {currentSelectedRep.assignedJobsPoolCount > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-amber-400 font-semibold">{currentSelectedRep.assignedJobsPoolCount} in pool</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <Briefcase size={16} className="text-cyan-400 shrink-0" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Sub-Tabs */}
@@ -874,6 +954,27 @@ export default function SalesTeamReports() {
                           : 'bg-muted text-muted-foreground'
                       }`}>
                         {filteredDistributedLeads.length}
+                      </span>
+                    </button>
+                  )}
+
+                  {currentSelectedRep && ((currentSelectedRep.assignedJobs && currentSelectedRep.assignedJobs.length > 0) || currentSelectedRep.isSalesHead || currentSelectedRep.canAssignLeads) && (
+                    <button
+                      onClick={() => setActiveRepTab('jobs')}
+                      className={`pb-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+                        activeRepTab === 'jobs'
+                          ? 'border-cyan-400 text-cyan-400'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Briefcase size={13} />
+                      <span>Work Assigned to Ops</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                        activeRepTab === 'jobs'
+                          ? 'bg-cyan-400/20 text-cyan-300'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {filteredAssignedJobs.length}
                       </span>
                     </button>
                   )}
@@ -931,6 +1032,7 @@ export default function SalesTeamReports() {
                   <span className="text-[11px] text-muted-foreground font-medium shrink-0">
                     {activeRepTab === 'leads' && `${filteredAssignedLeads.length} leads`}
                     {activeRepTab === 'distributed' && `${filteredDistributedLeads.length} distributed`}
+                    {activeRepTab === 'jobs' && `${filteredAssignedJobs.length} assigned job${filteredAssignedJobs.length === 1 ? '' : 's'}`}
                     {activeRepTab === 'quotes' && `${filteredQuotations.length} quote${filteredQuotations.length === 1 ? '' : 's'}`}
                     {activeRepTab === 'sales' && `${filteredSales.length} sale${filteredSales.length === 1 ? '' : 's'}`}
                   </span>
@@ -1193,6 +1295,94 @@ export default function SalesTeamReports() {
                           </div>
                         </div>
                       ))
+                    )}
+                  </div>
+                )}
+
+                {/* 5. Assigned Work to Operations List */}
+                {activeRepTab === 'jobs' && (
+                  <div className="space-y-3">
+                    {filteredAssignedJobs.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <Briefcase className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          No operations work assigned by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredAssignedJobs.map((j: any) => {
+                        return (
+                          <div
+                            key={j.id}
+                            className="p-4 rounded-xl border border-border bg-card/60 hover:bg-muted/30 transition-all space-y-2.5 text-xs"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-mono font-bold text-foreground text-sm">{j.jobCode}</span>
+                                  <span className="font-semibold text-foreground">• {j.clientName}</span>
+                                  {j.companyName && (
+                                    <span className="text-[11px] text-muted-foreground">({j.companyName})</span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      j.isAllCompleted
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                        : j.hasPoolTask
+                                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                        : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                    }`}
+                                  >
+                                    {j.isAllCompleted
+                                      ? 'Completed'
+                                      : j.hasPoolTask
+                                      ? 'In Open Pool (Waiting)'
+                                      : 'In Progress (Ops)'}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                                  <span className="font-medium text-foreground/90">{j.serviceName}</span>
+                                  <span>•</span>
+                                  <span>{format(parseISO(j.createdAt), 'dd MMM yyyy, hh:mm a')}</span>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="font-extrabold text-foreground text-sm block">
+                                  {j.totalFee.toFixed(3)} OMR
+                                </span>
+                                <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1.5 mt-0.5">
+                                  <span>Work: <strong className="text-amber-400">{j.workFee.toFixed(3)}</strong></span>
+                                  <span>•</span>
+                                  <span>Gov: <strong>{j.ministryFee.toFixed(3)}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Ops Specialist Attribution */}
+                            <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Operations Handler:</span>
+                                {j.opsSpecialistName ? (
+                                  <span className="font-bold text-foreground px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5">
+                                    <Briefcase size={12} />
+                                    <span>{j.opsSpecialistName}</span>
+                                    {j.opsSpecialistCode && <span className="opacity-70 text-[10px]">({j.opsSpecialistCode})</span>}
+                                  </span>
+                                ) : (
+                                  <span className="font-semibold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5 animate-pulse">
+                                    <Clock size={12} />
+                                    <span>Waiting in Open Task Pool for Claim</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-muted-foreground text-[10px]">
+                                {j.servicesCount > 1 ? `${j.servicesCount} sub-services` : 'Single Service'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}
