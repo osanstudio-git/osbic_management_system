@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
+  Building2,
   Users, 
   UserCheck, 
   Briefcase, 
@@ -52,6 +53,7 @@ const AdminSidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileM
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'sidebar.home', path: '/admin/dashboard' },
+    { id: 'branches', icon: Building2, label: 'Branches', path: '/admin/branches' },
     { id: 'employees', icon: Users, label: 'sidebar.employees', path: '/admin/employees' },
     { id: 'clients', icon: UserCheck, label: 'sidebar.clients', path: '/admin/clients' },
     { id: 'services', icon: Briefcase, label: 'sidebar.services', path: '/admin/services' },

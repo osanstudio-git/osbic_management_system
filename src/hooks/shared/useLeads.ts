@@ -192,10 +192,23 @@ export const useCreateLead = () => {
       notes?: string;
       next_follow_up_at?: string;
       referral_name?: string;
+      created_at?: string;
+      service_required?: string;
+      interested_services?: any[];
     }) => {
-      const { services, ...leadPayload } = leadData;
-      const finalPayload = {
+      const { services, created_at, ...leadPayload } = leadData;
+      
+      let finalCreatedAt = new Date().toISOString();
+      if (created_at) {
+        const customDate = new Date(created_at);
+        const now = new Date();
+        customDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+        finalCreatedAt = customDate.toISOString();
+      }
+
+      const finalPayload: any = {
         ...leadPayload,
+        created_at: finalCreatedAt,
         lead_code: null, // Let database trigger generate LD-[BRANCH]-[YY]-[0000] safely
         assigned_to: profile?.id,
         assigned_by: profile?.id,
@@ -223,13 +236,15 @@ export const useCreateLead = () => {
           .from('lead_services')
           .insert(servicesPayload);
 
-        if (servicesError) throw servicesError;
+        if (servicesError) console.warn('lead_services insert warning:', servicesError);
       }
 
       return newLead;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['weekly_sales_sheet'] });
     }
   });
 };

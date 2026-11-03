@@ -424,8 +424,14 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
           government_ref: govRef || null,
           service_name: resolvedServiceName
         } as any);
-      } catch (timelineErr) {
-        console.warn('Timeline recording notice:', timelineErr);
+      // 9. Suppress any auto-generated assignment notification for this completed job
+      try {
+        await supabase
+          .from('notifications')
+          .delete()
+          .eq('job_id', job.id);
+      } catch (cleanErr) {
+        console.warn('Notification cleanup notice:', cleanErr);
       }
 
       toast.success(isRtl ? 'تم حفظ وتوثيق العمل المكتمل بنجاح!' : 'Historical completed work logged successfully!');

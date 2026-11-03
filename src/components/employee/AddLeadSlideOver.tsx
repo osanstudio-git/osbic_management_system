@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users } from 'lucide-react';
+import { X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users, Calendar, Briefcase, Sparkles } from 'lucide-react';
 import { useLeads, useCreateLead } from '../../hooks/shared/useLeads';
+import { useAdminServices } from '../../hooks/admin/useAdminServices';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -18,9 +19,13 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     contact_phone: '',
     contact_whatsapp: '',
     whatsappSameAsPhone: false,
+    lead_date: new Date().toISOString().split('T')[0],
     source_id: '',
     custom_source_text: '',
     referral_name: '',
+    selected_service_id: '',
+    custom_service_name: '',
+    is_custom_service: false,
     services: [] as string[],
     contact_email: '',
     company_name: '',
@@ -31,6 +36,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
 
   const { useLeadSourcesList } = useLeads();
   const { data: sources } = useLeadSourcesList();
+  const { data: servicesList } = useAdminServices();
 
   const createLeadMutation = useCreateLead();
 
@@ -48,9 +54,13 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
         contact_phone: '',
         contact_whatsapp: '',
         whatsappSameAsPhone: false,
+        lead_date: new Date().toISOString().split('T')[0],
         source_id: '',
         custom_source_text: '',
         referral_name: '',
+        selected_service_id: '',
+        custom_service_name: '',
+        is_custom_service: false,
         services: [],
         contact_email: '',
         company_name: '',
@@ -103,12 +113,32 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       ? `[Custom Source: ${formData.custom_source_text.trim()}]\n${formData.notes}`
       : formData.notes;
 
+    const chosenService = servicesList?.find(s => s.id === formData.selected_service_id);
+    const resolvedServiceName = formData.is_custom_service
+      ? formData.custom_service_name.trim()
+      : (chosenService ? chosenService.name_en : '');
+
+    const interestedServicesPayload = chosenService ? [{
+      id: chosenService.id,
+      name: chosenService.name_en,
+      price: (Number(chosenService.work_fee) || 0) + (Number(chosenService.ministry_fee) || 0)
+    }] : (resolvedServiceName ? [{
+      id: 'custom',
+      name: resolvedServiceName,
+      price: 0
+    }] : undefined);
+
+    const serviceIds = formData.selected_service_id ? [formData.selected_service_id] : [];
+
     createLeadMutation.mutate({
       contact_name: formData.contact_name,
       contact_phone: formData.contact_phone,
       contact_whatsapp: formData.whatsappSameAsPhone ? formData.contact_phone : formData.contact_whatsapp,
       source_id: formData.source_id,
-      services: formData.services,
+      services: serviceIds,
+      service_required: resolvedServiceName || undefined,
+      interested_services: interestedServicesPayload,
+      created_at: formData.lead_date || undefined,
       contact_email: formData.contact_email || undefined,
       company_name: formData.company_name || undefined,
       nationality: formData.nationality || undefined,
@@ -159,7 +189,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
             {/* Form Fields */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {step === 1 ? (
-                /* STEP 1: REQUIRED */
+                /* STEP 1: REQUIRED + CORE DETAILS */
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">Contact Name *</label>
@@ -168,7 +198,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                       value={formData.contact_name}
                       onChange={e => setFormData({ ...formData, contact_name: e.target.value })}
                       placeholder="e.g. Salim Al-Harthy"
-                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm"
                       required
                     />
                   </div>
@@ -180,7 +210,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                       value={formData.contact_phone}
                       onChange={e => setFormData({ ...formData, contact_phone: e.target.value })}
                       placeholder="e.g. 91234567"
-                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm font-mono"
                       required
                     />
                   </div>
@@ -204,8 +234,86 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                       onChange={e => setFormData({ ...formData, contact_whatsapp: e.target.value })}
                       disabled={formData.whatsappSameAsPhone}
                       placeholder="e.g. 91234567"
-                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 text-sm font-mono"
                     />
+                  </div>
+
+                  {/* Lead / Received Date */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Calendar size={14} className="text-primary" />
+                        <span>Lead Date (Received Date) *</span>
+                      </label>
+                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        Reports Date
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      value={formData.lead_date}
+                      onChange={e => setFormData({ ...formData, lead_date: e.target.value })}
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm font-mono"
+                      required
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Attributed to sales reports on this date (ideal if recording a lead from 1–2 days ago)
+                    </p>
+                  </div>
+
+                  {/* Interested Service (Optional) */}
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <Briefcase size={14} className="text-primary" />
+                      <span>Interested Service (Optional)</span>
+                    </label>
+                    <select
+                      value={formData.is_custom_service ? 'custom' : formData.selected_service_id}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === 'custom') {
+                          setFormData({
+                            ...formData,
+                            is_custom_service: true,
+                            selected_service_id: ''
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            is_custom_service: false,
+                            selected_service_id: val,
+                            custom_service_name: ''
+                          });
+                        }
+                      }}
+                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm"
+                    >
+                      <option value="" className="bg-card text-foreground">-- Select Interested Service (Optional) --</option>
+                      {servicesList?.map(svc => (
+                        <option key={svc.id} value={svc.id} className="bg-card text-foreground">
+                          {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''}
+                        </option>
+                      ))}
+                      <option value="custom" className="bg-card text-primary font-bold">+ Custom Service (Free Text)...</option>
+                    </select>
+
+                    {formData.is_custom_service && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-2 space-y-1"
+                      >
+                        <input
+                          type="text"
+                          value={formData.custom_service_name}
+                          onChange={e => setFormData({ ...formData, custom_service_name: e.target.value })}
+                          placeholder="e.g. Investor Visa, Company Liquidation, etc."
+                          className="w-full bg-white/5 border border-primary/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary transition-colors text-sm"
+                          autoFocus
+                        />
+                        <p className="text-[11px] text-muted-foreground">Specify the custom service requirement</p>
+                      </motion.div>
+                    )}
                   </div>
 
                   <div className="relative">
@@ -256,7 +364,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                         value={formData.custom_source_text}
                         onChange={e => setFormData({ ...formData, custom_source_text: e.target.value })}
                         placeholder="e.g. Instagram Ad, Banner, etc."
-                        className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                        className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm"
                         required
                       />
                     </motion.div>
@@ -278,7 +386,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                         value={formData.referral_name}
                         onChange={e => setFormData({ ...formData, referral_name: e.target.value })}
                         placeholder="e.g. Mohammed Al-Harthy"
-                        className="w-full bg-white/5 border border-primary/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary transition-colors"
+                        className="w-full bg-white/5 border border-primary/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary transition-colors text-sm"
                         autoFocus
                       />
                       <p className="text-[11px] text-muted-foreground">The person who referred this lead to you</p>

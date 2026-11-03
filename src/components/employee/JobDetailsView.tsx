@@ -226,9 +226,16 @@ const ApplicantCard = ({
   };
 
   const documentsList = js.documents || [];
-  const inputs = documentsList.filter((d: any) => d.document_category !== 'output' && d.document_category !== 'gov_receipt');
-  const outputs = documentsList.filter((d: any) => d.document_category === 'output');
-  const govReceipts = documentsList.filter((d: any) => d.document_category === 'gov_receipt');
+  const isGovReceipt = (d: any) =>
+    d.document_category === 'gov_receipt' ||
+    d.notes === 'gov_receipt' ||
+    d.document_name === 'Government Fee Receipt' ||
+    d.document_name === 'Government Receipt Document' ||
+    d.file_name?.toLowerCase().includes('gov_receipt');
+
+  const inputs = documentsList.filter((d: any) => d.document_category !== 'output' && !isGovReceipt(d));
+  const outputs = documentsList.filter((d: any) => d.document_category === 'output' && !isGovReceipt(d));
+  const govReceipts = documentsList.filter(isGovReceipt);
 
   const handleUploadGovReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -254,7 +261,8 @@ const ApplicantCard = ({
           file_type: file.type,
           uploaded_by: profile.id,
           upload_source: 'ops',
-          document_category: 'gov_receipt',
+          document_category: 'output',
+          notes: 'gov_receipt',
           status: 'approved',
           is_client_visible: true,
           created_at: new Date().toISOString()

@@ -21,6 +21,7 @@ import ClientLayout from './layouts/ClientLayout';
 
 // Pages
 import Dashboard from './pages/admin/Dashboard';
+import Branches from './pages/admin/Branches';
 import Employees from './pages/admin/Employees';
 import EmployeeDetail from './pages/admin/EmployeeDetail';
 import ServicesList from './pages/admin/Services';
@@ -466,6 +467,7 @@ function App() {
             }>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="branches" element={<Branches />} />
               <Route path="employees" element={<Employees />} />
               <Route path="employees/:id" element={<EmployeeDetail />} />
               <Route path="clients" element={<Clients />} />

@@ -1,21 +1,18 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { 
   Building2, Bell, Mail, Link as LinkIcon, Shield, 
   Save, Upload, Check, AlertCircle, RefreshCw, Smartphone, Globe,
-  MapPin, Plus, Pencil, ToggleLeft, ToggleRight, Phone, X, Loader2,
-  UserCheck, UserX, User
+  MapPin, Phone
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
-import { useQuery } from '@tanstack/react-query';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { useAdminSettings } from '../../hooks/admin/useAdminSettings';
-import { useBranch } from '../../contexts/BranchContext';
-import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
@@ -55,36 +52,6 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Branch management state
-  const { branches, loadingBranches, createBranch, updateBranch } = useBranch();
-  const [showAddBranch, setShowAddBranch] = useState(false);
-  const [branchForm, setBranchForm] = useState({ name: '', code: '', address: '', phone: '', manager_id: '' });
-  const [savingBranch, setSavingBranch] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<string | null>(null);
-  const [editBranchForm, setEditBranchForm] = useState({ name: '', code: '', address: '', phone: '', manager_id: '' });
-
-  // Fetch active employees to assign as branch managers
-  const { data: employees = [], refetch: refetchEmployees } = useQuery({
-    queryKey: ['admin_employees_for_branches'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, phone, employee_code, branch_id, is_manager, role, is_active')
-        .eq('role', 'employee')
-        .eq('is_active', true)
-        .order('full_name', { ascending: true });
-      if (error) throw error;
-      return (data || []) as Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        phone: string;
-        employee_code: string;
-        branch_id: string | null;
-        is_manager: boolean;
-      }>;
-    }
-  });
   const { settings, logo: logoPreview, updateSettings, uploadLogo, isLoading } = useAdminSettings();
   const [localSettings, setLocalSettings] = useState<any>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,7 +109,6 @@ const Settings = () => {
 
   const tabs = [
     { id: 'company', label: 'Company', icon: Building2 },
-    { id: 'branches', label: 'Branches', icon: MapPin },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'templates', label: 'Email Templates', icon: Mail },
     { id: 'integrations', label: 'Integrations', icon: LinkIcon },
@@ -291,6 +257,26 @@ const Settings = () => {
                     </div>
                   </div>
                 </section>
+
+                {/* Branches Quick Link Card */}
+                <section className="p-5 bg-primary/5 border border-primary/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                      <MapPin size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground">Multi-Branch Operations</h4>
+                      <p className="text-xs text-muted-foreground">Manage branch locations, appoint branch managers, and oversee staff allocations from the dedicated Branches hub.</p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/admin/branches"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-[#0A0F1E] font-bold text-xs rounded-xl hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] transition-all shrink-0"
+                  >
+                    <span>Open Branches Hub</span>
+                    <span>→</span>
+                  </Link>
+                </section>
               </div>
             )}
 
@@ -413,327 +399,6 @@ const Settings = () => {
               </div>
             )}
 
-            {activeTab === 'branches' && (
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                      <MapPin size={18} className="text-primary" /> Branch Management
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Manage company branches. Employees and jobs are assigned to branches.</p>
-                  </div>
-                  <button
-                    onClick={() => { setShowAddBranch(true); setBranchForm({ name: '', code: '', address: '', phone: '', manager_id: '' }); }}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-[#0A0F1E] font-bold text-xs rounded-xl hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] transition-all"
-                  >
-                    <Plus size={14} /> Add Branch
-                  </button>
-                </div>
-
-                {/* Add Branch Form */}
-                {showAddBranch && (
-                  <div className="p-5 bg-card border border-primary/30 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                        <MapPin size={16} className="text-primary" />
-                        <span>New Branch Setup</span>
-                      </h4>
-                      <button onClick={() => setShowAddBranch(false)} className="p-1 hover:bg-muted rounded-lg text-muted-foreground"><X size={16} /></button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Branch Name *</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Sohar Branch"
-                          value={branchForm.name}
-                          onChange={e => setBranchForm(p => ({ ...p, name: e.target.value }))}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-foreground"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Branch Code * (2-4 letters)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. SHR"
-                          maxLength={4}
-                          value={branchForm.code}
-                          onChange={e => setBranchForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-foreground font-mono uppercase"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Location Details / Address</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Building 12, Sohar Industrial Area, Oman"
-                          value={branchForm.address}
-                          onChange={e => setBranchForm(p => ({ ...p, address: e.target.value }))}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-foreground"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Branch Phone</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. +968 2345 6789"
-                          value={branchForm.phone}
-                          onChange={e => setBranchForm(p => ({ ...p, phone: e.target.value }))}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-foreground"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
-                          Appoint Branch Manager
-                        </label>
-                        <select
-                          value={branchForm.manager_id}
-                          onChange={e => setBranchForm(p => ({ ...p, manager_id: e.target.value }))}
-                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-foreground cursor-pointer"
-                        >
-                          <option value="">— No Branch Manager (Unassigned) —</option>
-                          {employees.map(emp => {
-                            const curBranch = branches.find(b => b.id === emp.branch_id);
-                            return (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.full_name} ({emp.employee_code || 'EMP'}) {emp.is_manager ? `• Currently Manager (${curBranch?.name || 'Other'})` : curBranch ? `• Assigned to ${curBranch.name}` : ''}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <p className="text-[10px] text-muted-foreground/70 mt-1">
-                          Appointing a manager grants them supervisory control over this branch&apos;s cases, leads, and operational approvals.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      disabled={savingBranch || !branchForm.name || !branchForm.code}
-                      onClick={async () => {
-                        if (!branchForm.name || !branchForm.code) return;
-                        setSavingBranch(true);
-                        try {
-                          const newBranch = await createBranch({
-                            name: branchForm.name.trim(),
-                            code: branchForm.code.trim().toUpperCase(),
-                            address: branchForm.address ? branchForm.address.trim() : null,
-                            phone: branchForm.phone ? branchForm.phone.trim() : null,
-                            is_active: true
-                          } as any);
-
-                          if (branchForm.manager_id && newBranch?.id) {
-                            await supabase
-                              .from('profiles')
-                              .update({ branch_id: newBranch.id, is_manager: true })
-                              .eq('id', branchForm.manager_id);
-                            await refetchEmployees();
-                          }
-
-                          toast.success(`Branch "${newBranch.name}" created successfully!`);
-                          setShowAddBranch(false);
-                          setBranchForm({ name: '', code: '', address: '', phone: '', manager_id: '' });
-                        } catch (err: any) { 
-                          console.error('Create branch error:', err);
-                          toast.error(err.message || 'Failed to create branch'); 
-                        }
-                        finally { setSavingBranch(false); }
-                      }}
-                      className="px-6 py-2 bg-primary text-[#0A0F1E] font-bold text-xs rounded-xl disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {savingBranch ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                      {savingBranch ? 'Saving...' : 'Create Branch'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Branches List */}
-                {loadingBranches ? (
-                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={24} /></div>
-                ) : branches.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground text-sm">No branches created yet.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {branches.map(branch => {
-                      const branchManager = employees.find(e => e.branch_id === branch.id && e.is_manager);
-
-                      return (
-                        <div key={branch.id} className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-start justify-between gap-4 transition-all ${
-                          branch.is_active ? 'bg-card border-border' : 'bg-muted/20 border-border/40 opacity-60'
-                        }`}>
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                              <span className="text-xs font-bold text-primary font-mono">{branch.code}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              {editingBranch === branch.id ? (
-                                <div className="space-y-3">
-                                  <div className="flex gap-2">
-                                    <input
-                                      value={editBranchForm.name}
-                                      onChange={e => setEditBranchForm(p => ({ ...p, name: e.target.value }))}
-                                      className="bg-background border border-border rounded-lg px-2 py-1 text-sm text-foreground outline-none focus:border-primary flex-1"
-                                      placeholder="Branch name"
-                                    />
-                                    <input
-                                      value={editBranchForm.code}
-                                      onChange={e => setEditBranchForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
-                                      maxLength={4}
-                                      className="bg-background border border-border rounded-lg px-2 py-1 text-sm text-foreground outline-none focus:border-primary font-mono w-16"
-                                      placeholder="Code"
-                                    />
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <input
-                                      value={editBranchForm.address}
-                                      onChange={e => setEditBranchForm(p => ({ ...p, address: e.target.value }))}
-                                      className="w-full bg-background border border-border rounded-lg px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
-                                      placeholder="Address / Location Details"
-                                    />
-                                    <input
-                                      value={editBranchForm.phone}
-                                      onChange={e => setEditBranchForm(p => ({ ...p, phone: e.target.value }))}
-                                      className="w-full bg-background border border-border rounded-lg px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
-                                      placeholder="Phone Number"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
-                                      Branch Manager
-                                    </label>
-                                    <select
-                                      value={editBranchForm.manager_id}
-                                      onChange={e => setEditBranchForm(p => ({ ...p, manager_id: e.target.value }))}
-                                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary cursor-pointer"
-                                    >
-                                      <option value="">— No Branch Manager (Unassigned) —</option>
-                                      {employees.map(emp => {
-                                        const curBranch = branches.find(b => b.id === emp.branch_id);
-                                        return (
-                                          <option key={emp.id} value={emp.id}>
-                                            {emp.full_name} ({emp.employee_code || 'EMP'}) {emp.is_manager ? `• Manager (${curBranch?.name || 'Other'})` : ''}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-sm font-bold text-foreground flex items-center gap-2">
-                                    {branch.name}
-                                    {branch.code === 'GHL' && <span className="text-[9px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Main HQ</span>}
-                                    {!branch.is_active && <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Inactive</span>}
-                                  </p>
-                                  {branch.address && (
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                                      <MapPin size={12} className="text-primary/70 shrink-0" />
-                                      <span>{branch.address}</span>
-                                    </p>
-                                  )}
-                                  {branch.phone && (
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                                      <Phone size={12} className="text-primary/70 shrink-0" />
-                                      <span>{branch.phone}</span>
-                                    </p>
-                                  )}
-
-                                  {/* Appointed Branch Manager Badge */}
-                                  <div className="mt-3 flex items-center gap-2">
-                                    {branchManager ? (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs">
-                                        <UserCheck size={13} className="shrink-0" />
-                                        <span className="font-bold">Manager: {branchManager.full_name}</span>
-                                        <span className="text-[10px] opacity-75 font-mono">({branchManager.employee_code || 'MGR'})</span>
-                                        {branchManager.phone && <span className="text-[10px] opacity-60 ml-1">• {branchManager.phone}</span>}
-                                      </div>
-                                    ) : (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-muted/40 border border-border text-muted-foreground text-[11px] italic">
-                                        <UserX size={12} className="shrink-0" />
-                                        <span>No Branch Manager Appointed</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                            {editingBranch === branch.id ? (
-                              <>
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await updateBranch(branch.id, {
-                                        name: editBranchForm.name.trim(),
-                                        code: editBranchForm.code.trim().toUpperCase(),
-                                        address: editBranchForm.address ? editBranchForm.address.trim() : null,
-                                        phone: editBranchForm.phone ? editBranchForm.phone.trim() : null
-                                      });
-
-                                      const prevManager = employees.find(e => e.branch_id === branch.id && e.is_manager);
-                                      if (editBranchForm.manager_id !== prevManager?.id) {
-                                        if (prevManager) {
-                                          await supabase.from('profiles').update({ is_manager: false }).eq('id', prevManager.id);
-                                        }
-                                        if (editBranchForm.manager_id) {
-                                          await supabase.from('profiles').update({ branch_id: branch.id, is_manager: true }).eq('id', editBranchForm.manager_id);
-                                        }
-                                        await refetchEmployees();
-                                      }
-                                      toast.success('Branch updated successfully!');
-                                      setEditingBranch(null);
-                                    } catch (err: any) {
-                                      toast.error(err.message || 'Failed to update branch');
-                                    }
-                                  }}
-                                  className="px-3 py-1.5 bg-primary text-[#0A0F1E] font-bold text-xs rounded-lg"
-                                >Save</button>
-                                <button onClick={() => setEditingBranch(null)} className="px-3 py-1.5 bg-muted text-foreground text-xs rounded-lg">Cancel</button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    const currentMgr = employees.find(e => e.branch_id === branch.id && e.is_manager);
-                                    setEditingBranch(branch.id);
-                                    setEditBranchForm({
-                                      name: branch.name,
-                                      code: branch.code,
-                                      address: branch.address || '',
-                                      phone: branch.phone || '',
-                                      manager_id: currentMgr?.id || ''
-                                    });
-                                  }}
-                                  className="p-2 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-                                  title="Edit branch"
-                                ><Pencil size={14} /></button>
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await updateBranch(branch.id, { is_active: !branch.is_active });
-                                      toast.success(branch.is_active ? `Branch "${branch.name}" deactivated` : `Branch "${branch.name}" activated`);
-                                    } catch (err: any) {
-                                      toast.error(err.message || 'Failed to toggle branch status');
-                                    }
-                                  }}
-                                  className={`p-2 rounded-lg transition-colors ${
-                                    branch.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                                  }`}
-                                  title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
-                                >
-                                  {branch.is_active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
 
             {activeTab === 'security' && (
               <div className="space-y-8">

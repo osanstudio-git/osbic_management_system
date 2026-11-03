@@ -50,6 +50,12 @@ export const GlobalNotificationListener = () => {
             if (processedRef.current.has(newNotif.id)) return;
             processedRef.current.add(newNotif.id);
 
+            // Ignore self-assigned tasks or completed work logged by the user themselves
+            if (newNotif.sender_id && newNotif.sender_id === user.id && newNotif.title_en === 'New Task Assigned') {
+              supabase.from('notifications').delete().eq('id', newNotif.id);
+              return;
+            }
+
             // Invalidate queries so the UI updates instantly
             queryClient.invalidateQueries({ queryKey: ['employee', 'jobs'] });
             queryClient.invalidateQueries({ queryKey: ['admin', 'jobs'] });
