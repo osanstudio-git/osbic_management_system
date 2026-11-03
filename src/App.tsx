@@ -134,7 +134,11 @@ const LoginPage = () => {
     const { error: signInError, role: userRole } = await signIn(email, password);
     setLoading(false);
     if (signInError) {
-      setError('Invalid email or password. Please try again.');
+      if (signInError.toLowerCase().includes('invalid login credentials') || signInError.toLowerCase().includes('invalid email or password')) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        setError(signInError);
+      }
       return;
     }
     

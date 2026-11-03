@@ -131,19 +131,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // 8-second timeout for profile fetching
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timed out')), 8000)
+      );
+
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
       
       if (error) {
-        // If profile doesn't exist but user does, it's a broken session or deleted account.
-        if (error.code !== 'PGRST116' && (error as any).status !== 406) {
-          console.error('Profile fetch failed:', error);
-        }
-        // Auto-purge the stale ghost session so it stops throwing 406/429 loops in the console
-        if (error.code === 'PGRST116' || (error as any).status === 406 || error.message?.includes('PGRST116')) {
+        // If profile doesn't exist (PGRST116 = 0 rows returned), user has no profile
+        if (error.code === 'PGRST116') {
           try {
             await supabase.auth.signOut();
           } catch {
@@ -151,13 +154,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setUser(null);
           setSession(null);
+        } else {
+          console.error('Profile fetch failed:', error);
         }
         setProfile(null);
       } else {
         setProfile(data);
       }
-    } catch (error) {
-      console.error('Critical Auth Error:', error);
+    } catch (error: any) {
+      console.error('Profile fetch error or timeout:', error?.message || error);
+      // Do NOT sign out user on network timeouts, keep user state intact
       setProfile(null);
     } finally {
       setLoading(false);
@@ -165,17 +171,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null; role?: string }> => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    
-    // Fetch the role immediately for the caller
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single();
+    try {
+      const signInPromise = supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('Server timed out. Supabase database is not responding.')), 10000)
+      );
 
-    return { error: null, role: (profileData as any)?.role };
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
+      if (error) return { error: error.message };
+      if (!data?.user) return { error: 'No user returned from login.' };
+
+      // Fetch role with 5s timeout
+      try {
+        const profilePromise = supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        const profileTimeout = new Promise<{ data: any; error: any }>((_, reject) =>
+          setTimeout(() => reject(new Error('Profile load timeout')), 5000)
+        );
+        const { data: profileData } = await Promise.race([profilePromise, profileTimeout]);
+        return { error: null, role: (profileData as any)?.role };
+      } catch {
+        return { error: null, role: undefined };
+      }
+    } catch (err: any) {
+      return { error: err?.message || 'Login request timed out. Please check server status.' };
+    }
   };
 
   const devLogin = (role: 'admin' | 'employee' | 'client') => {
