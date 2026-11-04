@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { useAdminServices, type Service } from '../../hooks/admin/useAdminServices';
+import { useAdminServices } from '../../hooks/admin/useAdminServices';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
   X, CheckCircle2, Calendar, User, Phone, Building2, Upload, FileText,
   DollarSign, Sparkles, AlertCircle, Trash2, Loader2, Check, Clock,
-  Layers, ChevronDown, Paperclip, Shield, Search
+  Layers, ChevronDown, Paperclip, Shield, Search, Plus, Hash
 } from 'lucide-react';
+
+export interface LoggedServiceItem {
+  id: string;
+  catalogServiceId?: string;
+  name: string;
+  isCustom: boolean;
+  workFee: string;
+  govFee: string;
+  govRef?: string;
+}
 
 interface LogCompletedWorkModalProps {
   isOpen: boolean;
@@ -39,31 +50,28 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   );
   
   // Client selection
-  const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
+  const [clientMode, setClientMode] = useState<'existing' | 'new'>('new');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientSearch, setClientSearch] = useState<string>('');
   
-  // New Client fields
+  // New Client fields (Phone is now optional!)
   const [newClientName, setNewClientName] = useState<string>('');
   const [newClientPhone, setNewClientPhone] = useState<string>('');
   const [newClientCompany, setNewClientCompany] = useState<string>('');
   const [newClientEmail, setNewClientEmail] = useState<string>('');
 
-  // Service Selection
-  const [serviceMode, setServiceMode] = useState<'catalog' | 'custom'>('catalog');
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
-  const [customServiceName, setCustomServiceName] = useState<string>('');
-  const [serviceSearch, setServiceSearch] = useState<string>('');
-
   // Sales Staff Attribution
   const [assignedSalesId, setAssignedSalesId] = useState<string>('');
 
-  // Financials
-  const [govFee, setGovFee] = useState<string>('0.000');
-  const [paidByClient, setPaidByClient] = useState<boolean>(false);
-  const [workFee, setWorkFee] = useState<string>('0.000');
+  // Multiple Services State
+  const [serviceItems, setServiceItems] = useState<LoggedServiceItem[]>([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string>('');
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
 
-  // Documents
+  // Financial Options
+  const [paidByClient, setPaidByClient] = useState<boolean>(false);
+
+  // Documents (Multi-Upload)
   const [govReceiptFiles, setGovReceiptFiles] = useState<File[]>([]);
   const [deliverableFiles, setDeliverableFiles] = useState<File[]>([]);
 
@@ -75,6 +83,22 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitStep, setSubmitStep] = useState<string>('');
 
+  // Initialize with 1 editable service item when opened
+  useEffect(() => {
+    if (isOpen && serviceItems.length === 0) {
+      setServiceItems([
+        {
+          id: `custom_${Date.now()}`,
+          name: '',
+          isCustom: true,
+          workFee: '0.000',
+          govFee: '0.000',
+          govRef: ''
+        }
+      ]);
+    }
+  }, [isOpen]);
+
   // Load clients & sales staff on modal open
   useEffect(() => {
     if (!isOpen) return;
@@ -82,7 +106,6 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
     const fetchLookups = async () => {
       setLoadingRefs(true);
       try {
-        // Fetch clients
         const { data: cliData } = await supabase
           .from('profiles')
           .select('id, full_name, phone, company_name, email')
@@ -91,7 +114,6 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
 
         if (cliData) setClients(cliData);
 
-        // Fetch sales staff (profiles with department sales or role employee)
         const { data: staffData } = await supabase
           .from('profiles')
           .select('id, full_name, role, department')
@@ -109,15 +131,59 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
     fetchLookups();
   }, [isOpen]);
 
-  // When a catalog service is picked, prefill fees if empty
-  const handleServiceSelect = (svcId: string) => {
-    setSelectedServiceId(svcId);
+  // Multi-Service Handlers
+  const handleAddCatalogService = (svcId: string) => {
+    if (!svcId) return;
     const svc = services.find(s => s.id === svcId);
-    if (svc) {
-      if (svc.ministry_fee) setGovFee(Number(svc.ministry_fee).toFixed(3));
-      if (svc.work_fee) setWorkFee(Number(svc.work_fee).toFixed(3));
+    if (!svc) return;
+
+    const newItem: LoggedServiceItem = {
+      id: `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      catalogServiceId: svc.id,
+      name: isRtl ? (svc.name_ar || svc.name_en) : svc.name_en,
+      isCustom: false,
+      workFee: svc.work_fee ? Number(svc.work_fee).toFixed(3) : '0.000',
+      govFee: svc.ministry_fee ? Number(svc.ministry_fee).toFixed(3) : '0.000',
+      govRef: ''
+    };
+
+    // If currently there is only 1 item and it's empty, replace it
+    if (serviceItems.length === 1 && serviceItems[0].isCustom && !serviceItems[0].name.trim()) {
+      setServiceItems([newItem]);
+    } else {
+      setServiceItems(prev => [...prev, newItem]);
     }
+
+    setSelectedCatalogId('');
+    setCatalogSearch('');
   };
+
+  const handleAddCustomService = () => {
+    const newItem: LoggedServiceItem = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: '',
+      isCustom: true,
+      workFee: '0.000',
+      govFee: '0.000',
+      govRef: ''
+    };
+    setServiceItems(prev => [...prev, newItem]);
+  };
+
+  const updateServiceItem = (id: string, field: keyof LoggedServiceItem, value: any) => {
+    setServiceItems(prev =>
+      prev.map(item => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const removeServiceItem = (id: string) => {
+    setServiceItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Totals calculations
+  const totalWorkFee = serviceItems.reduce((acc, item) => acc + (parseFloat(item.workFee) || 0), 0);
+  const totalGovFee = serviceItems.reduce((acc, item) => acc + (parseFloat(item.govFee) || 0), 0);
+  const grandTotal = totalWorkFee + totalGovFee;
 
   // Filter clients
   const filteredClients = clients.filter(c => {
@@ -130,21 +196,22 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
     );
   });
 
-  // Filter services
-  const filteredServices = services.filter(s => {
-    if (!serviceSearch) return true;
-    const term = serviceSearch.toLowerCase();
+  // Filter catalog services
+  const filteredCatalogServices = services.filter(s => {
+    if (!catalogSearch) return true;
+    const term = catalogSearch.toLowerCase();
     return (
       (s.name_en && s.name_en.toLowerCase().includes(term)) ||
       (s.name_ar && s.name_ar.includes(term))
     );
   });
 
-  // Handle Receipt Upload
+  // Handle Gov Receipt Upload (Multi-Upload)
   const handleGovReceiptsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setGovReceiptFiles(prev => [...prev, ...newFiles]);
+      e.target.value = '';
     }
   };
 
@@ -152,11 +219,12 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
     setGovReceiptFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Handle Deliverables Upload
+  // Handle Deliverables Upload (Multi-Upload)
   const handleDeliverablesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setDeliverableFiles(prev => [...prev, ...newFiles]);
+      e.target.value = '';
     }
   };
 
@@ -167,21 +235,27 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   // Reset form
   const resetForm = () => {
     setCompletionDate(new Date().toISOString().split('T')[0]);
-    setClientMode('existing');
+    setClientMode('new');
     setSelectedClientId('');
     setClientSearch('');
     setNewClientName('');
     setNewClientPhone('');
     setNewClientCompany('');
     setNewClientEmail('');
-    setServiceMode('catalog');
-    setSelectedServiceId('');
-    setCustomServiceName('');
-    setServiceSearch('');
     setAssignedSalesId('');
-    setGovFee('0.000');
+    setServiceItems([
+      {
+        id: `custom_${Date.now()}`,
+        name: '',
+        isCustom: true,
+        workFee: '0.000',
+        govFee: '0.000',
+        govRef: ''
+      }
+    ]);
+    setSelectedCatalogId('');
+    setCatalogSearch('');
     setPaidByClient(false);
-    setWorkFee('0.000');
     setGovReceiptFiles([]);
     setDeliverableFiles([]);
     setGovRef('');
@@ -193,49 +267,98 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
+    // 1. Validation
     if (clientMode === 'existing' && !selectedClientId) {
       toast.error(isRtl ? 'يرجى اختيار العميل المسجل' : 'Please select an existing client');
       return;
     }
-    if (clientMode === 'new' && (!newClientName.trim() || !newClientPhone.trim())) {
-      toast.error(isRtl ? 'يرجى إدخال اسم ورقم هاتف العميل' : 'Please provide client name and phone');
+    // Phone number is now optional! Only full_name is required.
+    if (clientMode === 'new' && !newClientName.trim()) {
+      toast.error(isRtl ? 'يرجى إدخال اسم العميل' : 'Please provide client name');
       return;
     }
-    if (serviceMode === 'catalog' && !selectedServiceId) {
-      toast.error(isRtl ? 'يرجى اختيار الخدمة من الدليل' : 'Please select a catalog service');
+    if (serviceItems.length === 0) {
+      toast.error(isRtl ? 'يرجى إضافة خدمة واحدة على الأقل' : 'Please add at least one service');
       return;
     }
-    if (serviceMode === 'custom' && !customServiceName.trim()) {
-      toast.error(isRtl ? 'يرجى كتابة اسم الخدمة المخصصة' : 'Please enter custom service name');
+    const emptyIndex = serviceItems.findIndex(s => !s.name.trim());
+    if (emptyIndex !== -1) {
+      toast.error(isRtl ? `يرجى تحديد اسم الخدمة #${emptyIndex + 1}` : `Please provide name for service #${emptyIndex + 1}`);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Resolve Client
-      setSubmitStep(isRtl ? 'جاري تجهيز بيانات العميل...' : 'Resolving client...');
+      // 2. Resolve Client (Fix for `null value in column "id" of relation "profiles" violates not-null constraint`)
+      setSubmitStep(isRtl ? 'جاري تجهيز بيانات العميل...' : 'Resolving client record...');
       let finalClientId = selectedClientId;
       let finalClientName = '';
 
       if (clientMode === 'new') {
+        const clientCode = `CLT-${Date.now().toString().slice(-7)}`;
         const dummyEmail = newClientEmail.trim() || `client_${Date.now()}_${Math.floor(Math.random() * 1000)}@osbic.placeholder`;
-        const { data: createdClient, error: clientErr } = await supabase
+        const tempPassword = `Client#${Date.now()}!${Math.floor(Math.random() * 1000)}`;
+
+        // Create auth user using detached client so active admin session is preserved
+        const authClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false
+            }
+          }
+        );
+
+        let clientId = '';
+
+        try {
+          const { data: authData, error: authError } = await authClient.auth.signUp({
+            email: dummyEmail,
+            password: tempPassword,
+            options: {
+              data: {
+                full_name: newClientName.trim(),
+                role: 'client'
+              }
+            }
+          });
+
+          if (!authError && authData?.user?.id) {
+            clientId = authData.user.id;
+          } else if (authError) {
+            console.warn('Isolated client auth signup warning:', authError);
+          }
+        } catch (authEx) {
+          console.warn('Isolated client auth exception:', authEx);
+        }
+
+        // Fallback to random UUID if auth returned empty
+        if (!clientId) {
+          clientId = crypto.randomUUID();
+        }
+
+        // Upsert profile with non-null ID
+        const { data: createdClient, error: clientErr } = await (supabase
           .from('profiles')
-          .insert({
+          .upsert({
+            id: clientId,
             full_name: newClientName.trim(),
-            phone: newClientPhone.trim(),
+            phone: newClientPhone.trim() || null,
             company_name: newClientCompany.trim() || null,
             email: dummyEmail,
             role: 'client',
+            client_code: clientCode,
             branch_id: profile?.branch_id || null,
             is_active: true
-          } as any)
+          }, { onConflict: 'id' })
           .select()
-          .single();
+          .single() as any);
 
-        if (clientErr) throw new Error(clientErr.message || 'Failed to create new client record');
+        if (clientErr) throw new Error(clientErr.message || 'Failed to create new client record in profiles');
         finalClientId = createdClient.id;
         finalClientName = createdClient.full_name;
       } else {
@@ -243,27 +366,25 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         finalClientName = existingCli?.full_name || 'Client';
       }
 
-      // 2. Resolve Service Name and Reference ID
-      const chosenCatalogSvc = serviceMode === 'catalog' 
-        ? services.find(s => s.id === selectedServiceId)
-        : null;
-      
-      const resolvedServiceName = serviceMode === 'catalog'
-        ? (chosenCatalogSvc ? chosenCatalogSvc.name_en : 'Standard Service')
-        : customServiceName.trim();
-
-      const fallbackServiceId = chosenCatalogSvc?.id || services?.[0]?.id;
+      // 3. Resolve Master Anchor Service ID
+      const firstCatalogItem = serviceItems.find(s => s.catalogServiceId);
+      let fallbackServiceId = firstCatalogItem?.catalogServiceId;
+      if (!fallbackServiceId && services.length > 0) {
+        fallbackServiceId = services[0].id;
+      }
       if (!fallbackServiceId) {
-        throw new Error('No catalog services available in system to anchor job to.');
+        const { data: anySvc } = await supabase.from('services').select('id').limit(1).maybeSingle();
+        fallbackServiceId = anySvc?.id;
+      }
+      if (!fallbackServiceId) {
+        throw new Error('No services registered in the database to link completed job.');
       }
 
-      const numGovFee = Math.max(0, parseFloat(govFee) || 0);
-      const numWorkFee = Math.max(0, parseFloat(workFee) || 0);
-      const totalFee = numGovFee + numWorkFee;
+      const combinedServiceName = serviceItems.map(s => s.name.trim()).join(' + ');
       const completedIsoDate = new Date(completionDate).toISOString();
 
-      // 3. Create Completed Master Job
-      setSubmitStep(isRtl ? 'إنشاء ملف المعاملة المكتملة...' : 'Creating completed job record...');
+      // 4. Create Master Completed Job Record
+      setSubmitStep(isRtl ? 'إنشاء ملف المعاملة المكتملة...' : 'Creating completed master job...');
       const jobCode = `LEG-${Math.floor(Math.random() * 899999 + 100000)}`;
 
       const jobPayload: any = {
@@ -275,13 +396,13 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         ops_employee_id: profile?.id,
         service_id: fallbackServiceId,
         status: 'completed',
-        custom_name: resolvedServiceName,
-        total_fee: totalFee,
-        work_fee: numWorkFee,
-        ministry_fee: numGovFee,
+        custom_name: combinedServiceName,
+        total_fee: grandTotal,
+        work_fee: totalWorkFee,
+        ministry_fee: totalGovFee,
         client_pays_ministry_fee: paidByClient,
         advance_percentage: 100,
-        advance_amount: totalFee,
+        advance_amount: grandTotal,
         remaining_amount: 0,
         advance_paid: true,
         remaining_paid: true,
@@ -294,35 +415,46 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
       const { data: job, error: jobErr } = await (supabase.from('jobs').insert(jobPayload as any).select().single() as any);
       if (jobErr) throw jobErr;
 
-      // 4. Create Completed Job Service Line
-      setSubmitStep(isRtl ? 'تسجيل بنود الخدمة المكتملة...' : 'Recording service item...');
-      const servicePayload: any = {
-        job_id: job.id,
-        service_id: fallbackServiceId,
-        service_name: resolvedServiceName,
-        display_order: 1,
-        quantity: 1,
-        item_number: 1,
-        applicant_name: finalClientName,
-        status: 'completed',
-        work_fee: numWorkFee,
-        ministry_fee: numGovFee,
-        total_fee: totalFee,
-        ops_employee_id: profile?.id,
-        assigned_by: assignedSalesId || profile?.id,
-        assigned_at: completedIsoDate,
-        started_at: completedIsoDate,
-        completed_at: completedIsoDate,
-        acceptance_status: 'accepted',
-        assignment_model: 'direct',
-        government_ref: govRef ? govRef.trim() : null,
-        notes: notes ? `[Legacy Done] ${notes}` : null
-      };
+      // 5. Create Multiple Completed Job Service Items
+      setSubmitStep(isRtl ? `تسجيل بنود الخدمات المكتملة (${serviceItems.length})...` : `Recording completed services (${serviceItems.length})...`);
+      
+      const servicePayloads = serviceItems.map((item, idx) => {
+        const itemWork = Math.max(0, parseFloat(item.workFee) || 0);
+        const itemGov = Math.max(0, parseFloat(item.govFee) || 0);
+        const itemTotal = itemWork + itemGov;
 
-      const { data: jobService, error: svcErr } = await (supabase.from('job_services').insert(servicePayload as any).select().single() as any);
+        return {
+          job_id: job.id,
+          service_id: item.catalogServiceId || fallbackServiceId,
+          service_name: item.name.trim(),
+          display_order: idx + 1,
+          quantity: 1,
+          item_number: idx + 1,
+          applicant_name: finalClientName,
+          status: 'completed',
+          work_fee: itemWork,
+          ministry_fee: itemGov,
+          total_fee: itemTotal,
+          ops_employee_id: profile?.id,
+          assigned_by: assignedSalesId || profile?.id,
+          assigned_at: completedIsoDate,
+          started_at: completedIsoDate,
+          completed_at: completedIsoDate,
+          acceptance_status: 'accepted',
+          assignment_model: 'direct',
+          government_ref: item.govRef ? item.govRef.trim() : (govRef ? govRef.trim() : null),
+          notes: notes ? `[Historical Done] ${notes}` : null
+        };
+      });
+
+      const { data: createdJobServices, error: svcErr } = await (supabase
+        .from('job_services')
+        .insert(servicePayloads as any)
+        .select() as any);
+
       if (svcErr) throw svcErr;
 
-      // 5. Upload Government Fee Receipts (Multi-Upload)
+      // 6. Upload Government Fee Receipts (Multi-Upload)
       let firstReceiptPath: string | null = null;
       if (govReceiptFiles.length > 0) {
         setSubmitStep(isRtl ? `رفع إيصالات الرسوم الحكومية (${govReceiptFiles.length})...` : `Uploading gov receipts (${govReceiptFiles.length})...`);
@@ -350,24 +482,30 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         }
       }
 
-      // 6. Record Government Expense if fee was spent and not paid directly by client
-      if (numGovFee > 0 && !paidByClient) {
-        setSubmitStep(isRtl ? 'تسجيل المصروفات الحكومية...' : 'Recording ministry fee expense...');
-        await supabase.from('job_expenses').insert({
-          job_id: job.id,
-          job_service_id: jobService.id,
-          amount: numGovFee,
-          expense_type: 'ministry_fee',
-          receipt_url: firstReceiptPath || null,
-          notes: `Historical Ministry Fee for ${resolvedServiceName}${govRef ? ` [Ref: ${govRef}]` : ''}`,
-          status: 'approved',
-          created_by: profile?.id
-        } as any);
+      // 7. Record Government Expenses for each service with gov fee (unless paid by client directly)
+      if (!paidByClient && createdJobServices && createdJobServices.length > 0) {
+        setSubmitStep(isRtl ? 'تسجيل المصروفات الحكومية...' : 'Recording ministry fee expenses...');
+        for (const svc of createdJobServices) {
+          if (svc.ministry_fee > 0) {
+            await supabase.from('job_expenses').insert({
+              job_id: job.id,
+              job_service_id: svc.id,
+              amount: svc.ministry_fee,
+              expense_type: 'ministry_fee',
+              receipt_url: firstReceiptPath || null,
+              notes: `Historical Ministry Fee for ${svc.service_name}${svc.government_ref ? ` [Ref: ${svc.government_ref}]` : ''}`,
+              status: 'approved',
+              created_by: profile?.id
+            } as any);
+          }
+        }
       }
 
-      // 7. Upload Deliverables / Final Output Documents (Multi-Upload)
+      // 8. Upload Deliverables / Final Output Documents (Multi-Upload)
       if (deliverableFiles.length > 0) {
         setSubmitStep(isRtl ? `رفع المخرجات والمستندات النهائية (${deliverableFiles.length})...` : `Uploading deliverables (${deliverableFiles.length})...`);
+        const anchorSvcId = createdJobServices?.[0]?.id || null;
+
         for (let idx = 0; idx < deliverableFiles.length; idx++) {
           const file = deliverableFiles[idx];
           const ext = file.name.split('.').pop() || 'pdf';
@@ -378,20 +516,22 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
             const docName = file.name.replace(/\.[^/.]+$/, "");
 
             // Insert into job_service_documents for deliverables dossier
-            await supabase.from('job_service_documents').insert({
-              job_id: job.id,
-              job_service_id: jobService.id,
-              document_name: docName,
-              file_name: file.name,
-              file_path: filePath,
-              file_size: file.size,
-              file_type: file.type,
-              uploaded_by: profile?.id,
-              upload_source: 'ops',
-              document_category: 'output',
-              status: 'approved',
-              is_client_visible: true
-            } as any);
+            if (anchorSvcId) {
+              await supabase.from('job_service_documents').insert({
+                job_id: job.id,
+                job_service_id: anchorSvcId,
+                document_name: docName,
+                file_name: file.name,
+                file_path: filePath,
+                file_size: file.size,
+                file_type: file.type,
+                uploaded_by: profile?.id,
+                upload_source: 'ops',
+                document_category: 'output',
+                status: 'approved',
+                is_client_visible: true
+              } as any);
+            }
 
             // Also insert into master documents table for client portal access
             await supabase.from('documents').insert({
@@ -409,26 +549,30 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         }
       }
 
-      // 8. Log Timeline Event
-      try {
-        await supabase.from('job_service_timeline').insert({
-          job_service_id: jobService.id,
-          job_id: job.id,
-          from_status: 'in_progress',
-          to_status: 'completed',
-          changed_by: profile?.id || null,
-          changed_by_name: profile?.full_name || 'Ops Specialist',
-          changed_by_role: 'ops',
-          changed_at: completedIsoDate,
-          reason: 'Recorded historical completed work completed prior to ERP system rollout',
-          government_ref: govRef || null,
-          service_name: resolvedServiceName
-        } as any);
-      } catch (timelineErr) {
-        console.warn('Timeline recording notice:', timelineErr);
+      // 9. Log Timeline Events for each service
+      if (createdJobServices && createdJobServices.length > 0) {
+        for (const svc of createdJobServices) {
+          try {
+            await supabase.from('job_service_timeline').insert({
+              job_service_id: svc.id,
+              job_id: job.id,
+              from_status: 'in_progress',
+              to_status: 'completed',
+              changed_by: profile?.id || null,
+              changed_by_name: profile?.full_name || 'Ops Specialist',
+              changed_by_role: 'ops',
+              changed_at: completedIsoDate,
+              reason: 'Recorded historical completed work completed prior to ERP system rollout',
+              government_ref: svc.government_ref || govRef || null,
+              service_name: svc.service_name
+            } as any);
+          } catch (tErr) {
+            console.warn('Timeline recording notice:', tErr);
+          }
+        }
       }
 
-      // 9. Suppress any auto-generated assignment notification for this completed job
+      // 10. Suppress any auto-generated assignment notification for this completed job
       try {
         await supabase
           .from('notifications')
@@ -438,7 +582,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         console.warn('Notification cleanup notice:', cleanErr);
       }
 
-      toast.success(isRtl ? 'تم حفظ وتوثيق العمل المكتمل بنجاح!' : 'Historical completed work logged successfully!');
+      toast.success(isRtl ? 'تم حفظ وتوثيق الأعمال المكتملة بنجاح!' : 'Historical completed work logged successfully!');
       resetForm();
       onSuccess();
       onClose();
@@ -479,8 +623,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {isRtl
-                    ? 'توثيق المعاملات والخدمات المنجزة سابقاً وربط المستندات وإيصالات الرسوم الحكومية'
-                    : 'Record jobs executed prior to system rollout with receipts & deliverables'}
+                    ? 'توثيق المعاملات المنجزة سابقاً مع دعم اختيار خدمات متعددة ورسومها وإيصالاتها'
+                    : 'Record past jobs with multiple services, individual gov fees & multi-file uploads'}
                 </p>
               </div>
             </div>
@@ -600,11 +744,12 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                       value={newClientName}
                       onChange={(e) => setNewClientName(e.target.value)}
                       placeholder="e.g. Salim Al-Harthy"
+                      required
                       className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">{isRtl ? 'رقم الهاتف *' : 'Phone Number *'}</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">{isRtl ? 'رقم الهاتف (اختياري)' : 'Phone Number (Optional)'}</label>
                     <input
                       type="text"
                       value={newClientPhone}
@@ -637,206 +782,288 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
               )}
             </div>
 
-            {/* Section 3: Service Information */}
-            <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-3.5">
-              <div className="flex items-center justify-between">
+            {/* Section 3: Multiple Services Selection with Individual Gov Fees */}
+            <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-xs font-bold text-foreground flex items-center gap-2">
                   <Layers size={15} className="text-primary" />
-                  {isRtl ? 'الخدمة المنجزة' : 'Service Completed'}
+                  {isRtl ? 'الخدمات المنجزة والرسوم الحكومية' : 'Completed Services & Government Fees'}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {serviceItems.length} {isRtl ? 'خدمات' : 'item(s)'}
+                  </span>
                 </span>
 
-                {/* Toggle Mode */}
-                <div className="flex bg-muted/40 p-1 rounded-xl text-[11px] font-bold border border-border/30">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setServiceMode('catalog')}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      serviceMode === 'catalog'
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                    onClick={handleAddCustomService}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-all"
                   >
-                    {isRtl ? 'من دليل الخدمات' : 'From Catalog'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setServiceMode('custom')}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      serviceMode === 'custom'
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {isRtl ? 'خدمة مخصصة' : 'Custom Service'}
+                    <Plus size={13} />
+                    <span>{isRtl ? '+ إضافة خدمة مخصصة' : '+ Add Custom Service'}</span>
                   </button>
                 </div>
               </div>
 
-              {serviceMode === 'catalog' ? (
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3 top-3 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder={isRtl ? 'ابحث في دليل الخدمات...' : 'Search services...'}
-                      value={serviceSearch}
-                      onChange={(e) => setServiceSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-muted/30 border border-border rounded-xl text-xs text-foreground outline-none focus:border-primary"
-                    />
-                  </div>
+              {/* Add from Catalog Dropdown */}
+              <div className="p-3 bg-muted/30 rounded-xl border border-border/40 space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Search size={12} className="text-primary" />
+                  <span>{isRtl ? 'إضافة خدمة من دليل الخدمات المعتمد:' : 'Add Service from Catalog:'}</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder={isRtl ? 'فلترة دليل الخدمات...' : 'Filter catalog services...'}
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground outline-none focus:border-primary"
+                  />
                   <select
-                    value={selectedServiceId}
-                    onChange={(e) => handleServiceSelect(e.target.value)}
-                    className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none transition-all"
+                    value={selectedCatalogId}
+                    onChange={(e) => handleAddCatalogService(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs text-foreground outline-none transition-all"
                   >
-                    <option value="">{isRtl ? '-- اختر الخدمة من الدليل --' : '-- Select Catalog Service --'}</option>
-                    {filteredServices.map((svc) => (
+                    <option value="">{isRtl ? '-- اختر لإضافة خدمة للدائمة --' : '-- Pick to add service --'}</option>
+                    {filteredCatalogServices.map((svc) => (
                       <option key={svc.id} value={svc.id}>
-                        {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''} — Est. Min: {Number(svc.ministry_fee || 0).toFixed(3)} OMR
+                        {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''} — Min: {Number(svc.ministry_fee || 0).toFixed(3)} | Work: {Number(svc.work_fee || 0).toFixed(3)} OMR
                       </option>
                     ))}
                   </select>
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">{isRtl ? 'اسم الخدمة المخصصة *' : 'Custom Service Name *'}</label>
+              </div>
+
+              {/* Services List */}
+              <div className="space-y-3">
+                {serviceItems.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 rounded-xl bg-card border border-border/60 hover:border-border transition-all space-y-3"
+                  >
+                    {/* Item header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                          {index + 1}
+                        </span>
+                        {item.isCustom ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            {isRtl ? 'مخصصة' : 'Custom'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {isRtl ? 'دليل الخدمات' : 'Catalog'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono font-bold text-foreground">
+                          {((parseFloat(item.workFee) || 0) + (parseFloat(item.govFee) || 0)).toFixed(3)} OMR
+                        </span>
+                        {serviceItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeServiceItem(item.id)}
+                            className="p-1 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all"
+                            title="Remove service"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Service Name Input */}
+                    <div>
+                      {item.isCustom ? (
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => updateServiceItem(item.id, 'name', e.target.value)}
+                          placeholder={isRtl ? 'اكتب اسم الخدمة المخصصة...' : 'Enter custom service name...'}
+                          className="w-full bg-muted/20 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs font-medium text-foreground outline-none"
+                        />
+                      ) : (
+                        <div className="text-xs font-bold text-foreground px-1">
+                          {item.name}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Fees Grid for this service */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                          <DollarSign size={11} className="text-emerald-400" />
+                          <span>{isRtl ? 'الرسوم الحكومية (ريال)' : 'Gov / Ministry Fee (OMR)'}</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={item.govFee}
+                          onChange={(e) => {
+                            if (/^\d*\.?\d*$/.test(e.target.value)) {
+                              updateServiceItem(item.id, 'govFee', e.target.value);
+                            }
+                          }}
+                          placeholder="0.000"
+                          className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs text-foreground font-mono outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                          <DollarSign size={11} className="text-primary" />
+                          <span>{isRtl ? 'أتعاب المكتب (ريال)' : 'Work / Agency Fee (OMR)'}</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={item.workFee}
+                          onChange={(e) => {
+                            if (/^\d*\.?\d*$/.test(e.target.value)) {
+                              updateServiceItem(item.id, 'workFee', e.target.value);
+                            }
+                          }}
+                          placeholder="0.000"
+                          className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs text-foreground font-mono outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                          <Hash size={11} className="text-muted-foreground" />
+                          <span>{isRtl ? 'رقم القيد / المرجع الحكومي' : 'Gov Ref / App No.'}</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={item.govRef || ''}
+                          onChange={(e) => updateServiceItem(item.id, 'govRef', e.target.value)}
+                          placeholder="e.g. APP-9821"
+                          className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-1.5 text-xs text-foreground font-mono outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Totals Summary Banner */}
+              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold">
+                      {isRtl ? 'إجمالي الرسوم الحكومية' : 'Total Gov Fees'}
+                    </span>
+                    <span className="text-sm font-bold font-mono text-emerald-400">
+                      {totalGovFee.toFixed(3)} OMR
+                    </span>
+                  </div>
+
+                  <div className="h-6 w-px bg-border/60" />
+
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold">
+                      {isRtl ? 'إجمالي أتعاب المكتب' : 'Total Work Fees'}
+                    </span>
+                    <span className="text-sm font-bold font-mono text-primary">
+                      {totalWorkFee.toFixed(3)} OMR
+                    </span>
+                  </div>
+
+                  <div className="h-6 w-px bg-border/60" />
+
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold">
+                      {isRtl ? 'الإجمالي الكلي' : 'Grand Total'}
+                    </span>
+                    <span className="text-sm font-extrabold font-mono text-foreground">
+                      {grandTotal.toFixed(3)} OMR
+                    </span>
+                  </div>
+                </div>
+
+                {/* Direct Pay Option */}
+                <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    value={customServiceName}
-                    onChange={(e) => setCustomServiceName(e.target.value)}
-                    placeholder="e.g. Commercial Activity License Renewal & Inspection Clearance"
-                    className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none"
+                    type="checkbox"
+                    id="paidByClientCard"
+                    checked={paidByClient}
+                    onChange={(e) => setPaidByClient(e.target.checked)}
+                    className="w-4 h-4 rounded accent-primary bg-muted/30 border-border cursor-pointer"
                   />
+                  <label htmlFor="paidByClientCard" className="text-xs font-medium text-foreground cursor-pointer select-none">
+                    {isRtl ? 'الرسوم دفعت ببطاقة العميل (لا تحسب كمصروف من الشركة)' : 'Paid by Client Card directly'}
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Multi-File Uploads: Gov Receipts */}
+            <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                  <Paperclip size={15} className="text-emerald-400" />
+                  {isRtl ? 'إيصالات السداد الحكومي (تحميل متعدد)' : 'Government Payment Receipts (Multi-File)'}
+                </span>
+                {govReceiptFiles.length > 0 && (
+                  <span className="text-emerald-400 text-[10px] font-bold">
+                    {govReceiptFiles.length} {isRtl ? 'إيصال محدد' : 'file(s) selected'}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative border border-dashed border-border/70 hover:border-emerald-500/50 rounded-2xl p-4 text-center transition-all bg-card/40 cursor-pointer group">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={handleGovReceiptsChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="flex flex-col items-center justify-center gap-1">
+                  <Upload size={18} className="text-muted-foreground group-hover:text-emerald-400 transition-colors" />
+                  <p className="text-xs font-bold text-foreground">
+                    {isRtl ? 'انقر أو اسحب لاختيار إيصالات الرسوم الحكومية' : 'Click or drag ministry receipt files'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    PNG, JPG, PDF (Select multiple receipts at once)
+                  </p>
+                </div>
+              </div>
+
+              {/* Receipts list */}
+              {govReceiptFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {govReceiptFiles.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 font-mono"
+                    >
+                      <FileText size={12} />
+                      <span className="max-w-[150px] truncate">{file.name}</span>
+                      <span className="text-[9px] text-emerald-400/70 font-sans">
+                        ({(file.size / 1024).toFixed(0)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeGovReceipt(idx)}
+                        className="hover:text-red-400 transition-colors p-0.5"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Section 4: Government Fee & Multi-Receipt Upload */}
-            <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-2">
-                  <DollarSign size={15} className="text-emerald-400" />
-                  {isRtl ? 'الرسوم الحكومية وإيصالات الدفع' : 'Government Fees & Proofs'}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {isRtl ? 'خيارات متعددة للإيصالات' : 'Multiple uploads supported'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    {isRtl ? 'الرسوم الحكومية المصروفة (ريال عماني)' : 'Actual Government Fee Spent (OMR)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={govFee}
-                    onChange={(e) => {
-                      if (/^\d*\.?\d*$/.test(e.target.value)) setGovFee(e.target.value);
-                    }}
-                    placeholder="0.000"
-                    className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2.5 text-sm text-foreground font-mono outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    {isRtl ? 'أتعاب الخدمة / المكتب (اختياري)' : 'Work / Agency Fee (OMR)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={workFee}
-                    onChange={(e) => {
-                      if (/^\d*\.?\d*$/.test(e.target.value)) setWorkFee(e.target.value);
-                    }}
-                    placeholder="0.000"
-                    className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2.5 text-sm text-foreground font-mono outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Direct payment checkbox */}
-              <div className="flex items-center gap-2.5 py-2 px-3 bg-muted/20 rounded-xl border border-border/30">
-                <input
-                  type="checkbox"
-                  id="direct_paid_client"
-                  checked={paidByClient}
-                  onChange={(e) => setPaidByClient(e.target.checked)}
-                  className="w-4 h-4 rounded accent-primary bg-muted/30 border-border cursor-pointer"
-                />
-                <label htmlFor="direct_paid_client" className="text-xs font-medium text-foreground cursor-pointer select-none">
-                  {isRtl
-                    ? 'تم دفع الرسوم ببطاقة العميل مباشرة (لا تحتسب كمصروف من رصيد الشركة)'
-                    : 'Paid by Client Card (Direct Pay — not deducted from company balance)'}
-                </label>
-              </div>
-
-              {/* Multi-upload for Gov Receipts */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Paperclip size={13} className="text-emerald-400" />
-                    {isRtl ? 'إيصالات السداد الحكومي (تحميل متعدد)' : 'Government Payment Receipts (Multi-upload)'}
-                  </span>
-                  {govReceiptFiles.length > 0 && (
-                    <span className="text-emerald-400 text-[10px]">
-                      {govReceiptFiles.length} {isRtl ? 'إيصال محدد' : 'file(s) selected'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="relative border border-dashed border-border/70 hover:border-emerald-500/50 rounded-2xl p-4 text-center transition-all bg-card/40 cursor-pointer group">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf"
-                    onChange={handleGovReceiptsChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <Upload size={18} className="text-muted-foreground group-hover:text-emerald-400 transition-colors" />
-                    <p className="text-xs font-bold text-foreground">
-                      {isRtl ? 'انقر أو اسحب لإضافة إيصالات الرسوم' : 'Click or drag ministry receipt files'}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      PNG, JPG, PDF (Supports multiple receipts at once)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Receipts list */}
-                {govReceiptFiles.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {govReceiptFiles.map((file, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 font-mono"
-                      >
-                        <FileText size={12} />
-                        <span className="max-w-[150px] truncate">{file.name}</span>
-                        <span className="text-[9px] text-emerald-400/70 font-sans">
-                          ({(file.size / 1024).toFixed(0)} KB)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeGovReceipt(idx)}
-                          className="hover:text-red-400 transition-colors p-0.5"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Section 5: Deliverables / Final Output Documents (Multi-Upload) */}
+            {/* Section 5: Multi-File Uploads: Output Deliverables */}
             <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-2">
                   <Sparkles size={15} className="text-primary" />
-                  {isRtl ? 'المخرجات والمستندات النهائية (مستندات الإنجاز)' : 'Deliverables & Output Documents'}
+                  {isRtl ? 'المخرجات والمستندات النهائية (مستندات الإنجاز)' : 'Deliverables & Output Documents (Multi-File)'}
                 </span>
                 {deliverableFiles.length > 0 && (
                   <span className="text-primary text-[10px] font-bold">
@@ -846,8 +1073,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {isRtl
-                  ? 'قم برفع شهادة السجل التجاري، الترخيص البلدي، التأشيرات أو التراخيص المعتمدة (ستكون متاحة في بوابة العميل)'
-                  : 'Upload completed licenses, CR copies, approved permits or visas (will appear in client portal)'}
+                  ? 'رفع شهادات السجل التجاري، التراخيص البلدية، التأشيرات أو الموافقات المنجزة (ستظهر في بوابة العميل)'
+                  : 'Upload licenses, CR certificates, approved permits or visas (will appear in client portal)'}
               </p>
 
               <div className="relative border border-dashed border-border/70 hover:border-primary/50 rounded-2xl p-4 text-center transition-all bg-card/40 cursor-pointer group">
@@ -861,10 +1088,10 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                 <div className="flex flex-col items-center justify-center gap-1">
                   <Upload size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
                   <p className="text-xs font-bold text-foreground">
-                    {isRtl ? 'انقر أو اسحب لإرفاق مستندات المخرجات النهائية' : 'Click or drag output deliverables'}
+                    {isRtl ? 'انقر أو اسحب لإرفاق ملفات المخرجات النهائية' : 'Click or drag output deliverables'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    PDF, JPG, PNG, DOCX (Multiple files can be attached)
+                    PDF, JPG, PNG, DOCX (Select multiple files at once)
                   </p>
                 </div>
               </div>
@@ -899,7 +1126,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                  {isRtl ? 'رقم القيد / المرجع الحكومي' : 'Government Reference / App No.'}
+                  {isRtl ? 'رقم القيد / المرجع العام' : 'General Gov Reference / App No.'}
                 </label>
                 <input
                   type="text"
