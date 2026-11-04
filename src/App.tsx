@@ -112,9 +112,9 @@ const LoginPage = () => {
   const { logo } = useAdminSettings();
 
   useEffect(() => {
-    // Auto-redirect if already logged in
-    if (!authLoading && user && role) {
-      const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
+    // Auto-redirect if already logged in: default all staff to /employee unless explicitly admin or client
+    if (!authLoading && user) {
+      const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
       navigate(path, { replace: true });
     }
   }, [user, role, authLoading, navigate]);
@@ -122,7 +122,7 @@ const LoginPage = () => {
   const handleDevLogin = (role: 'admin' | 'employee' | 'client') => {
     if (devLogin) {
       devLogin(role);
-      const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
+      const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
       navigate(path, { replace: true });
     }
   };
@@ -142,8 +142,8 @@ const LoginPage = () => {
       return;
     }
     
-    // Redirect based on precise role
-    const path = userRole === 'admin' ? '/admin' : userRole === 'employee' ? '/employee' : '/portal';
+    // Redirect based on precise role: default all staff to /employee unless explicitly admin or client
+    const path = userRole === 'admin' ? '/admin' : userRole === 'client' ? '/portal' : '/employee';
     navigate(path, { replace: true });
   };
 
@@ -426,7 +426,7 @@ const RootRedirect = () => {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
+  const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
   return <Navigate to={path} replace />;
 };
 

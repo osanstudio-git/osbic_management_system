@@ -60,7 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // If we already have a cached profile, we do not need to block the UI with an authenticating spinner
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !localStorage.getItem('osbic_cached_profile');
+    } catch {
+      return true;
+    }
+  });
+
+  // Keep track of active fetch to prevent duplicate simultaneous queries and Web Lock queues
+  const activeFetchRef = React.useRef<{ userId: string; promise: Promise<void> } | null>(null);
 
   useEffect(() => {
     // Check for dev session first
@@ -76,18 +86,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isMounted = true;
 
-    // Safety timeout: Guarantee the app never hangs indefinitely even under high Sydney latency
+    // Safety fallback: only if the user is truly waiting without a cached profile
     const safetyTimer = setTimeout(() => {
       if (isMounted) {
-        setLoading((prev) => {
-          if (prev) {
-            console.warn('Auth initialization reached safety threshold, releasing loading state');
-            return false;
-          }
-          return prev;
-        });
+        setLoading(false);
       }
-    }, 7000);
+    }, 6000);
 
     // 1. Initial session load
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -116,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isMounted) setLoading(false);
     });
 
-    // 2. Auth state change listener (skip INITIAL_SESSION to avoid duplicate calls / lock contention)
+    // 2. Auth state change listener (skip INITIAL_SESSION to avoid duplicate calls)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!isMounted) return;
       if (event === 'INITIAL_SESSION') return;
@@ -139,50 +143,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      // 10-second timeout for profile fetching to accommodate international Sydney latency
-      const profilePromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timed out')), 10000)
-      );
-
-      const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
-      
-      if (error) {
-        // If profile doesn't exist (PGRST116 = 0 rows returned), user account was removed
-        if (error.code === 'PGRST116') {
-          try {
-            await supabase.auth.signOut();
-          } catch {
-            // ignore
-          }
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          localStorage.removeItem('osbic_cached_profile');
-        } else {
-          console.error('Profile fetch failed:', error);
-        }
-      } else if (data) {
-        setProfile(data);
-        try {
-          localStorage.setItem('osbic_cached_profile', JSON.stringify(data));
-        } catch {
-          // ignore storage quota issues
-        }
-      }
-    } catch (error: any) {
-      console.warn('Profile fetch delayed or timed out:', error?.message || error);
-      // Keep existing cached profile so user never loses their role or permissions due to network blips
-    } finally {
-      setLoading(false);
+  const fetchProfile = async (userId: string): Promise<void> => {
+    // Deduplicate: If this user's profile is already being fetched, reuse the in-flight promise
+    if (activeFetchRef.current && activeFetchRef.current.userId === userId) {
+      return activeFetchRef.current.promise;
     }
+
+    const queryPromise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        
+        if (error) {
+          // If profile doesn't exist (PGRST116 = 0 rows returned), user account was removed
+          if (error.code === 'PGRST116') {
+            try {
+              await supabase.auth.signOut();
+            } catch {
+              // ignore
+            }
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+            localStorage.removeItem('osbic_cached_profile');
+          } else {
+            console.warn('Profile fetch note:', error.message);
+          }
+        } else if (data) {
+          setProfile(data);
+          try {
+            localStorage.setItem('osbic_cached_profile', JSON.stringify(data));
+          } catch {
+            // ignore storage quota issues
+          }
+        }
+      } catch (error: any) {
+        console.warn('Profile sync delayed:', error?.message || error);
+      } finally {
+        setLoading(false);
+        activeFetchRef.current = null;
+      }
+    })();
+
+    activeFetchRef.current = { userId, promise: queryPromise };
+    return queryPromise;
   };
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null; role?: string }> => {
