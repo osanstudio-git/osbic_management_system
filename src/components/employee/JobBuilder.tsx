@@ -334,6 +334,12 @@ export const JobBuilder = ({
 
   const handleInitiateJob = async () => {
     if (serviceLines.length === 0 || !selectedClient) return;
+
+    if (entryType === 'referral' && !referralName.trim()) {
+      toast.error('Please enter the referral source or referrer name');
+      return;
+    }
+
     setIsCreating(true);
 
     try {
@@ -359,6 +365,18 @@ export const JobBuilder = ({
         ? selectedPackage.name_en 
         : (selectedServices.length > 0 ? selectedServices.map(s => s.name_en).join(' + ') : (primaryService.service_name || 'Standard Service'));
 
+      // Ensure entry_type complies with database constraint ('direct' | 'lead' | 'walkin' | 'renewal')
+      const validDbEntryTypes = ['direct', 'lead', 'walkin', 'renewal'];
+      const safeEntryType = validDbEntryTypes.includes(entryType) ? entryType : 'direct';
+
+      const referralNotes = entryType === 'referral' && referralName?.trim()
+        ? `Referral: ${referralName.trim()}`
+        : entryType === 'referral'
+        ? 'Referral'
+        : entryType === 'other'
+        ? 'Other Intake'
+        : null;
+
       // 1. Create the master Job record
       const jobInsertPayload: any = {
         job_code: `JOB-${Math.floor(Math.random() * 100000)}`,
@@ -377,20 +395,29 @@ export const JobBuilder = ({
         remaining_amount: totalWork + totalMin,
         advance_paid: false,
         remaining_paid: false,
-        entry_type: entryType,
+        entry_type: safeEntryType,
         sales_employee_id: profile?.id,
         ops_employee_id: assignedTo ? assignedTo : null,
         branch_id: profile?.branch_id,
-        notes: entryType === 'referral' && referralName ? `Referral: ${referralName.trim()}` : null,
+        notes: referralNotes,
       };
 
       let { data: jobData, error: jobError } = await (supabase.from('jobs').insert({
         ...jobInsertPayload,
-        ...(entryType === 'referral' && referralName ? { referral_name: referralName.trim() } : {})
+        ...(entryType === 'referral' && referralName?.trim() ? { referral_name: referralName.trim() } : {})
       } as any).select().single() as any);
 
-      if (jobError && (jobError.message?.includes('referral_name') || jobError.code === 'PGRST204')) {
+      if (jobError && (jobError.message?.includes('referral_name') || jobError.code === 'PGRST204' || jobError.message?.includes('does not exist'))) {
         const retryRes = await (supabase.from('jobs').insert(jobInsertPayload as any).select().single() as any);
+        jobData = retryRes.data;
+        jobError = retryRes.error;
+      }
+
+      if (jobError && (jobError.message?.includes('jobs_entry_type_check') || jobError.message?.includes('entry_type'))) {
+        const retryRes = await (supabase.from('jobs').insert({
+          ...jobInsertPayload,
+          entry_type: 'direct'
+        } as any).select().single() as any);
         jobData = retryRes.data;
         jobError = retryRes.error;
       }
