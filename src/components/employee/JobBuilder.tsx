@@ -377,13 +377,11 @@ export const JobBuilder = ({
         remaining_amount: totalWork + totalMin,
         advance_paid: false,
         remaining_paid: false,
-        entry_type: (entryType === 'referral' || entryType === 'other') ? 'direct' : entryType,
+        entry_type: entryType,
         sales_employee_id: profile?.id,
         ops_employee_id: assignedTo ? assignedTo : null,
         branch_id: profile?.branch_id,
-        notes: entryType === 'referral' && referralName 
-          ? `Referral: ${referralName.trim()}` 
-          : (entryType === 'other' ? 'Other Intake' : null),
+        notes: entryType === 'referral' && referralName ? `Referral: ${referralName.trim()}` : null,
       };
 
       let { data: jobData, error: jobError } = await (supabase.from('jobs').insert({

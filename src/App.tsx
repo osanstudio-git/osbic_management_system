@@ -112,9 +112,9 @@ const LoginPage = () => {
   const { logo } = useAdminSettings();
 
   useEffect(() => {
-    // Auto-redirect if already logged in: default all staff to /employee unless explicitly admin or client
-    if (!authLoading && user) {
-      const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
+    // Auto-redirect if already logged in
+    if (!authLoading && user && role) {
+      const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
       navigate(path, { replace: true });
     }
   }, [user, role, authLoading, navigate]);
@@ -122,7 +122,7 @@ const LoginPage = () => {
   const handleDevLogin = (role: 'admin' | 'employee' | 'client') => {
     if (devLogin) {
       devLogin(role);
-      const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
+      const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
       navigate(path, { replace: true });
     }
   };
@@ -134,16 +134,12 @@ const LoginPage = () => {
     const { error: signInError, role: userRole } = await signIn(email, password);
     setLoading(false);
     if (signInError) {
-      if (signInError.toLowerCase().includes('invalid login credentials') || signInError.toLowerCase().includes('invalid email or password')) {
-        setError('Invalid email or password. Please try again.');
-      } else {
-        setError(signInError);
-      }
+      setError('Invalid email or password. Please try again.');
       return;
     }
     
-    // Redirect based on precise role: default all staff to /employee unless explicitly admin or client
-    const path = userRole === 'admin' ? '/admin' : userRole === 'client' ? '/portal' : '/employee';
+    // Redirect based on precise role
+    const path = userRole === 'admin' ? '/admin' : userRole === 'employee' ? '/employee' : '/portal';
     navigate(path, { replace: true });
   };
 
@@ -413,23 +409,6 @@ const LoginPage = () => {
 };
 
 
-const RootRedirect = () => {
-  const { user, role, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#0A0F1E]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
-          <p className="text-[#475569] text-sm font-medium">Loading workspace...</p>
-        </div>
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/login" replace />;
-  const path = role === 'admin' ? '/admin' : role === 'client' ? '/portal' : '/employee';
-  return <Navigate to={path} replace />;
-};
-
 // ─── Resilient QueryClient ────────────────────────────────────────────────────
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -478,7 +457,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<RootRedirect />} />
+            <Route path="/" element={<Navigate to="/admin" replace />} />
 
             {/* Admin Portal */}
             <Route path="/admin" element={

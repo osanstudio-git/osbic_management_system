@@ -25,7 +25,6 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     phone: '',
     countryCode: '+968',
     customCountryCode: '',
-    password: '',
     department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing',
     notes: '',
     services: [] as string[],
@@ -67,12 +66,7 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
       return;
     }
 
-    if (formData.password && formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
-    const generatedPassword = formData.password?.trim() ? formData.password.trim() : generateSecurePassword();
+    const generatedPassword = generateSecurePassword();
     const username = generateUsername(formData.fullName);
 
       const finalCountryCode = formData.countryCode === 'Other' ? (formData.customCountryCode || '+') : formData.countryCode;
@@ -239,29 +233,6 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                             className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-gold transition-colors"
                             placeholder="ahmed@osbic.om"
                           />
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-sm font-medium text-muted-foreground">Portal Login Password (Optional)</label>
-                            <span className="text-[10px] text-muted-foreground">Leave blank to auto-generate</span>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type={showPassword ? 'text' : 'password'}
-                              value={formData.password}
-                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                              className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-gold transition-colors pr-10"
-                              placeholder="e.g. Osbic@2026 (or auto-generated)"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
                         </div>
                         
                         <div>
