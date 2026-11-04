@@ -51,7 +51,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    try {
+      const cached = localStorage.getItem('osbic_cached_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,18 +76,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isMounted = true;
 
-    // Safety timeout: Guarantee the app never hangs on "Authenticating..." indefinitely
+    // Safety timeout: Guarantee the app never hangs indefinitely even under high Sydney latency
     const safetyTimer = setTimeout(() => {
       if (isMounted) {
         setLoading((prev) => {
           if (prev) {
-            console.warn('Auth initialization timed out, releasing loading state');
+            console.warn('Auth initialization reached safety threshold, releasing loading state');
             return false;
           }
           return prev;
         });
       }
-    }, 4000);
+    }, 7000);
 
     // 1. Initial session load
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -90,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(null);
         setUser(null);
         setProfile(null);
+        localStorage.removeItem('osbic_cached_profile');
         setLoading(false);
         return;
       }
@@ -100,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       } else {
         setProfile(null);
+        localStorage.removeItem('osbic_cached_profile');
         setLoading(false);
       }
     }).catch((err) => {
@@ -118,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchProfile(currentSession.user.id);
       } else {
         setProfile(null);
+        localStorage.removeItem('osbic_cached_profile');
         setLoading(false);
       }
     });
@@ -131,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      // 8-second timeout for profile fetching
+      // 10-second timeout for profile fetching to accommodate international Sydney latency
       const profilePromise = supabase
         .from('profiles')
         .select('*')
@@ -139,13 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timed out')), 8000)
+        setTimeout(() => reject(new Error('Profile fetch timed out')), 10000)
       );
 
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
       
       if (error) {
-        // If profile doesn't exist (PGRST116 = 0 rows returned), user has no profile
+        // If profile doesn't exist (PGRST116 = 0 rows returned), user account was removed
         if (error.code === 'PGRST116') {
           try {
             await supabase.auth.signOut();
@@ -154,17 +164,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setUser(null);
           setSession(null);
+          setProfile(null);
+          localStorage.removeItem('osbic_cached_profile');
         } else {
           console.error('Profile fetch failed:', error);
         }
-        setProfile(null);
-      } else {
+      } else if (data) {
         setProfile(data);
+        try {
+          localStorage.setItem('osbic_cached_profile', JSON.stringify(data));
+        } catch {
+          // ignore storage quota issues
+        }
       }
     } catch (error: any) {
-      console.error('Profile fetch error or timeout:', error?.message || error);
-      // Do NOT sign out user on network timeouts, keep user state intact
-      setProfile(null);
+      console.warn('Profile fetch delayed or timed out:', error?.message || error);
+      // Keep existing cached profile so user never loses their role or permissions due to network blips
     } finally {
       setLoading(false);
     }
@@ -174,14 +189,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const signInPromise = supabase.auth.signInWithPassword({ email: email.trim(), password });
       const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Server timed out. Supabase database is not responding.')), 10000)
+        setTimeout(() => reject(new Error('Server timed out. Supabase database is not responding.')), 12000)
       );
 
       const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
       if (error) return { error: error.message };
       if (!data?.user) return { error: 'No user returned from login.' };
 
-      // Fetch role with 5s timeout
+      // Fetch role with 6s timeout
       try {
         const profilePromise = supabase
           .from('profiles')
@@ -189,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', data.user.id)
           .single();
         const profileTimeout = new Promise<{ data: any; error: any }>((_, reject) =>
-          setTimeout(() => reject(new Error('Profile load timeout')), 5000)
+          setTimeout(() => reject(new Error('Profile load timeout')), 6000)
         );
         const { data: profileData } = await Promise.race([profilePromise, profileTimeout]);
         return { error: null, role: (profileData as any)?.role };
@@ -209,12 +224,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    localStorage.removeItem('osbic_cached_profile');
     if (DEV_MODE && localStorage.getItem('dev_role')) {
       localStorage.removeItem('dev_role');
       setProfile(null);
       setUser(null);
       return;
     }
+    setProfile(null);
+    setUser(null);
+    setSession(null);
     await supabase.auth.signOut();
   };
 

@@ -28,13 +28,25 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function OpsTeamReports() {
-  const { profile, role } = useAuth();
+  const { profile, role, loading: authLoading } = useAuth();
   const isOpsHead = Boolean(
     (profile as any)?.is_ops_head ||
     profile?.is_manager ||
     profile?.role === 'admin' ||
     role === 'admin'
   );
+
+  // If auth is still resolving and profile is not yet in cache, wait with clean spinner
+  if (authLoading && !profile) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-muted-foreground text-sm font-medium">Verifying operations access...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Filters
   const [timeframe, setTimeframe] = useState<OpsTimeframePreset>('month');

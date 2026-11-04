@@ -26,10 +26,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <Navigate to={isPortalPath ? "/portal/login" : "/login"} state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // Kick to their correct restricted portal
-    const redirectPath = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
-    return <Navigate to={redirectPath} replace />;
+  // Strict role verification: If route requires specific roles, ensure role is verified
+  if (allowedRoles && allowedRoles.length > 0) {
+    // If role is still loading or resolving, do not let user pass through
+    if (!role) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-[#0A0F1E]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
+            <p className="text-[#475569] text-sm font-medium">Verifying authorization...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!allowedRoles.includes(role)) {
+      // Kick to their correct restricted portal
+      const redirectPath = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
+      return <Navigate to={redirectPath} replace />;
+    }
   }
 
   return <>{children}</>;

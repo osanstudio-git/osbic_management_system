@@ -413,6 +413,23 @@ const LoginPage = () => {
 };
 
 
+const RootRedirect = () => {
+  const { user, role, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0A0F1E]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
+          <p className="text-[#475569] text-sm font-medium">Loading workspace...</p>
+        </div>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  const path = role === 'admin' ? '/admin' : role === 'employee' ? '/employee' : '/portal';
+  return <Navigate to={path} replace />;
+};
+
 // ─── Resilient QueryClient ────────────────────────────────────────────────────
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -461,7 +478,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<Navigate to="/admin" replace />} />
+            <Route path="/" element={<RootRedirect />} />
 
             {/* Admin Portal */}
             <Route path="/admin" element={
