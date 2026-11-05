@@ -37,6 +37,7 @@ export interface RepPerformanceData {
   govtFeesTotal: number;
   netProfit: number;
   profitMargin: number; // percentage (0 - 100)
+  avgDealSize: number;
   // Operations Work & Delegation Metrics
   assignedJobsCount: number; // total jobs created/assigned out to ops
   assignedJobsTotalFee: number; // total OMR volume of assigned work
@@ -174,6 +175,8 @@ export const useSalesTeamReports = (
             totalGovtFees: 0,
             totalNetProfit: 0,
             overallProfitMargin: 0,
+            totalAssignedJobs: 0,
+            totalAssignedJobsFee: 0,
             topPerformerByRevenue: null,
             topPerformerByConversion: null,
           },
@@ -385,7 +388,7 @@ export const useSalesTeamReports = (
         // Assigned Jobs to Operations (delegated work)
         const empAssignedJobsRaw = jobsData.filter(j => j.sales_employee_id === emp.id || j.assigned_by === emp.id);
         const empAssignedJobs = empAssignedJobsRaw.map(j => {
-          const svcList = (j.services as any[]) || [];
+          const svcList = ((j as any).services as any[]) || [];
           const hasPoolTask = svcList.some(s => !s.ops_employee_id);
           const isAllCompleted = j.status === 'completed' || (svcList.length > 0 && svcList.every(s => s.status === 'completed'));
           const isInProgress = !isAllCompleted && (svcList.some(s => !!s.ops_employee_id) || !!j.ops_employee_id);
@@ -469,7 +472,7 @@ export const useSalesTeamReports = (
       const totalReps = reps.length;
       const totalLeads = reps.reduce((sum, r) => sum + r.totalLeads, 0);
       const totalAssignedLeads = totalLeads;
-      const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length;
+      const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to && l.status !== 'converted' && (l.status as string) !== 'cancelled' && l.status !== 'lost').length;
       const salesHeadAssignedCount = leadsData.filter(l => {
         const assigner = salesEmployees.find(e => e.id === l.assigned_by);
         return (assigner?.is_sales_head || assigner?.can_assign_leads) && l.assigned_to && l.assigned_to !== l.assigned_by;
