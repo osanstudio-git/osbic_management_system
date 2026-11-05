@@ -198,6 +198,33 @@ export const useCreateLead = () => {
     }) => {
       const { services, created_at, ...leadPayload } = leadData;
       
+      // 1. Strict Duplicate Phone Check before insertion
+      const cleanDigits = (leadData.contact_phone || '').replace(/\D/g, '');
+      if (cleanDigits.length >= 6) {
+        const last8 = cleanDigits.slice(-8);
+        const splitPattern = last8.length >= 8 
+          ? `%${last8.slice(0, 4)}%${last8.slice(4)}%` 
+          : `%${last8}%`;
+
+        const { data: existingLeads } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            contact_name,
+            created_at,
+            assigned_to_profile:profiles!leads_assigned_to_fkey(full_name)
+          `)
+          .or(`contact_phone.ilike.${splitPattern},contact_whatsapp.ilike.${splitPattern},contact_phone.ilike.%${last8}%,contact_whatsapp.ilike.%${last8}%`)
+          .limit(1);
+
+        if (existingLeads && existingLeads.length > 0) {
+          const ex = existingLeads[0];
+          const rep = (ex as any).assigned_to_profile?.full_name || 'another sales rep';
+          const regDate = ex.created_at ? new Date(ex.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+          throw new Error(`Cannot register lead: Phone number is already registered for "${ex.contact_name}" on ${regDate} (Handled by ${rep}).`);
+        }
+      }
+
       let finalCreatedAt = new Date().toISOString();
       if (created_at) {
         const customDate = new Date(created_at);
@@ -298,6 +325,10 @@ export const useCheckDuplicateLead = (phone: string, name: string) => {
 
       // 1. Check by phone digits (most critical)
       if (searchDigits) {
+        const splitPattern = searchDigits.length >= 8 
+          ? `%${searchDigits.slice(0, 4)}%${searchDigits.slice(4)}%` 
+          : `%${searchDigits}%`;
+
         const { data: pLeads } = await supabase
           .from('leads')
           .select(`
@@ -314,7 +345,7 @@ export const useCheckDuplicateLead = (phone: string, name: string) => {
             assigned_to_profile:profiles!leads_assigned_to_fkey(full_name, employee_code, email, branch_id),
             assigned_by_profile:profiles!leads_assigned_by_fkey(full_name, employee_code, email)
           `)
-          .or(`contact_phone.ilike.%${searchDigits}%,contact_whatsapp.ilike.%${searchDigits}%`)
+          .or(`contact_phone.ilike.${splitPattern},contact_whatsapp.ilike.${splitPattern},contact_phone.ilike.%${searchDigits}%,contact_whatsapp.ilike.%${searchDigits}%`)
           .limit(5);
 
         phoneLeads = (pLeads as any) || [];
@@ -323,7 +354,7 @@ export const useCheckDuplicateLead = (phone: string, name: string) => {
           .from('profiles')
           .select('id, full_name, phone, company_name, email')
           .eq('role', 'client')
-          .ilike('phone', `%${searchDigits}%`)
+          .or(`phone.ilike.${splitPattern},phone.ilike.%${searchDigits}%`)
           .limit(3);
 
         registeredClients = (pClients as any) || [];

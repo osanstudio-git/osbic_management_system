@@ -33,7 +33,6 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
   const { profile } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
-  const [allowDuplicateProceed, setAllowDuplicateProceed] = useState(false);
   const [debouncedPhone, setDebouncedPhone] = useState('');
   const [debouncedName, setDebouncedName] = useState('');
   const [formData, setFormData] = useState({
@@ -71,7 +70,6 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     if (!isOpen) {
       setStep(1);
       setIsSourceDropdownOpen(false);
-      setAllowDuplicateProceed(false);
       setDebouncedPhone('');
       setDebouncedName('');
       setFormData({
@@ -119,8 +117,14 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       toast.error('Please fill in all required fields (Name, Phone, Source)');
       return;
     }
-    if (duplicateCheck?.hasPhoneDuplicate && !allowDuplicateProceed) {
-      toast.error('Duplicate phone number detected! Please review the existing lead or tick the confirmation box to proceed.');
+    if (duplicateCheck?.hasPhoneDuplicate) {
+      const match = duplicateCheck.phoneLeads?.[0];
+      const rep = match?.assigned_to_profile?.full_name || 'another sales person';
+      const regDate = match?.created_at ? format(new Date(match.created_at), 'dd-MMM-yyyy') : '';
+      toast.error(
+        `Cannot register: This phone number is already registered for "${match?.contact_name || 'an existing client'}" on ${regDate} (Handled by ${rep}).`,
+        { duration: 6500 }
+      );
       return;
     }
     if (isOtherSource && !formData.custom_source_text.trim()) {
@@ -140,8 +144,14 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       toast.error('Please fill in all required fields (Name, Phone, Source)');
       return;
     }
-    if (duplicateCheck?.hasPhoneDuplicate && !allowDuplicateProceed) {
-      toast.error('Duplicate phone number detected! Please review the existing lead or tick the confirmation box to proceed.');
+    if (duplicateCheck?.hasPhoneDuplicate) {
+      const match = duplicateCheck.phoneLeads?.[0];
+      const rep = match?.assigned_to_profile?.full_name || 'another sales person';
+      const regDate = match?.created_at ? format(new Date(match.created_at), 'dd-MMM-yyyy') : '';
+      toast.error(
+        `Cannot register: This phone number is already registered for "${match?.contact_name || 'an existing client'}" on ${regDate} (Handled by ${rep}).`,
+        { duration: 6500 }
+      );
       return;
     }
     if (isOtherSource && !formData.custom_source_text.trim()) {
@@ -273,12 +283,17 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-sm font-medium text-muted-foreground">Phone Number *</label>
-                      {isCheckingDuplicate && (
+                      {isCheckingDuplicate ? (
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
                           <Loader2 size={11} className="animate-spin text-primary" />
                           Checking duplicates...
                         </span>
-                      )}
+                      ) : duplicateCheck?.hasPhoneDuplicate ? (
+                        <span className="text-[10px] text-red-400 font-bold flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/30 animate-pulse">
+                          <AlertTriangle size={11} />
+                          Phone Already Registered!
+                        </span>
+                      ) : null}
                     </div>
                     <input
                       type="tel"
@@ -287,7 +302,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                       placeholder="e.g. 91234567"
                       className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-foreground focus:outline-none transition-all text-sm font-mono ${
                         duplicateCheck?.hasPhoneDuplicate 
-                          ? 'border-amber-500/70 focus:border-amber-500 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
+                          ? 'border-red-500/80 focus:border-red-500 text-red-200 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
                           : 'border-border focus:border-gold'
                       }`}
                       required
@@ -303,14 +318,14 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                         exit={{ opacity: 0, y: -8, scale: 0.98 }}
                         className={`rounded-2xl border p-4 space-y-3.5 shadow-xl transition-all ${
                           duplicateCheck?.hasPhoneDuplicate 
-                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-200' 
+                            ? 'bg-red-500/10 border-red-500/40 text-red-200' 
                             : 'bg-blue-500/10 border-blue-500/40 text-blue-200'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2.5">
                             {duplicateCheck?.hasPhoneDuplicate ? (
-                              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                              <div className="p-2 rounded-xl bg-red-500/20 text-red-400 shrink-0">
                                 <AlertTriangle size={18} />
                               </div>
                             ) : (
@@ -321,12 +336,12 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                             <div>
                               <h4 className="text-xs font-bold text-foreground flex items-center gap-2">
                                 {duplicateCheck?.hasPhoneDuplicate 
-                                  ? 'DUPLICATE RECORD FOUND (Matching Phone)' 
+                                  ? 'PHONE NUMBER ALREADY REGISTERED (Duplicate Blocked)' 
                                   : 'POTENTIAL MATCH (Matching Client Name)'}
                               </h4>
                               <p className="text-[11px] text-muted-foreground mt-0.5">
                                 {duplicateCheck?.hasPhoneDuplicate 
-                                  ? 'This phone number already exists in OSBIC. Details below show who currently handles it:' 
+                                  ? 'This phone number already exists in OSBIC. System policy blocks duplicate registrations. See existing lead details below:' 
                                   : 'A record with a matching contact name was found:'}
                               </p>
                             </div>
@@ -435,20 +450,16 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                           })}
                         </div>
 
-                        {/* Confirmation Override Checkbox */}
+                        {/* Firm Duplicate Restriction Notice */}
                         {duplicateCheck?.hasPhoneDuplicate && (
-                          <div className="pt-2 border-t border-amber-500/20">
-                            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={allowDuplicateProceed}
-                                onChange={e => setAllowDuplicateProceed(e.target.checked)}
-                                className="mt-0.5 accent-primary rounded w-4 h-4"
-                              />
-                              <span className="text-[11px] text-amber-200/90 leading-tight">
-                                I confirm this contact is already known, but this is an <strong>authorized separate inquiry</strong> that I need to add.
-                              </span>
-                            </label>
+                          <div className="pt-2.5 border-t border-red-500/20 flex items-start gap-2.5 bg-red-500/10 p-2.5 rounded-xl text-red-200">
+                            <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+                            <div className="text-[11px] leading-tight space-y-0.5">
+                              <p className="font-bold text-red-300">Duplicate Phone Registration Blocked</p>
+                              <p className="text-red-300/80">
+                                This phone number is already registered above. Re-registering the same phone number is prohibited to prevent duplicate leads.
+                              </p>
+                            </div>
                           </div>
                         )}
                       </motion.div>
@@ -684,9 +695,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                   </button>
                   <button
                     onClick={handleNext}
-                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2"
+                    disabled={duplicateCheck?.hasPhoneDuplicate}
+                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <span>Next step</span>
+                    <span>{duplicateCheck?.hasPhoneDuplicate ? 'Duplicate Phone (Blocked)' : 'Next step'}</span>
                     <ArrowRight size={16} />
                   </button>
                 </>
