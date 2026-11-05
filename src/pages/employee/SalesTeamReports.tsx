@@ -27,6 +27,7 @@ import {
 } from 'date-fns';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
 
 export default function SalesTeamReports() {
   const { profile, role } = useAuth();
@@ -40,6 +41,7 @@ export default function SalesTeamReports() {
   const [selectedRep, setSelectedRep] = useState<RepPerformanceData | null>(null);
   const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales' | 'jobs'>('leads');
   const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [isDistributionHubOpen, setIsDistributionHubOpen] = useState(false);
 
   // Fetch performance data
   const { data, isLoading, refetch, isRefetching } = useSalesTeamReports(
@@ -261,6 +263,19 @@ export default function SalesTeamReports() {
           >
             <Download size={15} className="text-emerald-400" />
             <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => setIsDistributionHubOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-indigo-500 text-white font-extrabold text-xs hover:bg-indigo-600 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-indigo-500/20"
+          >
+            <Target size={15} />
+            <span>Lead Distribution Hub</span>
+            {summary?.totalUnassignedLeads ? (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                {summary.totalUnassignedLeads} Unassigned
+              </span>
+            ) : null}
           </button>
 
           <button
@@ -1486,6 +1501,13 @@ export default function SalesTeamReports() {
           </div>
         </div>
       </div>
+
+      {/* 🎯 Lead Distribution Hub Modal */}
+      <LeadDistributionHubModal
+        isOpen={isDistributionHubOpen}
+        onClose={() => setIsDistributionHubOpen(false)}
+        branchId={profile?.branch_id}
+      />
     </div>
   );
 }

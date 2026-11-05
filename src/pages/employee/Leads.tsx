@@ -22,6 +22,7 @@ import { DailySalesSheetModal } from '../../components/employee/DailySalesSheetM
 import { QuickInteractionModal } from '../../components/employee/QuickInteractionModal';
 import { LivingDealsTable } from '../../components/employee/LivingDealsTable';
 import { SalesExportCenterModal } from '../../components/employee/SalesExportCenterModal';
+import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
 import { type Lead } from '../../hooks/shared/useLeads';
 
 function cn(...inputs: ClassValue[]) {
@@ -70,6 +71,7 @@ export default function EmployeeLeads() {
   const updateEmployeeMutation = useUpdateEmployee();
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
   const [isExportCenterOpen, setIsExportCenterOpen] = useState(false);
+  const [isLeadDistributionHubOpen, setIsLeadDistributionHubOpen] = useState(false);
 
   // Queries
   const { useLeadsList, useLeadSourcesList } = useLeads(effectiveRepId, isAllReps);
@@ -448,6 +450,22 @@ export default function EmployeeLeads() {
             <span>1-Click Export Center</span>
           </button>
 
+          {(isSalesHead || canAssignLeads) && (
+            <button
+              onClick={() => setIsLeadDistributionHubOpen(true)}
+              className="p-3 rounded-2xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-indigo-500/10 active:scale-95"
+              title="Open Lead Assignment & Distribution Hub"
+            >
+              <Target size={16} />
+              <span>Lead Assignment Hub</span>
+              {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
+                  {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length}
+                </span>
+              )}
+            </button>
+          )}
+
           {isSalesHead && (
             <Link
               to="/employee/sales-team-reports"
@@ -486,14 +504,28 @@ export default function EmployeeLeads() {
               </p>
             </div>
           </div>
-          <Link
-            to="/employee/sales-team-reports"
-            className="px-4 py-2.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs hover:bg-amber-400 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-amber-500/20 shrink-0"
-          >
-            <BarChart3 size={15} />
-            <span>Open Team Reports</span>
-            <ArrowRight size={14} />
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsLeadDistributionHubOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-indigo-500 text-white font-extrabold text-xs hover:bg-indigo-600 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-indigo-500/20 shrink-0"
+            >
+              <Target size={15} />
+              <span>Lead Distribution Hub</span>
+              {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                  {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length} Unassigned
+                </span>
+              )}
+            </button>
+            <Link
+              to="/employee/sales-team-reports"
+              className="px-4 py-2.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs hover:bg-amber-400 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-amber-500/20 shrink-0"
+            >
+              <BarChart3 size={15} />
+              <span>Open Team Reports</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
       )}
 
@@ -1183,6 +1215,13 @@ export default function EmployeeLeads() {
           </div>
         </div>
       )}
+
+      {/* 🎯 Lead Distribution & Assignment Hub Modal */}
+      <LeadDistributionHubModal
+        isOpen={isLeadDistributionHubOpen}
+        onClose={() => setIsLeadDistributionHubOpen(false)}
+        branchId={profile?.branch_id}
+      />
     </div>
   );
 }
