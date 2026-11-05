@@ -26,6 +26,7 @@ interface BranchContextType {
   isSuperAdmin: boolean;
   createBranch: (data: Omit<Branch, 'id' | 'created_at'>) => Promise<Branch>;
   updateBranch: (id: string, data: Partial<Branch>) => Promise<void>;
+  deleteBranch: (id: string) => Promise<void>;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -120,6 +121,25 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     queryClient.invalidateQueries({ queryKey: ['branches'] });
   };
 
+  // Delete branch
+  const deleteBranch = async (id: string) => {
+    // 1. Unassign profiles from this branch
+    await supabase.from('profiles').update({ branch_id: null, is_manager: false }).eq('branch_id', id);
+    // 2. Clear branch_id from jobs so foreign keys don't fail
+    await supabase.from('jobs').update({ branch_id: null }).eq('branch_id', id);
+    // 3. Delete the branch record
+    const { error } = await supabase.from('branches').delete().eq('id', id);
+    if (error) throw error;
+
+    if (selectedBranchIdState === id) {
+      setSelectedBranchId(null);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['branches'] });
+    queryClient.invalidateQueries({ queryKey: ['admin_employees_for_branches'] });
+    queryClient.invalidateQueries({ queryKey: ['branch_jobs_summary'] });
+  };
+
   return (
     <BranchContext.Provider value={{
       branches,
@@ -131,6 +151,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isSuperAdmin,
       createBranch,
       updateBranch,
+      deleteBranch,
     }}>
       {children}
     </BranchContext.Provider>
