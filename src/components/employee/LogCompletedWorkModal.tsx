@@ -1122,32 +1122,6 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
               )}
             </div>
 
-            {/* Section 6: Government Reference & Notes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                  {isRtl ? 'رقم القيد / المرجع العام' : 'General Gov Reference / App No.'}
-                </label>
-                <input
-                  type="text"
-                  value={govRef}
-                  onChange={(e) => setGovRef(e.target.value)}
-                  placeholder="e.g. MOCIIP/2024/78219"
-                  className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                  {isRtl ? 'حالة المعاملة' : 'Status'}
-                </label>
-                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-bold">
-                  <CheckCircle2 size={15} />
-                  <span>{isRtl ? 'مكتمل (أرشيف تاريخي)' : 'Completed (Historical Archive)'}</span>
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
                 {isRtl ? 'ملاحظات وتفاصيل إضافية' : 'Internal Notes / Remarks'}
