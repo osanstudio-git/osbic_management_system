@@ -44,6 +44,8 @@ export default function LeadDistributionHubModal({
   const [listTab, setListTab] = useState<ListTab>('unassigned');
   const [isBulkAssigning, setIsBulkAssigning] = useState<boolean>(false);
   const [assigningLeadId, setAssigningLeadId] = useState<string | null>(null);
+  const [isTeamWorkloadOpen, setIsTeamWorkloadOpen] = useState<boolean>(false);
+  const [workloadSearchQuery, setWorkloadSearchQuery] = useState<string>('');
 
   // 1. Fetch All Leads for Distribution
   const { data: allLeads = [], isLoading: loadingLeads, refetch: refetchLeads } = useQuery({
@@ -153,15 +155,25 @@ export default function LeadDistributionHubModal({
   // Global KPIs (computed in the selected timeframe)
   const kpis = useMemo(() => {
     const totalLeads = dateFilteredLeads.length;
-    // Unassigned leads: anywhere in the pipeline or created in range without assigned_to
-    const unassignedLeads = allLeads.filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost');
+    const unassignedLeads = allLeads.filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'lost');
     const assignedLeads = dateFilteredLeads.filter(l => Boolean(l.assigned_to));
+
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
     // Specifically assigned today
     const assignedToday = allLeads.filter(l => {
       if (!l.assigned_to) return false;
       const d = l.date_reassigned || l.created_at;
       return d && isToday(new Date(d));
+    }).length;
+
+    // Specifically assigned this week
+    const assignedThisWeek = allLeads.filter(l => {
+      if (!l.assigned_to) return false;
+      const d = l.date_reassigned || l.created_at;
+      return d && isWithinInterval(new Date(d), { start: weekStart, end: weekEnd });
     }).length;
 
     // Unassigned created today
@@ -174,7 +186,8 @@ export default function LeadDistributionHubModal({
       unassignedCount: unassignedLeads.length,
       unassignedToday,
       assignedCount: assignedLeads.length,
-      assignedToday
+      assignedToday,
+      assignedThisWeek
     };
   }, [allLeads, dateFilteredLeads]);
 
@@ -183,6 +196,7 @@ export default function LeadDistributionHubModal({
     const map = new Map<string, {
       employee: any;
       todayCount: number;
+      weekCount: number;
       periodCount: number;
       totalAllTime: number;
       newCount: number;
@@ -194,12 +208,17 @@ export default function LeadDistributionHubModal({
       map.set(emp.id, {
         employee: emp,
         todayCount: 0,
+        weekCount: 0,
         periodCount: 0,
         totalAllTime: 0,
         newCount: 0,
         convertedCount: 0,
       });
     });
+
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
     // Count in allLeads
     allLeads.forEach(l => {
@@ -209,8 +228,14 @@ export default function LeadDistributionHubModal({
         item.totalAllTime += 1;
 
         const dStr = l.date_reassigned || l.created_at;
-        if (dStr && isToday(new Date(dStr))) {
-          item.todayCount += 1;
+        if (dStr) {
+          const d = new Date(dStr);
+          if (isToday(d)) {
+            item.todayCount += 1;
+          }
+          if (isWithinInterval(d, { start: weekStart, end: weekEnd })) {
+            item.weekCount += 1;
+          }
         }
 
         if (isLeadInDateRange(dStr)) {
@@ -222,17 +247,29 @@ export default function LeadDistributionHubModal({
     });
 
     return Array.from(map.values()).sort((a, b) => {
-      // Sort by today count first, then period count
+      // Sort by today count first, then week count, then period count
       if (b.todayCount !== a.todayCount) return b.todayCount - a.todayCount;
+      if (b.weekCount !== a.weekCount) return b.weekCount - a.weekCount;
       return b.periodCount - a.periodCount;
     });
   }, [allLeads, salesEmployees, datePreset, customStart, customEnd]);
+
+  // Filtered employees for workload modal search
+  const filteredWorkloadEmployees = useMemo(() => {
+    if (!workloadSearchQuery.trim()) return employeeCounts;
+    const q = workloadSearchQuery.toLowerCase();
+    return employeeCounts.filter(item => {
+      const name = (item.employee.full_name || '').toLowerCase();
+      const code = (item.employee.employee_code || '').toLowerCase();
+      return name.includes(q) || code.includes(q);
+    });
+  }, [employeeCounts, workloadSearchQuery]);
 
   // Tab 1: Unassigned Leads List
   const unassignedList = useMemo(() => {
     return allLeads.filter(l => {
       if (l.assigned_to) return false;
-      if (l.status === 'converted' || l.status === 'cancelled' || l.status === 'lost') return false;
+      if (l.status === 'converted' || l.status === 'lost') return false;
 
       // Search Filter
       if (searchQuery.trim()) {
@@ -588,17 +625,30 @@ export default function LeadDistributionHubModal({
             </div>
           </div>
 
-          {/* Card 4: Active Sales Team Capacity */}
-          <div className="p-3 rounded-2xl bg-card border border-border/60 space-y-1">
+          {/* Card 4: Active Sales Team Capacity (Clickable Workload Breakdown) */}
+          <div
+            onClick={() => setIsTeamWorkloadOpen(true)}
+            className="p-3 rounded-2xl bg-card border border-border/60 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group space-y-1 relative shadow-sm"
+            title={isRtl ? 'انقر لعرض تفاصيل توزيع الليدات لكل موظف اليوم والأسبوع' : 'Click to view employee assigned counts (Today & Week)'}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground group-hover:text-blue-400 transition-colors">
                 {isRtl ? 'فريق المبيعات النشط' : 'Active Sales Reps'}
               </span>
-              <Users size={14} className="text-blue-400" />
+              <div className="flex items-center gap-1 text-blue-400">
+                <Users size={14} />
+                <span className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500/15 px-1.5 py-0.5 rounded text-blue-300">
+                  {isRtl ? 'عرض' : 'View'}
+                </span>
+              </div>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl font-bold font-syne text-foreground">{salesEmployees.length}</span>
               <span className="text-[10px] text-muted-foreground font-medium">{isRtl ? 'مستعدين للاستلام' : 'consultants'}</span>
+            </div>
+            <div className="text-[10px] text-blue-400/90 font-medium flex items-center gap-1 pt-0.5">
+              <span>{isRtl ? 'عرض عبء اليوم والأسبوع' : 'Click to see Today & Week'}</span>
+              <ArrowRight size={10} className={isRtl ? 'rotate-180' : ''} />
             </div>
           </div>
         </div>
@@ -1028,6 +1078,187 @@ export default function LeadDistributionHubModal({
           </button>
         </div>
       </motion.div>
+
+      {/* ─── Active Sales Reps Workload & Capacity Modal ──────────────────────── */}
+      <AnimatePresence>
+        {isTeamWorkloadOpen && (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-md"
+            onClick={() => setIsTeamWorkloadOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl bg-card border border-border/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between bg-muted/20 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold shadow-sm shrink-0">
+                    <Users size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-syne text-base font-bold text-foreground flex items-center gap-2">
+                      {isRtl ? 'توزيع عبء العمل لموظفي المبيعات' : 'Sales Reps Lead Workload & Capacity'}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+                        {salesEmployees.length} {isRtl ? 'موظف' : 'Reps'}
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {isRtl
+                        ? 'أعداد الليدات المعينة لكل موظف اليوم وهذا الأسبوع لموازنة توزيع المهام'
+                        : 'Assigned lead counts per consultant for Today and This Week to balance distribution'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsTeamWorkloadOpen(false)}
+                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Quick Summary Pill Bar */}
+              <div className="px-6 py-3 bg-muted/10 border-b border-border/30 grid grid-cols-3 gap-2.5 shrink-0 text-center">
+                <div className="p-2 rounded-xl bg-card/70 border border-border/40">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    {isRtl ? 'إجمالي الموظفين' : 'Active Consultants'}
+                  </span>
+                  <span className="text-base font-bold text-foreground font-syne">{salesEmployees.length}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                  <span className="text-[10px] uppercase font-bold text-primary block">
+                    {isRtl ? 'المعين اليوم للفريق' : 'Total Assigned Today'}
+                  </span>
+                  <span className="text-base font-bold text-primary font-syne">{kpis.assignedToday}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <span className="text-[10px] uppercase font-bold text-blue-400 block">
+                    {isRtl ? 'المعين هذا الأسبوع' : 'Total Assigned Week'}
+                  </span>
+                  <span className="text-base font-bold text-blue-400 font-syne">{kpis.assignedThisWeek}</span>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="p-3.5 border-b border-border/30 bg-muted/5 shrink-0 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder={isRtl ? 'بحث باسم الموظف أو الكود...' : 'Search consultant by name or employee code...'}
+                    value={workloadSearchQuery}
+                    onChange={(e) => setWorkloadSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-card border border-border/60 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+                {workloadSearchQuery && (
+                  <button
+                    onClick={() => setWorkloadSearchQuery('')}
+                    className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                  >
+                    {isRtl ? 'مسح' : 'Clear'}
+                  </button>
+                )}
+              </div>
+
+              {/* Table of Employees */}
+              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 border-b border-border/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        <th className="py-2.5 px-4">{isRtl ? 'الموظف' : 'Consultant'}</th>
+                        <th className="py-2.5 px-4 text-center">{isRtl ? 'اليوم' : 'Assigned Today'}</th>
+                        <th className="py-2.5 px-4 text-center">{isRtl ? 'هذا الأسبوع' : 'This Week'}</th>
+                        <th className="py-2.5 px-4 text-center">{isRtl ? 'إجمالي الكل' : 'All-Time'}</th>
+                        <th className="py-2.5 px-4 text-right">{isRtl ? 'إجراء' : 'Action'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {filteredWorkloadEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                            {isRtl ? 'لا يوجد موظفون يطابقون البحث' : 'No consultants match your search'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredWorkloadEmployees.map(item => {
+                          return (
+                            <tr key={item.employee.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="py-2.5 px-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                                    {item.employee.full_name?.slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-foreground text-xs">{item.employee.full_name}</p>
+                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                      {item.employee.employee_code || 'REP'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                {item.todayCount > 0 ? (
+                                  <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full font-bold font-mono text-xs bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                                    {item.todayCount}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    0 ({isRtl ? 'متاح' : 'Available'})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full font-bold font-mono text-xs bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                                  {item.weekCount}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-center font-mono text-muted-foreground text-xs">
+                                {item.totalAllTime}
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                <button
+                                  onClick={() => {
+                                    setSelectedRepId(item.employee.id);
+                                    setListTab('assigned');
+                                    setIsTeamWorkloadOpen(false);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[11px] border border-primary/20 transition-all inline-flex items-center gap-1"
+                                >
+                                  <Eye size={12} />
+                                  <span>{isRtl ? 'عرض ليداته' : 'View Leads'}</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3 border-t border-border/40 bg-muted/20 flex items-center justify-between shrink-0">
+                <span className="text-[11px] text-muted-foreground">
+                  {isRtl ? '💡 نصيحة: ينصح بتعيين الليدات للموظفين أصحاب الأرقام الأقل اليوم.' : '💡 Tip: Prioritize assigning leads to consultants with 0 today or lowest weekly counts.'}
+                </span>
+                <button
+                  onClick={() => setIsTeamWorkloadOpen(false)}
+                  className="px-4 py-1.5 bg-muted hover:bg-muted/70 text-foreground font-bold text-xs rounded-xl transition-all"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
