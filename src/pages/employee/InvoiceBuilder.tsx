@@ -260,8 +260,9 @@ const InvoiceBuilder = () => {
       const autoNotes = `${jobDetail.job_code} - ${jobDetail.service_name || 'Services'}`;
 
       setFormData(prev => {
-        const hasExistingCustomItems = prev.items && prev.items.length > 0 && prev.items.some(item => item.description.trim() !== '');
-        if (prev.job_id === autofillJobId && hasExistingCustomItems && prev.items.length === autoItems.length) {
+        const prevItems = prev.items || [];
+        const hasExistingCustomItems = prevItems.length > 0 && prevItems.some(item => item.description.trim() !== '');
+        if (prev.job_id === autofillJobId && hasExistingCustomItems && prevItems.length === autoItems.length) {
           return prev;
         }
         const currentNotes = prev.notes || '';
