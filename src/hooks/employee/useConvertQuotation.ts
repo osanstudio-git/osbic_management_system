@@ -11,6 +11,7 @@ export interface QuotationConversionData {
   subtotal: number;
   taxAmount: number;
   client_pays_ministry_fee?: boolean;
+  assignmentDate?: string;
   assignments: {
     serviceId: string | null;
     serviceName: string;
@@ -26,7 +27,11 @@ export const useConvertQuotation = () => {
 
   return useMutation({
     mutationFn: async (data: QuotationConversionData) => {
-      const { quotationId, clientId, leadId, salesEmployeeId, totalAmount, subtotal, taxAmount, client_pays_ministry_fee, assignments } = data;
+      const { quotationId, clientId, leadId, salesEmployeeId, totalAmount, subtotal, taxAmount, client_pays_ministry_fee, assignments, assignmentDate } = data;
+
+      const assignmentIso = assignmentDate 
+        ? new Date(`${assignmentDate}T12:00:00Z`).toISOString() 
+        : new Date().toISOString();
 
       // 1. Generate unique Job code
       const yearPrefix = `JOB-${new Date().getFullYear()}-`;
@@ -83,6 +88,7 @@ export const useConvertQuotation = () => {
           client_id: clientId,
           employee_id: assignments[0]?.opsEmployeeId || profile?.id || salesEmployeeId || '',
           sales_employee_id: salesEmployeeId || null,
+          assigned_by: salesEmployeeId || profile?.id || null,
           ops_employee_id: assignments[0]?.opsEmployeeId || null,
           service_id: mainServiceId,
           status: 'active',
@@ -92,7 +98,8 @@ export const useConvertQuotation = () => {
           ministry_fee: taxAmount,
           client_pays_ministry_fee: client_pays_ministry_fee || false,
           advance_percentage: 100,
-          started_at: new Date().toISOString(),
+          created_at: assignmentIso,
+          started_at: assignmentIso,
           entry_type: leadId ? 'lead' : 'direct',
           branch_id: profile?.branch_id || null
         }])
@@ -128,8 +135,9 @@ export const useConvertQuotation = () => {
           display_order: idx + 1,
           quantity: 1,
           ops_employee_id: asg.opsEmployeeId || null,
-          assigned_by: profile?.id || null,
-          assigned_at: new Date().toISOString(),
+          assigned_by: salesEmployeeId || profile?.id || null,
+          assigned_at: assignmentIso,
+          created_at: assignmentIso,
           status: 'pending',
           acceptance_status: 'accepted',
           work_fee: fees.work_fee,

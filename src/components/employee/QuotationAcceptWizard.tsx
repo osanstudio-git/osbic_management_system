@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CheckCircle2, UserPlus, Users, Sparkles, Loader2, 
   FileText, AlertTriangle, CreditCard, Search, UserCheck, 
-  Building, Mail, Phone, ArrowRight, RefreshCw, Check
+  Building, Mail, Phone, ArrowRight, RefreshCw, Check, Calendar
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -43,6 +43,9 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
 
   const [isCreateClientOpen, setIsCreateClientOpen] = useState(false);
   const [clientPaysMinistryFee, setClientPaysMinistryFee] = useState(false);
+  const [assignmentDate, setAssignmentDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
   // Hold mappings of { [itemIndex]: { serviceId: string, serviceName: string, opsEmployeeId: string, workFee: number, ministryFee: number } }
   const [taskAssignments, setTaskAssignments] = useState<any[]>([]);
@@ -218,6 +221,7 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
         subtotal: quotation.subtotal,
         taxAmount: quotation.tax_amount,
         client_pays_ministry_fee: clientPaysMinistryFee,
+        assignmentDate: assignmentDate,
         assignments: assignmentsPayload
       });
 
@@ -512,6 +516,25 @@ export default function QuotationAcceptWizard({ isOpen, onClose, quotation }: Pr
                 >
                   Switch Client
                 </button>
+              </div>
+
+              {/* Work Assignment Date Selector */}
+              <div className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Calendar size={18} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-foreground uppercase tracking-widest block">Work Assignment / Launch Date</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Select a past date if this work was assigned prior to today for accurate reporting.</p>
+                  </div>
+                </div>
+                <input
+                  type="date"
+                  value={assignmentDate}
+                  onChange={(e) => setAssignmentDate(e.target.value)}
+                  className="bg-muted/30 border border-border focus:border-primary rounded-xl px-3.5 py-2 text-xs font-bold text-foreground outline-none cursor-pointer"
+                />
               </div>
 
               {/* Ministry Fee Payment Method Selector */}

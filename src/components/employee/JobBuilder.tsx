@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   X, Zap, Search, ChevronRight, User, 
   Building2, Briefcase, Plus, CheckCircle2, ArrowLeft, ArrowRight,
-  Hash, Users, Shield, GitBranch, Layers, LayoutGrid, List, Trash2, CreditCard
+  Hash, Users, Shield, GitBranch, Layers, LayoutGrid, List, Trash2, CreditCard, Calendar
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import CreateClientSlideOver from '../shared/clients/CreateClientSlideOver';
@@ -158,6 +158,10 @@ export const JobBuilder = ({
   // Step 3: Configuration — service line items with quantities & fees
   const [serviceLines, setServiceLines] = useState<ServiceLineItem[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [assignmentDate, setAssignmentDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [assignedSalesId, setAssignedSalesId] = useState<string>('');
   const [entryType, setEntryType] = useState<'lead' | 'walkin' | 'direct' | 'renewal' | 'referral' | 'other'>('direct');
   const [referralName, setReferralName] = useState<string>('');
   const [clientPaysMinistryFee, setClientPaysMinistryFee] = useState(false);
@@ -207,7 +211,10 @@ export const JobBuilder = ({
       if (clis) setClients(clis);
     };
     fetchDropdownData();
-    if (profile) setAssignedTo(profile.id);
+    if (profile) {
+      setAssignedTo(profile.id);
+      setAssignedSalesId(profile.id);
+    }
   }, [profile]);
 
   useEffect(() => {
@@ -378,11 +385,16 @@ export const JobBuilder = ({
         : null;
 
       // 1. Create the master Job record
+      const finalSalesId = assignedSalesId || profile?.id;
+      const assignmentIso = assignmentDate 
+        ? new Date(`${assignmentDate}T12:00:00Z`).toISOString() 
+        : new Date().toISOString();
+
       const jobInsertPayload: any = {
         job_code: `JOB-${Math.floor(Math.random() * 100000)}`,
         client_id: selectedClient.id,
         employee_id: profile?.id,
-        assigned_by: profile?.id,
+        assigned_by: finalSalesId,
         service_id: masterServiceId,
         status: 'draft',
         custom_name: jobTitle,
@@ -396,10 +408,12 @@ export const JobBuilder = ({
         advance_paid: false,
         remaining_paid: false,
         entry_type: safeEntryType,
-        sales_employee_id: profile?.id,
+        sales_employee_id: finalSalesId,
         ops_employee_id: assignedTo ? assignedTo : null,
         branch_id: profile?.branch_id,
         notes: referralNotes,
+        created_at: assignmentIso,
+        started_at: assignmentIso,
       };
 
       let { data: jobData, error: jobError } = await (supabase.from('jobs').insert({
@@ -448,9 +462,10 @@ export const JobBuilder = ({
           ministry_fee: line.ministry_fee,
           total_fee: line.work_fee + line.ministry_fee,
           ops_employee_id: assignedTo ? assignedTo : null,
-          assigned_by: profile?.id,
-          assigned_at: assignedTo ? new Date().toISOString() : null,
-          pool_posted_at: assignedTo ? null : new Date().toISOString(),
+          assigned_by: finalSalesId,
+          assigned_at: assignedTo ? assignmentIso : null,
+          pool_posted_at: assignedTo ? null : assignmentIso,
+          created_at: assignmentIso,
           assignment_model: assignedTo ? 'direct' : 'marketplace',
           acceptance_status: assignedTo 
             ? (assignedTo !== profile?.id ? 'pending_acceptance' : 'accepted')
@@ -1181,16 +1196,62 @@ export const JobBuilder = ({
 
               {/* Assignment & Intake Configuration */}
               <div className="bg-[#131824] border border-white/10 rounded-2xl p-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Assignment Date Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-gold uppercase tracking-widest flex items-center gap-1.5">
+                      <Calendar size={11} className="text-gold" />
+                      <span>Assignment Date *</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={assignmentDate}
+                      onChange={(e) => setAssignmentDate(e.target.value)}
+                      required
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-3.5 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                    />
+                    <p className="text-[8px] text-white/40">
+                      Pick past date if work was assigned earlier
+                    </p>
+                  </div>
+
+                  {/* Assigner / Sales Attribution */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+                      <User size={11} className="text-gold" />
+                      <span>Sales Attribution</span>
+                    </label>
+                    <select
+                      value={assignedSalesId || profile?.id || ''}
+                      onChange={(e) => setAssignedSalesId(e.target.value)}
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-3.5 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                    >
+                      <option value={profile?.id || ''}>
+                        {profile?.full_name ? `${profile.full_name} (Me)` : '-- Current User --'}
+                      </option>
+                      {employees
+                        .filter(emp => emp.id !== profile?.id)
+                        .map(emp => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.full_name} {emp.department ? `(${emp.department})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <p className="text-[8px] text-white/40">
+                      Credit for assigning/handling client
+                    </p>
+                  </div>
+
+                  {/* Operations Handler */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Operations Handler</label>
                     <select
                       value={assignedTo}
                       onChange={(e) => setAssignedTo(e.target.value)}
-                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-3.5 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
                     >
                       <option value="" className="bg-[#131824] text-amber-300 font-bold">
-                        ⚡ Open Ops Marketplace (Unassigned - Pool)
+                        ⚡ Open Ops Marketplace
                       </option>
                       {employees
                         .filter(emp => emp.department === 'operations' || emp.id === profile?.id)
@@ -1200,19 +1261,24 @@ export const JobBuilder = ({
                           </option>
                         ))}
                     </select>
-                    {!assignedTo && (
-                      <p className="text-[10px] text-amber-400/80 font-medium pt-0.5">
-                        Will be listed in the Live Task Marketplace for any ops employee to claim.
+                    {!assignedTo ? (
+                      <p className="text-[8px] text-amber-400/80 font-medium pt-0.5">
+                        Listed in Live Marketplace for claiming
+                      </p>
+                    ) : (
+                      <p className="text-[8px] text-white/40">
+                        Assigned direct to operations
                       </p>
                     )}
                   </div>
                   
+                  {/* Entry Type */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Entry Type</label>
                     <select
                       value={entryType}
                       onChange={(e) => setEntryType(e.target.value as any)}
-                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-4 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
+                      className="w-full bg-black/30 border border-white/10 focus:border-gold rounded-xl px-3.5 py-2.5 text-xs text-white font-bold outline-none cursor-pointer transition-colors"
                     >
                       <option value="direct" className="bg-[#131824]">Direct</option>
                       <option value="referral" className="bg-[#131824]">Referral</option>
@@ -1221,6 +1287,9 @@ export const JobBuilder = ({
                       <option value="renewal" className="bg-[#131824]">Renewal</option>
                       <option value="other" className="bg-[#131824]">Other</option>
                     </select>
+                    <p className="text-[8px] text-white/40">
+                      Channel intake classification
+                    </p>
                   </div>
                 </div>
 
