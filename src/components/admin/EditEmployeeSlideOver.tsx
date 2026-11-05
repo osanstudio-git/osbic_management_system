@@ -5,6 +5,7 @@ import { useUpdateEmployee } from '../../hooks/admin/useAdminEmployees';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useBranch } from '../../contexts/BranchContext';
+import { recordBranchTransfer } from '../../hooks/shared/useBranchAttribution';
 
 interface Props {
   isOpen: boolean;
@@ -108,6 +109,12 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
       return;
     }
 
+    const isBranchChanged = Boolean(
+      employee?.branch_id && 
+      formData.branch_id && 
+      formData.branch_id !== employee.branch_id
+    );
+
     updateEmployee({
       id: employee.id,
       updates: {
@@ -133,7 +140,12 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
       } as any
     }, {
       onSuccess: () => {
-        toast.success('Profile updated successfully!');
+        if (isBranchChanged) {
+          recordBranchTransfer(employee.id, employee.branch_id, formData.branch_id);
+          toast.success('Employee transferred to new branch! Historical data prior to today remains with previous branch.');
+        } else {
+          toast.success('Profile updated successfully!');
+        }
         onClose();
       },
       onError: (err: any) => {

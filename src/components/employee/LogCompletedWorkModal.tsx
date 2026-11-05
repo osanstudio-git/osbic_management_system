@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
+import { useBranchAttribution } from '../../hooks/shared/useBranchAttribution';
 import {
   X, CheckCircle2, Calendar, User, Phone, Building2, Upload, FileText,
   DollarSign, Sparkles, AlertCircle, Trash2, Loader2, Check, Clock,
@@ -48,8 +49,12 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   const [completionDate, setCompletionDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  
-  // Client selection
+
+  // Branch Attribution (Smart date-wise attribution for transferred employees)
+  const { isTransferred, resolveBranchForDate, previousBranch, currentBranch } = useBranchAttribution();
+  const dateAttribution = resolveBranchForDate(completionDate);
+  const [customBranchOverride, setCustomBranchOverride] = useState<string | null>(null);
+  const effectiveBranchId = customBranchOverride || dateAttribution.branchId;
   const [clientMode, setClientMode] = useState<'existing' | 'new'>('new');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientSearch, setClientSearch] = useState<string>('');
@@ -352,7 +357,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
             email: dummyEmail,
             role: 'client',
             client_code: clientCode,
-            branch_id: profile?.branch_id || null,
+            branch_id: effectiveBranchId || profile?.branch_id || null,
             is_active: true
           }, { onConflict: 'id' })
           .select()
@@ -407,7 +412,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         advance_paid: true,
         remaining_paid: true,
         entry_type: 'direct',
-        branch_id: profile?.branch_id,
+        branch_id: effectiveBranchId || profile?.branch_id,
         created_at: completedIsoDate,
         notes: notes ? `[Historical Completed Work] ${notes}` : '[Historical Completed Work]'
       };
@@ -674,6 +679,62 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                 </select>
               </div>
             </div>
+
+            {/* Automated Branch Attribution (Only visible for transferred employees) */}
+            {isTransferred && (
+              <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                dateAttribution.isHistorical
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                  : 'bg-primary/10 border-primary/20 text-primary'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    dateAttribution.isHistorical ? 'bg-amber-500/20 text-amber-400' : 'bg-primary/20 text-primary'
+                  }`}>
+                    <Building2 size={16} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">
+                        {isRtl ? 'فرع توثيق المعاملة' : 'Branch Attribution'}
+                      </span>
+                      {dateAttribution.isHistorical && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {isRtl ? 'عمل سابق قبل النقل' : 'Historical Pre-Transfer'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-foreground">
+                      {effectiveBranchId === previousBranch?.id
+                        ? `${previousBranch?.name} (Previous Branch)`
+                        : `${currentBranch?.name || 'Current Branch'}`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 sm:self-center">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {isRtl ? 'الفرع:' : 'Branch:'}
+                  </span>
+                  <select
+                    value={effectiveBranchId}
+                    onChange={(e) => setCustomBranchOverride(e.target.value)}
+                    className="bg-card border border-border text-foreground rounded-lg text-xs px-2.5 py-1.5 outline-none cursor-pointer focus:border-primary"
+                  >
+                    {previousBranch && (
+                      <option value={previousBranch.id}>
+                        {previousBranch.name} (Previous)
+                      </option>
+                    )}
+                    {currentBranch && (
+                      <option value={currentBranch.id}>
+                        {currentBranch.name} (Current)
+                      </option>
+                    )}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Section 2: Client Details */}
             <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-3.5">
