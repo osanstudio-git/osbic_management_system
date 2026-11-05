@@ -75,7 +75,7 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
   const taxAmount = Number(invoice.tax_amount) || 0;
   const discountAmount = Number(invoice.discount_amount) || 0;
   const totalAmount = Number(invoice.total_amount) || (subtotal - discountAmount + taxAmount);
-  const totalQuantity = isSimple ? 1 : items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const totalQuantity = (isSimple && items.length <= 1) ? (items[0]?.quantity || 1) : items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   return (
     <div 
@@ -120,12 +120,18 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
       <div className="grid grid-cols-2 gap-4 mb-6 pb-4 border-b border-gray-100 print:mb-4 relative z-10">
         <div>
           <h3 className="font-bold text-gray-500 uppercase tracking-widest text-[9.5px] mb-1">Bill To</h3>
-          <p className="font-bold text-gray-900 text-sm">{invoice.client?.full_name || invoice.lead?.contact_name || 'Client Name'}</p>
-          {invoice.client?.company_name && (
-            <p className="text-gray-600 text-[10.5px] font-medium">{invoice.client.company_name}</p>
+          <p className="font-bold text-gray-900 text-sm">
+            {invoice.metadata?.custom_client_name || invoice.client?.full_name || invoice.lead?.contact_name || invoice.metadata?.recipient_name || 'Client Name'}
+          </p>
+          {(invoice.metadata?.custom_company_name || invoice.metadata?.company_name || invoice.client?.company_name || invoice.lead?.company_name) && (
+            <p className="text-gray-600 text-[10.5px] font-medium">
+              {invoice.metadata?.custom_company_name || invoice.metadata?.company_name || invoice.client?.company_name || invoice.lead?.company_name}
+            </p>
           )}
-          {invoice.client?.phone && (
-            <p className="text-gray-500 text-[10px] mt-0.5">{invoice.client.phone}</p>
+          {(invoice.metadata?.custom_phone || invoice.metadata?.recipient_phone || invoice.client?.phone || invoice.lead?.contact_phone) && (
+            <p className="text-gray-500 text-[10px] mt-0.5">
+              {invoice.metadata?.custom_phone || invoice.metadata?.recipient_phone || invoice.client?.phone || invoice.lead?.contact_phone}
+            </p>
           )}
         </div>
         <div className="text-right">
@@ -149,14 +155,14 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
             </tr>
           </thead>
           <tbody>
-            {isSimple ? (
+            {isSimple && items.length <= 1 ? (
               <tr className="border-b border-gray-200">
                 <td className="py-3 px-3 text-center align-middle text-gray-500">1</td>
                 <td className="py-3 px-3 text-left align-middle font-semibold text-gray-900">
                   {items[0]?.description || invoice.metadata?.service_name || 'Professional Services'}
                 </td>
-                <td className="py-3 px-3 text-center align-middle font-medium">1</td>
-                <td className="py-3 px-3 text-right align-middle font-mono font-medium">OMR {subtotal.toFixed(3)}</td>
+                <td className="py-3 px-3 text-center align-middle font-medium">{items[0]?.quantity || 1}</td>
+                <td className="py-3 px-3 text-right align-middle font-mono font-medium">OMR {Number(items[0]?.unit_price || subtotal).toFixed(3)}</td>
                 <td className="py-3 px-3 text-center align-middle text-gray-600">{taxRate}%</td>
                 <td className="py-3 px-3 text-right align-middle font-mono font-bold text-gray-900">OMR {subtotal.toFixed(3)}</td>
               </tr>
@@ -172,7 +178,7 @@ export const InvoiceDocument = forwardRef<HTMLDivElement, InvoiceDocumentProps>(
                 </tr>
               ))
             )}
-            {items.length === 0 && !isSimple && (
+            {items.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-gray-400 italic">No services added yet.</td>
               </tr>

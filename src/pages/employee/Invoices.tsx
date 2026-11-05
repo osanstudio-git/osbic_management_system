@@ -57,7 +57,7 @@ const EmployeeInvoices = () => {
     if (search) {
       const q = search.toLowerCase();
       const matchNumber = inv.invoice_number?.toLowerCase()?.includes(q);
-      const matchClient = inv.client?.full_name?.toLowerCase()?.includes(q);
+      const matchClient = (inv.metadata?.custom_client_name || inv.client?.full_name || inv.lead?.contact_name || '')?.toLowerCase()?.includes(q);
       if (!matchNumber && !matchClient) return false;
     }
     return true;
@@ -170,7 +170,7 @@ const EmployeeInvoices = () => {
                     <p className="text-xs text-muted-foreground">
                       {inv.type === 'quotation' ? (isRtl ? 'المستلم: ' : 'Recipient: ') : (isRtl ? 'العميل: ' : 'Client: ')}
                       <span className="font-medium text-foreground">
-                        {inv.client?.full_name || inv.lead?.contact_name || 'N/A'}
+                        {inv.metadata?.custom_client_name || inv.client?.full_name || inv.lead?.contact_name || (inv.metadata?.is_custom_client ? 'Custom Client' : 'N/A')}
                       </span>
                       {inv.job && ` • ${isRtl ? 'الوظيفة' : 'Job'}: ${inv.job?.job_code}`}
                     </p>

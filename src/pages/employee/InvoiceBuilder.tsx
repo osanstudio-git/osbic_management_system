@@ -23,7 +23,8 @@ const InvoiceBuilder = () => {
   const isNew = id === 'new';
   const { profile, role } = useAuth();
   const isPrivileged = role === 'admin' || profile?.is_manager;
-  const [invoiceMode, setInvoiceMode] = useState<'detailed' | 'simple'>('simple');
+  const isOpsOrSales = profile?.department === 'operations' || profile?.department === 'sales';
+  const [invoiceMode, setInvoiceMode] = useState<'detailed' | 'simple'>('detailed');
 
   const { data: initialData, isLoading: isLoadingInvoice } = useInvoice(id);
   const { mutateAsync: saveInvoice, isPending: isSaving } = useSaveInvoice();
@@ -49,14 +50,28 @@ const InvoiceBuilder = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedPayMode, setSelectedPayMode] = useState('Bank Transfer');
 
-  // Scope clients and jobs: regular employees only see their assigned clients & jobs
+  // Scope clients and jobs: ops & sales employees need to invoice any client based on work
   const adminClientsQuery = useAdminClients();
   const employeeClientsQuery = useEmployeeClients(profile?.id);
-  const clients = profile?.is_manager ? adminClientsQuery.data : employeeClientsQuery.data;
-
   const adminJobsQuery = useAdminJobs();
   const employeeJobsQuery = useEmployeeJobs(profile?.id || '');
-  const jobs = profile?.is_manager ? adminJobsQuery.data : employeeJobsQuery.data;
+
+  // Provide full branch/directory clients for ops, sales, and privileged staff
+  const clients = React.useMemo(() => {
+    const list = (isPrivileged || isOpsOrSales) 
+      ? (adminClientsQuery.data || []) 
+      : (employeeClientsQuery.data || adminClientsQuery.data || []);
+    const map = new Map<string, any>();
+    list.forEach(c => map.set(c.id, c));
+    if (formData.client && !map.has(formData.client.id)) {
+      map.set(formData.client.id, formData.client);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [adminClientsQuery.data, employeeClientsQuery.data, isPrivileged, isOpsOrSales, formData.client]);
+
+  const jobs = (isPrivileged || isOpsOrSales) 
+    ? (adminJobsQuery.data || employeeJobsQuery.data) 
+    : (employeeJobsQuery.data || adminJobsQuery.data);
 
   // Fetch payments for the associated job to check verification status and enable viewing receipt
   const { data: jobPayments } = useQuery({
@@ -87,10 +102,10 @@ const InvoiceBuilder = () => {
       }
       if (!isNew) {
         setFormData(initialData);
-        if (initialData.metadata?.isSimple === false) {
-          setInvoiceMode('detailed');
-        } else {
+        if (initialData.metadata?.isSimple && (!initialData.items || initialData.items.length <= 1)) {
           setInvoiceMode('simple');
+        } else {
+          setInvoiceMode('detailed');
         }
       }
     }
@@ -311,10 +326,11 @@ const InvoiceBuilder = () => {
   };
 
   const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [...(formData.items || []), { description: '', quantity: 1, unit_price: 0, total: 0 }]
-    });
+    setInvoiceMode('detailed');
+    setFormData(prev => ({
+      ...prev,
+      items: [...(prev.items || []), { description: '', quantity: 1, unit_price: 0, total: 0 }]
+    }));
   };
 
   const removeItem = (index: number) => {
@@ -324,8 +340,9 @@ const InvoiceBuilder = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.client_id && !formData.lead_id) {
-      return toast.error('Please select a client or lead');
+    const hasRecipient = formData.client_id || formData.lead_id || (formData.metadata?.custom_client_name && formData.metadata.custom_client_name.trim());
+    if (!hasRecipient) {
+      return toast.error('Please select a client or enter a custom client name');
     }
     if (!formData.items || formData.items.length === 0 || formData.items.some(i => !i.description)) {
       return toast.error('Please complete all item descriptions');
@@ -586,38 +603,225 @@ const InvoiceBuilder = () => {
                 </div>
                 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Recipient *</label>
+                    {isOpsOrSales && (
+                      <span className="text-[9px] font-semibold text-primary/90 bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {profile?.department === 'operations' ? 'Ops Mode' : 'Sales Mode'}
+                      </span>
+                    )}
+                  </div>
                   <select 
-                    value={formData.client_id ? `client:${formData.client_id}` : ''}
+                    value={formData.metadata?.is_custom_client ? 'custom' : (formData.client_id ? `client:${formData.client_id}` : (formData.lead_id ? `lead:${formData.lead_id}` : ''))}
                     onChange={e => {
                       const val = e.target.value;
                       if (val.startsWith('client:')) {
-                        setFormData({...formData, client_id: val.replace('client:', ''), lead_id: null, job_id: ''});
+                        const cid = val.replace('client:', '');
+                        const selectedClient = clients?.find(c => c.id === cid);
+                        setFormData({
+                          ...formData, 
+                          client_id: cid, 
+                          lead_id: null, 
+                          job_id: '',
+                          client: selectedClient,
+                          lead: null,
+                          metadata: {
+                            ...formData.metadata,
+                            is_custom_client: false
+                          }
+                        });
+                      } else if (val.startsWith('lead:')) {
+                        const lid = val.replace('lead:', '');
+                        const selectedLead = leads?.find(l => l.id === lid);
+                        setFormData({
+                          ...formData, 
+                          client_id: null, 
+                          lead_id: lid, 
+                          job_id: '',
+                          lead: selectedLead,
+                          client: null,
+                          metadata: {
+                            ...formData.metadata,
+                            is_custom_client: false
+                          }
+                        });
+                      } else if (val === 'custom') {
+                        setFormData({
+                          ...formData,
+                          client_id: null,
+                          lead_id: null,
+                          job_id: '',
+                          client: null,
+                          lead: null,
+                          metadata: {
+                            ...formData.metadata,
+                            is_custom_client: true,
+                            custom_client_name: formData.metadata?.custom_client_name || '',
+                            custom_company_name: formData.metadata?.custom_company_name || '',
+                            custom_phone: formData.metadata?.custom_phone || ''
+                          }
+                        });
                       } else {
-                        setFormData({...formData, client_id: null, lead_id: null, job_id: ''});
+                        setFormData({
+                          ...formData, 
+                          client_id: null, 
+                          lead_id: null, 
+                          job_id: '',
+                          client: null,
+                          lead: null,
+                          metadata: {
+                            ...formData.metadata,
+                            is_custom_client: false
+                          }
+                        });
                       }
                     }}
                     className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
                   >
                     <option value="" className="bg-card text-foreground">Select recipient...</option>
+                    <option value="custom" className="bg-card text-primary font-bold">
+                      ✨ + Custom / Direct Client (Enter Name)
+                    </option>
                     <optgroup label="Registered Clients" className="bg-card text-foreground">
                       {activeClients.map(c => (
-                        <option key={c.id} value={`client:${c.id}`} className="bg-card text-foreground">{c.full_name}</option>
+                        <option key={c.id} value={`client:${c.id}`} className="bg-card text-foreground">
+                          {c.full_name} {c.company_name ? `(${c.company_name})` : ''}
+                        </option>
                       ))}
                     </optgroup>
+                    {leads && leads.length > 0 && (
+                      <optgroup label="Leads / Prospects" className="bg-card text-foreground">
+                        {leads.map(l => (
+                          <option key={l.id} value={`lead:${l.id}`} className="bg-card text-foreground">
+                            {l.contact_name} {l.company_name ? `(${l.company_name})` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
+
+                {/* Custom / Direct Client Form Fields */}
+                {formData.metadata?.is_custom_client && (
+                  <div className="col-span-2 space-y-3 p-4 rounded-2xl bg-primary/5 border border-primary/20 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                        Direct / Custom Client Details
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">Appears under Bill To</span>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Client Name *
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. Third Sky or Sudheesh"
+                        value={formData.metadata?.custom_client_name || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          metadata: {
+                            ...formData.metadata,
+                            custom_client_name: e.target.value
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          Company Name (Optional)
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. Third Sky LLC"
+                          value={formData.metadata?.custom_company_name || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            metadata: {
+                              ...formData.metadata,
+                              custom_company_name: e.target.value
+                            }
+                          })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          Phone (Optional)
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. +968 95205106"
+                          value={formData.metadata?.custom_phone || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            metadata: {
+                              ...formData.metadata,
+                              custom_phone: e.target.value
+                            }
+                          })}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional Custom Bill-To Name override for Registered Clients */}
+                {(formData.client_id || formData.lead_id) && !formData.metadata?.is_custom_client && (
+                  <div className="col-span-2 space-y-1.5 bg-muted/15 p-3 rounded-xl border border-border/70">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Custom Bill-To / Attention Name (Optional)
+                      </label>
+                      {formData.metadata?.custom_client_name && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({
+                            ...formData,
+                            metadata: { ...formData.metadata, custom_client_name: '' }
+                          })}
+                          className="text-[9px] text-muted-foreground hover:text-primary underline"
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                    <input 
+                      type="text" 
+                      placeholder={`Overrides recipient header (default: ${formData.client?.full_name || formData.lead?.contact_name || 'Client Name'})`}
+                      value={formData.metadata?.custom_client_name || ''}
+                      onChange={e => setFormData({
+                        ...formData,
+                        metadata: {
+                          ...formData.metadata,
+                          custom_client_name: e.target.value
+                        }
+                      })}
+                      className="w-full bg-background border border-border rounded-lg px-3.5 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                <div className="space-y-2 col-span-2">
                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Link to Job (Optional)</label>
                  <select 
                    value={formData.job_id || ''}
-                   onChange={e => setFormData({...formData, job_id: e.target.value})}
-                   disabled={!formData.client_id}
-                   className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all disabled:opacity-50"
+                   onChange={e => {
+                     const selectedJobId = e.target.value;
+                     const selectedJob = jobs?.find(j => j.id === selectedJobId);
+                     setFormData({
+                       ...formData, 
+                       job_id: selectedJobId,
+                       client_id: (!formData.client_id && selectedJob?.client_id) ? selectedJob.client_id : formData.client_id
+                     });
+                   }}
+                   className="w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-primary outline-none transition-all"
                  >
                    <option value="">No specific job linked</option>
-                   {clientJobs.map(j => (
+                   {(formData.client_id ? clientJobs : (jobs || [])).map(j => (
                      <option key={j.id} value={j.id}>{j.job_code} - {j.service_name}</option>
                    ))}
                  </select>
