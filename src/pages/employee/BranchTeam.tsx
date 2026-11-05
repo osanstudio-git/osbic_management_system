@@ -28,7 +28,7 @@ const BranchTeam: React.FC = () => {
   const { data: leads = [], isLoading: loadingLeads } = useAllLeadsList();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState<'all' | 'sales' | 'marketing' | 'operations' | 'accounts' | 'pro'>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<'all' | 'sales' | 'marketing' | 'operations' | 'accounts' | 'pro' | 'hr'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedStaffForAllocation, setSelectedStaffForAllocation] = useState<any>(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
@@ -194,7 +194,7 @@ const BranchTeam: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
           <div className="flex items-center gap-1.5 bg-card border border-border p-1 rounded-xl overflow-x-auto">
-            {(['all', 'sales', 'marketing', 'operations', 'accounts', 'pro'] as const).map(dept => (
+            {(['all', 'sales', 'marketing', 'operations', 'accounts', 'pro', 'hr'] as const).map(dept => (
               <button
                 key={dept}
                 onClick={() => setDepartmentFilter(dept)}
@@ -204,7 +204,7 @@ const BranchTeam: React.FC = () => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {dept === 'all' ? 'All Staff' : dept}
+                {dept === 'all' ? 'All Staff' : dept === 'hr' ? 'HR & Admin' : dept}
               </button>
             ))}
           </div>

@@ -30,7 +30,7 @@ export interface Employee {
   phone: string | null;
   avatar_url: string | null;
   role: string;
-  department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | null;
+  department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | null;
   is_active: boolean;
   created_at: string;
   // Computed stats from jobs table
@@ -229,7 +229,7 @@ export const useCreateEmployee = () => {
       email: string;
       phone?: string;
       password: string;
-      department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing';
+      department?: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr';
       avatar_file?: File | null;
       branch_id?: string | null;
       company_name?: string | null;

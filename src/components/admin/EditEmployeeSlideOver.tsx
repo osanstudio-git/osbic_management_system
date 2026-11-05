@@ -217,6 +217,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                     >
                       <option value="operations" className="bg-[#0A0F1E]">Operations</option>
                       <option value="sales" className="bg-[#0A0F1E]">Sales</option>
+                      <option value="hr" className="bg-[#0A0F1E]">HR & Administration</option>
                       <option value="marketing" className="bg-[#0A0F1E]">Marketing</option>
                       <option value="accounts" className="bg-[#0A0F1E]">Accounts</option>
                       <option value="pro" className="bg-[#0A0F1E]">PRO</option>
@@ -391,7 +392,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setFormData({ ...formData, is_sales_head: !formData.is_sales_head, can_do_sales: true })}
+                        onClick={() => setFormData({ ...formData, is_sales_head: !formData.is_sales_head })}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_sales_head ? 'bg-amber-500' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_sales_head ? 'translate-x-5' : ''}`} />
@@ -410,7 +411,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setFormData({ ...formData, can_assign_leads: !formData.can_assign_leads, can_do_sales: true })}
+                        onClick={() => setFormData({ ...formData, can_assign_leads: !formData.can_assign_leads })}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.can_assign_leads ? 'bg-indigo-500' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.can_assign_leads ? 'translate-x-5' : ''}`} />
@@ -429,7 +430,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setFormData({ ...formData, is_ops_head: !formData.is_ops_head, can_do_ops: true })}
+                        onClick={() => setFormData({ ...formData, is_ops_head: !formData.is_ops_head })}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${formData.is_ops_head ? 'bg-emerald-500' : 'bg-white/10'}`}
                       >
                         <div className={`bg-card w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${formData.is_ops_head ? 'translate-x-5' : ''}`} />
