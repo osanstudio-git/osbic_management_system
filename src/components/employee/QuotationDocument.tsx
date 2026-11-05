@@ -133,8 +133,23 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
           Package Includes
         </div>
         <div className="space-y-1.5 px-2 text-[10px]">
-          {invoice.items && invoice.items.length > 0 ? (
-            invoice.items.map((item: any, idx) => {
+          {(() => {
+            let itemsToDisplay = invoice.items || [];
+            const savedOrder = invoice.metadata?.items_order;
+            if (Array.isArray(savedOrder) && savedOrder.length > 0 && itemsToDisplay.length > 0) {
+              itemsToDisplay = [...itemsToDisplay].sort((a: any, b: any) => {
+                const keyA = a.id || a.description;
+                const keyB = b.id || b.description;
+                const idxA = savedOrder.indexOf(keyA);
+                const idxB = savedOrder.indexOf(keyB);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              });
+            }
+            return itemsToDisplay.length > 0 ? (
+              itemsToDisplay.map((item: any, idx) => {
               const qty = Math.max(1, parseInt(item.quantity) || 1);
               const minFee = Math.max(0, parseFloat(item.ministry_fee) || 0);
 
@@ -175,7 +190,8 @@ export const QuotationDocument = forwardRef<HTMLDivElement, QuotationDocumentPro
             })
           ) : (
             <p className="text-gray-400 italic">No package items added.</p>
-          )}
+          );
+        })()}
         </div>
 
         {/* Total Package Value directly under service items */}

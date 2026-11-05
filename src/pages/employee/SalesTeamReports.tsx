@@ -5,7 +5,7 @@ import {
   Calendar, Search, Download, Printer, RefreshCw, X, ArrowUpRight,
   Shield, Award, Send, Phone, Mail, ExternalLink, Filter, Sparkles,
   ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle, Crown,
-  Briefcase, Clock, Layers
+  Briefcase, Clock, Layers, Target
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {

@@ -469,7 +469,7 @@ export const useSalesTeamReports = (
       const totalReps = reps.length;
       const totalLeads = reps.reduce((sum, r) => sum + r.totalLeads, 0);
       const totalAssignedLeads = totalLeads;
-      const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to).length;
+      const totalUnassignedLeads = leadsData.filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length;
       const salesHeadAssignedCount = leadsData.filter(l => {
         const assigner = salesEmployees.find(e => e.id === l.assigned_by);
         return (assigner?.is_sales_head || assigner?.can_assign_leads) && l.assigned_to && l.assigned_to !== l.assigned_by;

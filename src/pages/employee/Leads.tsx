@@ -80,7 +80,7 @@ export default function EmployeeLeads() {
   const deleteLeadMutation = useDeleteLead();
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'new' | 'on_progress' | 'converted'>('all');
-  const [radarFilter, setRadarFilter] = useState<'all' | 'overdue' | 'today' | 'upcoming' | 'duplicate'>('all');
+  const [radarFilter, setRadarFilter] = useState<'all' | 'overdue' | 'today' | 'upcoming' | 'duplicate' | 'unassigned'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -117,8 +117,12 @@ export default function EmployeeLeads() {
     let today = 0;
     let upcoming = 0;
     let duplicate = 0;
+    let unassigned = 0;
 
     (leads || []).forEach(lead => {
+      if (!lead.assigned_to && lead.status !== 'converted' && lead.status !== 'cancelled' && lead.status !== 'lost') {
+        unassigned++;
+      }
       const isWon = lead.status === 'converted' || (Number(lead.total_amount) || 0) > 0;
       if (lead.next_follow_up_at && !isWon) {
         const d = new Date(lead.next_follow_up_at);
@@ -136,7 +140,7 @@ export default function EmployeeLeads() {
       }
     });
 
-    return { overdue, today, upcoming, duplicate };
+    return { overdue, today, upcoming, duplicate, unassigned };
   }, [leads, duplicatePhones]);
 
   // Filtering leads
@@ -157,6 +161,8 @@ export default function EmployeeLeads() {
         } else if (radarFilter === 'duplicate') {
           const clean = (lead.contact_phone || '').replace(/\D/g, '');
           if (!clean || !duplicatePhones.has(clean)) return false;
+        } else if (radarFilter === 'unassigned') {
+          if (lead.assigned_to || lead.status === 'converted' || lead.status === 'cancelled' || lead.status === 'lost') return false;
         }
       }
 
@@ -699,6 +705,24 @@ export default function EmployeeLeads() {
             </button>
           )}
 
+          {/* Unassigned Leads Radar Pill */}
+          {radarCounts.unassigned > 0 && (
+            <button
+              type="button"
+              onClick={() => setRadarFilter(radarFilter === 'unassigned' ? 'all' : 'unassigned')}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95",
+                radarFilter === 'unassigned'
+                  ? "bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30 font-black ring-2 ring-rose-400/30"
+                  : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border-rose-500/30 animate-pulse"
+              )}
+              title="Filter to view all unassigned leads currently in queue"
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              <span>UNASSIGNED ({radarCounts.unassigned})</span>
+            </button>
+          )}
+
           {/* Clear Active Radar Filter */}
           {radarFilter !== 'all' && (
             <button
@@ -1220,7 +1244,7 @@ export default function EmployeeLeads() {
       <LeadDistributionHubModal
         isOpen={isLeadDistributionHubOpen}
         onClose={() => setIsLeadDistributionHubOpen(false)}
-        branchId={profile?.branch_id}
+        branchId={isSalesHead ? null : profile?.branch_id}
       />
     </div>
   );

@@ -4,8 +4,26 @@ import {
   ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, Briefcase, 
   CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
   Camera, Layers, Settings2, Sliders, UserCheck, User, 
-  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle 
+  Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle,
+  GripVertical
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useInvoice, useSaveInvoice, type Invoice, type InvoiceItem } from '../../hooks/employee/useInvoices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminClients, useEmployeeClients } from '../../hooks/admin/useAdminClients';
@@ -120,6 +138,176 @@ export const parseActivitiesHelper = (activitiesVal: any): string[] => {
     return activitiesVal.split('\n').map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
   }
   return [];
+};
+
+export const getItemDndId = (item: any, fallbackIdx: number): string => {
+  if (item._dndId) return item._dndId;
+  if (item.id) {
+    item._dndId = String(item.id);
+    return item._dndId;
+  }
+  item._dndId = `item-${fallbackIdx}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return item._dndId;
+};
+
+interface SortableQuotationItemProps {
+  id: string;
+  item: any;
+  index: number;
+  totalItems: number;
+  allServices: any[] | undefined;
+  currencySymbol: string;
+  currencyCfg: any;
+  fmtAmt: (amt: number) => string;
+  handleItemChange: (index: number, field: string, value: any) => void;
+  removeItem: (index: number) => void;
+}
+
+const SortableQuotationItem: React.FC<SortableQuotationItemProps> = ({
+  id,
+  item,
+  index,
+  totalItems,
+  allServices,
+  currencySymbol,
+  currencyCfg,
+  fmtAmt,
+  handleItemChange,
+  removeItem,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const matchedService = allServices?.find(
+    s => s.name_en.toLowerCase() === item.description?.toLowerCase() ||
+      s.name_ar === item.description
+  );
+  const dbMinFee = matchedService?.ministry_fee ?? 0;
+  const curMinFee = Math.round(Number(item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee) * 1000) / 1000;
+  const rawSrvFee = item.service_fee !== undefined ? item.service_fee : (item.unit_price - curMinFee);
+  const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
+  const curUnitPrice = Math.round((curMinFee + curSrvFee) * 1000) / 1000;
+  const curQty = Math.max(1, parseInt(String(item.quantity), 10) || 1);
+  const curTotal = curQty * curUnitPrice;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-muted/10 p-4 rounded-xl border transition-all ${
+        isDragging
+          ? 'border-primary shadow-2xl bg-card ring-2 ring-primary/20 opacity-80 scale-[1.01]'
+          : 'border-border/40 hover:border-primary/30'
+      } space-y-3 group`}
+    >
+      <div className="flex gap-2.5 items-end">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="p-2 border border-border/40 rounded-lg text-muted-foreground/40 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all cursor-grab active:cursor-grabbing shrink-0 mb-0.5 touch-none select-none flex items-center justify-center"
+          title="Drag to rearrange item order"
+          aria-label="Drag to rearrange"
+        >
+          <GripVertical size={16} />
+        </div>
+
+        {/* Position badge */}
+        <div className="h-9 px-2.5 bg-muted/30 border border-border/40 rounded-lg flex items-center justify-center shrink-0 mb-0.5 font-mono text-[10px] font-bold text-muted-foreground">
+          #{index + 1}
+        </div>
+
+        {/* Service description */}
+        <div className="flex-1 space-y-1.5 min-w-0">
+          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block truncate">
+            Service Description
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. Visa Issuance Fee"
+            value={item.description || ''}
+            onChange={e => handleItemChange(index, 'description', e.target.value)}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
+          />
+        </div>
+
+        {/* Quantity */}
+        <div className="w-20 space-y-1.5 shrink-0">
+          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block text-center">
+            Qty
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={item.quantity || 1}
+            onChange={e => handleItemChange(index, 'quantity', e.target.value)}
+            className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:border-primary outline-none transition-all text-center font-bold font-mono"
+          />
+        </div>
+
+        {/* Remove button */}
+        {totalItems > 1 && (
+          <button
+            type="button"
+            onClick={() => removeItem(index)}
+            className="p-2 border border-border rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all shrink-0 mb-0.5"
+            title="Remove item"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 border-t border-border/30 pt-3">
+        <div>
+          <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+            Gov Fee ({currencySymbol})
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            value={curMinFee}
+            onChange={e => handleItemChange(index, 'ministry_fee', e.target.value)}
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
+          />
+        </div>
+        <div>
+          <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+            Service Fee ({currencySymbol})
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            value={curSrvFee}
+            onChange={e => handleItemChange(index, 'service_fee', e.target.value)}
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
+          />
+        </div>
+        <div className="flex flex-col justify-end">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+            Total ({curQty > 1 ? `${curQty}×` : ''}{currencySymbol} {curUnitPrice.toFixed(currencyCfg.decimals)})
+          </span>
+          <div className="h-[34px] flex items-center px-3 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold text-primary font-mono">
+            {fmtAmt(curTotal)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const QuotationBuilder = () => {
@@ -256,8 +444,24 @@ const QuotationBuilder = () => {
       const initPhone = initialData.metadata?.recipient_phone || initialData.client?.phone || initialData.lead?.contact_phone || '';
       const initDisplayMode = initialData.metadata?.recipient_display_mode || (initCompanyName ? 'both' : 'contact');
 
+      let sortedItems = initialData.items ? [...initialData.items] : [];
+      const savedOrder = initialData.metadata?.items_order;
+      if (Array.isArray(savedOrder) && savedOrder.length > 0 && sortedItems.length > 0) {
+        sortedItems.sort((a, b) => {
+          const keyA = a.id || a.description;
+          const keyB = b.id || b.description;
+          const idxA = savedOrder.indexOf(keyA);
+          const idxB = savedOrder.indexOf(keyB);
+          if (idxA === -1 && idxB === -1) return 0;
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+      }
+
       const formattedInitial: Invoice = {
         ...initialData,
+        items: sortedItems,
         metadata: {
           ...initialData.metadata,
           recipient_name: initContactName || initialData.metadata?.recipient_name || '',
@@ -685,17 +889,65 @@ const QuotationBuilder = () => {
     });
   };
 
-  const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [...(formData.items || []), { description: '', quantity: 1, unit_price: 0, total: 0 }]
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setFormData(prev => {
+      const currentItems = [...(prev.items || [])];
+      const oldIndex = currentItems.findIndex((it, idx) => getItemDndId(it, idx) === active.id);
+      const newIndex = currentItems.findIndex((it, idx) => getItemDndId(it, idx) === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return prev;
+
+      const reorderedItems = arrayMove(currentItems, oldIndex, newIndex);
+      return {
+        ...prev,
+        items: reorderedItems,
+        metadata: {
+          ...prev.metadata,
+          items_order: reorderedItems.map((it, idx) => it.id || it.description || getItemDndId(it, idx))
+        }
+      };
     });
+  };
+
+  const addItem = () => {
+    const newItem: any = {
+      _dndId: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      total: 0
+    };
+    setFormData(prev => ({
+      ...prev,
+      items: [...(prev.items || []), newItem]
+    }));
   };
 
   const removeItem = (index: number) => {
     const newItems = [...(formData.items || [])];
     newItems.splice(index, 1);
-    setFormData({ ...formData, items: newItems });
+    setFormData(prev => ({
+      ...prev,
+      items: newItems,
+      metadata: {
+        ...prev.metadata,
+        items_order: newItems.map((it, idx) => it.id || it.description || getItemDndId(it, idx))
+      }
+    }));
   };
 
   // Timeline helper handlers
@@ -894,6 +1146,7 @@ const QuotationBuilder = () => {
             employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
             metadata: {
               ...formData.metadata,
+              items_order: itemsToSave.map((it: any, idx: number) => it.id || it.description || getItemDndId(it, idx)),
               prepared_by: formData.metadata?.prepared_by || profile?.full_name || 'OSBIC TEAM',
               prepared_by_employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
               isSimple: quotationMode === 'simple'
@@ -997,6 +1250,7 @@ const QuotationBuilder = () => {
         employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
         metadata: {
           ...formData.metadata,
+          items_order: itemsToSave.map((it: any, idx: number) => it.id || it.description || getItemDndId(it, idx)),
           prepared_by: formData.metadata?.prepared_by || profile?.full_name || 'OSBIC TEAM',
           prepared_by_employee_id: formData.metadata?.prepared_by_employee_id || formData.employee_id || profile?.id,
           isSimple: quotationMode === 'simple'
@@ -1676,8 +1930,13 @@ const QuotationBuilder = () => {
               <div className="space-y-4 border-t border-border pt-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Service Fee Items</h3>
-                    <p className="text-[9px] text-muted-foreground">Auto-calculated: (Gov Fee + Service Fee) × Quantity</p>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Service Fee Items</h3>
+                      <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                        <GripVertical size={11} /> Reorderable
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Drag handle to rearrange items &bull; Auto-calculated: (Gov Fee + Service Fee) × Quantity</p>
                   </div>
                   <button
                     onClick={addItem}
@@ -1687,91 +1946,33 @@ const QuotationBuilder = () => {
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {(formData.items || []).map((item: any, idx) => {
-                    const matchedService = allServices?.find(
-                      s => s.name_en.toLowerCase() === item.description?.toLowerCase() ||
-                        s.name_ar === item.description
-                    );
-                    const dbMinFee = matchedService?.ministry_fee ?? 0;
-                    const curMinFee = Math.round(Number(item.ministry_fee !== undefined ? item.ministry_fee : dbMinFee) * 1000) / 1000;
-                    const rawSrvFee = item.service_fee !== undefined ? item.service_fee : (item.unit_price - curMinFee);
-                    const curSrvFee = Math.max(0, Math.round(Number(rawSrvFee || 0) * 1000) / 1000);
-                    const curUnitPrice = Math.round((curMinFee + curSrvFee) * 1000) / 1000;
-                    const curQty = Math.max(1, parseInt(String(item.quantity), 10) || 1);
-                    const curTotal = curQty * curUnitPrice;
-
-                    return (
-                      <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40 space-y-3">
-                        <div className="flex gap-3 items-end">
-                          <div className="flex-1 space-y-1.5">
-                            <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Service Description</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Visa Issuance Fee"
-                              value={item.description}
-                              onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:border-primary outline-none transition-all"
-                            />
-                          </div>
-                          <div className="w-20 space-y-1.5 shrink-0">
-                            <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block text-center">Qty</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity || 1}
-                              onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
-                              className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:border-primary outline-none transition-all text-center font-bold font-mono"
-                            />
-                          </div>
-
-                          {formData.items!.length > 1 && (
-                            <button
-                              onClick={() => removeItem(idx)}
-                              className="p-2 border border-border rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all shrink-0 mb-0.5"
-                              title="Remove item"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3 border-t border-border/30 pt-3">
-                          <div>
-                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Gov Fee ({currencySymbol})</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.001"
-                              value={curMinFee}
-                              onChange={e => handleItemChange(idx, 'ministry_fee', e.target.value)}
-                              className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Service Fee ({currencySymbol})</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.001"
-                              value={curSrvFee}
-                              onChange={e => handleItemChange(idx, 'service_fee', e.target.value)}
-                              className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:border-primary outline-none transition-all font-mono"
-                            />
-                          </div>
-                          <div className="flex flex-col justify-end">
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                              Total ({curQty > 1 ? `${curQty}×` : ''}{currencySymbol} {curUnitPrice.toFixed(currencyCfg.decimals)})
-                            </span>
-                            <div className="h-[34px] flex items-center px-3 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold text-primary font-mono">
-                              {fmtAmt(curTotal)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext
+                    items={(formData.items || []).map((it, idx) => getItemDndId(it, idx))}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {(formData.items || []).map((item: any, idx) => {
+                        const dndId = getItemDndId(item, idx);
+                        return (
+                          <SortableQuotationItem
+                            key={dndId}
+                            id={dndId}
+                            item={item}
+                            index={idx}
+                            totalItems={formData.items?.length || 0}
+                            allServices={allServices}
+                            currencySymbol={currencySymbol}
+                            currencyCfg={currencyCfg}
+                            fmtAmt={fmtAmt}
+                            handleItemChange={handleItemChange}
+                            removeItem={removeItem}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
 
               {/* Discount & Tax */}
