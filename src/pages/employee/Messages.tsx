@@ -571,6 +571,8 @@ export default function EmployeeMessages() {
 
 function NewChatModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: (id: string) => void }) {
   const { profile } = useAuth();
+  const { i18n } = useTranslation();
+  const isRtl = i18n.dir() === 'rtl';
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   

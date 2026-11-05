@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ErrorBoundary } from '../components/shared/ErrorBoundary';
 import { 
   Users, 
   ClipboardList, 
@@ -438,7 +439,9 @@ const EmployeeLayout: React.FC = () => {
               transition={{ duration: 0.35 }}
               className="h-full min-w-0 w-full"
             >
-              <Outlet />
+              <ErrorBoundary>
+                <Outlet />
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </div>
