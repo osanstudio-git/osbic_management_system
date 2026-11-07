@@ -15,7 +15,7 @@ export default function AccountsDashboard() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  
+
   if (!profile?.can_do_accounts) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh]">
@@ -27,7 +27,7 @@ export default function AccountsDashboard() {
   }
 
   const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'sales_report' | 'receivables' | 'govt_fees' | 'financials' | 'expenses' | 'history'>('overview');
-  
+
   // Payment Proof Modal State
   const [proofModalOpen, setProofModalOpen] = useState(false);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function AccountsDashboard() {
   // Verify Modal State
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
-  
+
   // Job Details Modal State
   const [jobDetailsModalOpen, setJobDetailsModalOpen] = useState(false);
   const [jobDetailsTarget, setJobDetailsTarget] = useState<any | null>(null);
@@ -65,7 +65,7 @@ export default function AccountsDashboard() {
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     }
@@ -86,7 +86,7 @@ export default function AccountsDashboard() {
         .in('status', ['verified', 'rejected'])
         .order('verified_at', { ascending: false })
         .limit(50);
-      
+
       if (error) throw error;
       return data || [];
     }
@@ -429,21 +429,19 @@ export default function AccountsDashboard() {
         <div className="flex gap-2 min-w-max">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'overview' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'overview'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <LayoutDashboard size={16} /> Master Ledger
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'payments' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'payments'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <RefreshCw size={16} /> Verifications
             {pendingPayments && pendingPayments.length > 0 && (
@@ -452,51 +450,46 @@ export default function AccountsDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('sales_report')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'sales_report' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'sales_report'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <Users size={16} /> Sales Performance
           </button>
           <button
             onClick={() => setActiveTab('receivables')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'receivables' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'receivables'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <Wallet size={16} /> Receivables Aging
           </button>
           <button
             onClick={() => setActiveTab('govt_fees')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'govt_fees' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'govt_fees'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <Building2 size={16} /> Govt Fees Paid
           </button>
           <button
             onClick={() => setActiveTab('financials')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'financials' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'financials'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <BarChart4 size={16} /> Financial Statements
           </button>
           <button
             onClick={() => setActiveTab('expenses')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'expenses' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'expenses'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <FileText size={16} /> Audits
             {pendingExpenses && pendingExpenses.length > 0 && (
@@ -505,11 +498,10 @@ export default function AccountsDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'history' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
+            className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'history'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
+              }`}
           >
             <History size={16} /> Verified History
           </button>
@@ -590,11 +582,10 @@ export default function AccountsDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                              job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                              job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                              'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                            }`}>
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                  'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                              }`}>
                               {job.status}
                             </span>
                           </td>
@@ -728,7 +719,7 @@ export default function AccountsDashboard() {
                             <p className="text-xs mt-2 text-foreground/80 bg-foreground/5 p-3 rounded-xl italic border-l-2 border-primary">"{expense.notes}"</p>
                           )}
                           {expense.receipt_url && (
-                            <button 
+                            <button
                               onClick={() => handleViewReceipt(expense.receipt_url)}
                               className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary hover:underline bg-primary/5 px-3 py-1.5 rounded-lg w-fit transition-colors"
                             >
@@ -745,7 +736,7 @@ export default function AccountsDashboard() {
                         <div className="flex gap-2 w-full md:w-auto">
                           <button
                             onClick={() => {
-                              if(window.confirm('Reject this expense?')) {
+                              if (window.confirm('Reject this expense?')) {
                                 updateExpenseStatus.mutate({ id: expense.id, status: 'rejected' });
                                 invalidateAll();
                               }
@@ -933,21 +924,19 @@ export default function AccountsDashboard() {
                 <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-2xl border border-border w-fit">
                   <button
                     onClick={() => setReceivablesSubTab('due')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      receivablesSubTab === 'due'
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${receivablesSubTab === 'due'
                         ? 'bg-amber-500 text-black shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     Outstanding Balances Due ({receivablesJobs.length})
                   </button>
                   <button
                     onClick={() => setReceivablesSubTab('surplus')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      receivablesSubTab === 'surplus'
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${receivablesSubTab === 'surplus'
                         ? 'bg-emerald-500 text-white shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     Client Surplus & Refunds Due ({surplusJobs.length})
                   </button>
@@ -1140,9 +1129,8 @@ export default function AccountsDashboard() {
                                 {(job.ministry_fee || 0).toFixed(3)}
                               </td>
                               <td className="px-6 py-4 text-center">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                                  job.client_pays_ministry_fee ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                }`}>
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${job.client_pays_ministry_fee ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                  }`}>
                                   {job.client_pays_ministry_fee ? 'Client Card Direct' : 'OSBIC Govt Treasury'}
                                 </span>
                               </td>
@@ -1376,7 +1364,7 @@ export default function AccountsDashboard() {
                     className="w-full h-32 px-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 resize-none transition-all"
                   />
                 </div>
-                
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={() => setRejectModalOpen(false)}
@@ -1487,7 +1475,7 @@ export default function AccountsDashboard() {
                   <h3 className="text-sm font-bold text-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
                     <History className="w-4 h-4 text-primary" /> Payment History
                   </h3>
-                  
+
                   {jobDetailsTarget.payments?.length === 0 ? (
                     <div className="bg-background border border-border border-dashed rounded-2xl p-8 text-center">
                       <p className="text-muted-foreground">No payments recorded yet.</p>
@@ -1522,11 +1510,10 @@ export default function AccountsDashboard() {
                                 {payment.reference_number || '-'}
                               </td>
                               <td className="px-4 py-3 text-right">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${
-                                  payment.status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' :
-                                  payment.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
-                                  'bg-rose-500/10 text-rose-500'
-                                }`}>
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${payment.status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' :
+                                    payment.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                                      'bg-rose-500/10 text-rose-500'
+                                  }`}>
                                   {payment.status}
                                 </span>
                               </td>
