@@ -6,8 +6,22 @@ import {
   Download, Shield, Eye, Award, Sparkles, Building2, Briefcase,
   ChevronRight, ArrowUpRight, Plus, RefreshCw, X, AlertCircle,
   FileCheck, ShieldAlert, UserCheck, Phone, Check, ArrowRight,
-  Printer, UploadCloud, TrendingUp, Paperclip
+  Printer, UploadCloud, TrendingUp, Paperclip, BarChart3, PieChart as PieChartIcon,
+  CheckSquare
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Cell,
+  PieChart,
+  Pie,
+  Legend,
+  CartesianGrid
+} from 'recharts';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
@@ -20,7 +34,7 @@ import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-type MasterTab = 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
+type MasterTab = 'dashboard' | 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
 type TimeframePreset = 'today' | 'week' | 'month' | 'all';
 
 interface HRAdminPortalProps {
@@ -39,7 +53,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
   // Filters state
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(profile?.branch_id || null);
-  const [internalActiveTab, setInternalActiveTab] = useState<MasterTab>(pageMode || queryTab || 'sales');
+  const [internalActiveTab, setInternalActiveTab] = useState<MasterTab>(pageMode || queryTab || 'dashboard');
 
   const activeTab = pageMode || internalActiveTab;
   const setActiveTab = (tab: MasterTab) => setInternalActiveTab(tab);
@@ -54,6 +68,12 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
   const getHeaderInfo = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return {
+          badge: isRtl ? 'لوحة التحكم والتحليلات' : 'Executive Analytics',
+          title: isRtl ? 'لوحة تحكم الموارد البشرية والإدارة' : 'HR & Administration Dashboard',
+          subtitle: isRtl ? 'المؤشرات المالية الرئيسية، توزيع الرسوم الحكومية، ورادار متابعة الموظفين والامتثال' : 'Executive KPIs, ministry outflows allocation, team distribution, and compliance action radar'
+        };
       case 'sales':
         return {
           badge: isRtl ? 'المبيعات والإيرادات' : 'Finance & Revenue',
@@ -391,6 +411,91 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
     });
   }, [employees, leaveRequests]);
 
+  // Charts & Analytics Data for Dashboard
+  const financialChartData = useMemo(() => {
+    const totalSales = auditData?.kpis.totalSalesRevenue || 0;
+    const totalGov = auditData?.kpis.totalGovFeesPaid || 0;
+    const totalMargin = auditData?.kpis.totalWorkFees || 0;
+
+    return [
+      { name: isRtl ? 'المبيعات' : 'Sales Revenue', amount: Number(totalSales.toFixed(3)), fill: '#10b981' },
+      { name: isRtl ? 'الرسوم الحكومية' : 'Gov Outflows', amount: Number(totalGov.toFixed(3)), fill: '#3b82f6' },
+      { name: isRtl ? 'صافي الأرباح' : 'Work Margins', amount: Number(totalMargin.toFixed(3)), fill: '#eab308' },
+    ];
+  }, [auditData, isRtl]);
+
+  const ministryDistributionData = useMemo(() => {
+    const map: Record<string, number> = {
+      MOL: 0,
+      ROP: 0,
+      MOCIIP: 0,
+      OCCI: 0,
+      Other: 0
+    };
+    (auditData?.govOutflows || []).forEach(item => {
+      const cat = item.category || 'Other';
+      const fee = Number(item.actualPaidGovFee || item.estimatedGovFee || 0);
+      if (map[cat] !== undefined) {
+        map[cat] += fee;
+      } else {
+        map['Other'] += fee;
+      }
+    });
+
+    const colors: Record<string, string> = {
+      MOL: '#ef4444',
+      ROP: '#3b82f6',
+      MOCIIP: '#10b981',
+      OCCI: '#eab308',
+      Other: '#a855f7'
+    };
+
+    const res = Object.keys(map).map(key => ({
+      name: key,
+      value: Number(map[key].toFixed(3)),
+      fill: colors[key] || '#94a3b8'
+    })).filter(item => item.value > 0);
+
+    return res.length > 0 ? res : [
+      { name: 'ROP', value: 1, fill: '#3b82f6' },
+      { name: 'MOL', value: 1, fill: '#ef4444' },
+      { name: 'MOCIIP', value: 1, fill: '#10b981' },
+      { name: 'OCCI', value: 1, fill: '#eab308' }
+    ];
+  }, [auditData]);
+
+  const departmentDistributionData = useMemo(() => {
+    const deptCount: Record<string, number> = {};
+    employees.forEach(emp => {
+      const d = (emp.department || 'Staff').toUpperCase();
+      deptCount[d] = (deptCount[d] || 0) + 1;
+    });
+
+    const colors = ['#eab308', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#f97316'];
+    const keys = Object.keys(deptCount);
+    return keys.map((dept, idx) => ({
+      name: dept,
+      count: deptCount[dept],
+      fill: colors[idx % colors.length]
+    }));
+  }, [employees]);
+
+  // Urgent Action items for Dashboard Radar
+  const pendingLeavesList = useMemo(() => {
+    return leaveRequests.filter(r => r.status === 'pending').slice(0, 5);
+  }, [leaveRequests]);
+
+  const urgentExpiryList = useMemo(() => {
+    return teamWithCompliance
+      .filter(e => e.minDays !== null && e.minDays <= 30)
+      .sort((a, b) => (a.minDays || 0) - (b.minDays || 0))
+      .slice(0, 5);
+  }, [teamWithCompliance]);
+
+  const missingSlipsList = useMemo(() => {
+    return (auditData?.sales || []).filter(s => !s.hasReceipt).slice(0, 5);
+  }, [auditData]);
+
   // Attach Official Government Payment Slip
   const handleAttachGovSlip = async () => {
     if (!attachGovTarget || !slipFile) {
@@ -605,116 +710,22 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
         </div>
       </div>
 
-      {/* ─── 2. Top-Level Executive KPI Bar ─────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {/* Total Sales Audited */}
-        <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-1 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي المبيعات' : 'Sales Logged'}</span>
-            <DollarSign size={15} className="text-emerald-400" />
-          </div>
-          <p className="text-xl font-bold font-syne text-foreground">
-            {auditData?.kpis.totalSalesCount ?? 0}
-          </p>
-          <p className="text-[10px] text-emerald-400 font-mono font-semibold">
-            OMR {(auditData?.kpis.totalSalesRevenue ?? 0).toFixed(3)}
-          </p>
-        </div>
-
-        {/* Missing Receipt Watchdog */}
-        <div 
-          onClick={() => {
-            setActiveTab('sales');
-            setSalesReceiptFilter('missing');
-          }}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 shadow-sm ${
-            (auditData?.kpis.salesMissingReceipt ?? 0) > 0
-              ? 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20'
-              : 'bg-card border-border/80'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
-              {(auditData?.kpis.salesMissingReceipt ?? 0) > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
-              {isRtl ? 'سندات غير مرفقة' : 'Missing Slip'}
-            </span>
-            <AlertTriangle size={15} className="text-rose-400" />
-          </div>
-          <p className="text-xl font-bold font-syne text-rose-400">
-            {auditData?.kpis.salesMissingReceipt ?? 0}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-medium">
-            {auditData?.kpis.salesWithReceipt ?? 0} {isRtl ? 'سند معتمد' : 'slips verified'}
-          </p>
-        </div>
-
-        {/* Gov / Supplier Fees Paid */}
-        <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-1 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'الرسوم الحكومية' : 'Gov Outflows'}</span>
-            <Building2 size={15} className="text-blue-400" />
-          </div>
-          <p className="text-xl font-bold font-syne text-foreground">
-            OMR {(auditData?.kpis.totalGovFeesPaid ?? 0).toFixed(3)}
-          </p>
-          <p className="text-[10px] text-blue-400 font-medium">
-            {auditData?.govOutflows.length ?? 0} {isRtl ? 'معاملة حكومية' : 'gov transactions'}
-          </p>
-        </div>
-
-        {/* Net Operating Work Fees */}
-        <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-1 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'أتعاب المكتب الصافية' : 'Work Fees'}</span>
-            <Sparkles size={15} className="text-primary" />
-          </div>
-          <p className="text-xl font-bold font-syne text-primary">
-            OMR {(auditData?.kpis.totalWorkFees ?? 0).toFixed(3)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {isRtl ? 'صافي هامش الربح' : 'Net office margin'}
-          </p>
-        </div>
-
-        {/* Total Active Staff */}
-        <div 
-          onClick={() => setActiveTab('team')}
-          className="p-4 rounded-2xl bg-card border border-border/80 hover:border-border transition-all cursor-pointer space-y-1 shadow-sm"
-        >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'فريق العمل' : 'Staff Members'}</span>
-            <Users size={15} className="text-purple-400" />
-          </div>
-          <p className="text-xl font-bold font-syne text-foreground">
-            {employees.length}
-          </p>
-          <p className="text-[10px] text-purple-400 font-medium">
-            {isRtl ? 'جميع الأقسام' : 'All departments'}
-          </p>
-        </div>
-
-        {/* Leaves & Compliance Pending */}
-        <div 
-          onClick={() => setActiveTab('leaves_attendance')}
-          className="p-4 rounded-2xl bg-card border border-border/80 hover:border-amber-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
-        >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'طلبات الإجازة' : 'Leave Requests'}</span>
-            <Calendar size={15} className="text-amber-400" />
-          </div>
-          <p className="text-xl font-bold font-syne text-amber-400">
-            {leaveRequests.filter(r => r.status === 'pending').length}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {isRtl ? 'بانتظار موافقة الإدارة' : 'pending approval'}
-          </p>
-        </div>
-      </div>
-
-      {/* ─── 3. Navigation Master Tabs (Only shown when not in dedicated single pageMode) ─── */}
+      {/* ─── Navigation Master Tabs (Only shown when not in dedicated single pageMode) ─── */}
       {!pageMode ? (
         <div className="flex items-center justify-between gap-4 border-b border-border/80 overflow-x-auto no-scrollbar pt-2">
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'dashboard'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <BarChart3 size={15} />
+              <span>{isRtl ? 'لوحة المتابعة والتحليلات' : 'Executive Overview'}</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('sales')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
@@ -813,9 +824,464 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
         </div>
       )}
 
+      {/* ─── TAB 0: EXECUTIVE DASHBOARD & CHARTS (Only on Main Dashboard) ────── */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          {/* Executive KPI Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* 1. Total Sales */}
+            <div 
+              onClick={() => setActiveTab('sales')}
+              className="p-4 rounded-2xl bg-card border border-border/80 hover:border-emerald-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي المبيعات' : 'Sales Logged'}</span>
+                <DollarSign size={15} className="text-emerald-400" />
+              </div>
+              <p className="text-xl font-bold font-syne text-foreground">{auditData?.kpis.totalSalesCount ?? 0}</p>
+              <p className="text-[10px] text-emerald-400 font-mono font-semibold">OMR {(auditData?.kpis.totalSalesRevenue ?? 0).toFixed(3)}</p>
+            </div>
+
+            {/* 2. Missing Slip Watchdog */}
+            <div 
+              onClick={() => {
+                setActiveTab('sales');
+                setSalesReceiptFilter('missing');
+              }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 shadow-sm ${
+                (auditData?.kpis.salesMissingReceipt ?? 0) > 0
+                  ? 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20'
+                  : 'bg-card border-border/80'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                  {(auditData?.kpis.salesMissingReceipt ?? 0) > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+                  {isRtl ? 'سندات غير مرفقة' : 'Missing Slip'}
+                </span>
+                <AlertTriangle size={15} className="text-rose-400" />
+              </div>
+              <p className="text-xl font-bold font-syne text-rose-400">{auditData?.kpis.salesMissingReceipt ?? 0}</p>
+              <p className="text-[10px] text-muted-foreground font-medium">{auditData?.kpis.salesWithReceipt ?? 0} {isRtl ? 'سند معتمد' : 'slips verified'}</p>
+            </div>
+
+            {/* 3. Gov Outflows */}
+            <div 
+              onClick={() => setActiveTab('gov_outflows')}
+              className="p-4 rounded-2xl bg-card border border-border/80 hover:border-blue-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'الرسوم الحكومية' : 'Gov Outflows'}</span>
+                <Building2 size={15} className="text-blue-400" />
+              </div>
+              <p className="text-xl font-bold font-syne text-foreground">OMR {(auditData?.kpis.totalGovFeesPaid ?? 0).toFixed(3)}</p>
+              <p className="text-[10px] text-blue-400 font-medium">{auditData?.govOutflows.length ?? 0} {isRtl ? 'معاملة حكومية' : 'gov transactions'}</p>
+            </div>
+
+            {/* 4. Net Work Fees */}
+            <div 
+              onClick={() => setActiveTab('gov_outflows')}
+              className="p-4 rounded-2xl bg-card border border-border/80 hover:border-primary/40 transition-all cursor-pointer space-y-1 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'أتعاب المكتب الصافية' : 'Work Fees'}</span>
+                <Sparkles size={15} className="text-primary" />
+              </div>
+              <p className="text-xl font-bold font-syne text-primary">OMR {(auditData?.kpis.totalWorkFees ?? 0).toFixed(3)}</p>
+              <p className="text-[10px] text-muted-foreground">{isRtl ? 'صافي هامش الربح' : 'Net office margin'}</p>
+            </div>
+
+            {/* 5. Total Staff */}
+            <div 
+              onClick={() => setActiveTab('team')}
+              className="p-4 rounded-2xl bg-card border border-border/80 hover:border-purple-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'فريق العمل' : 'Staff Members'}</span>
+                <Users size={15} className="text-purple-400" />
+              </div>
+              <p className="text-xl font-bold font-syne text-foreground">{employees.length}</p>
+              <p className="text-[10px] text-purple-400 font-medium">{isRtl ? 'جميع الأقسام' : 'All departments'}</p>
+            </div>
+
+            {/* 6. Leave Requests Pending */}
+            <div 
+              onClick={() => setActiveTab('leaves_attendance')}
+              className="p-4 rounded-2xl bg-card border border-border/80 hover:border-amber-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'طلبات الإجازة' : 'Leave Requests'}</span>
+                <Calendar size={15} className="text-amber-400" />
+              </div>
+              <p className="text-xl font-bold font-syne text-amber-400">{leaveRequests.filter(r => r.status === 'pending').length}</p>
+              <p className="text-[10px] text-muted-foreground">{isRtl ? 'بانتظار موافقة الإدارة' : 'pending approval'}</p>
+            </div>
+          </div>
+
+          {/* Interactive Visual Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Chart 1: Financial Performance BarChart */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <BarChart3 size={16} className="text-primary" />
+                    <span>{isRtl ? 'التدفق المالي وهوامش الأرباح' : 'Financial Flow & Margins'}</span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isRtl ? 'مقارنة المبيعات بالرسوم الحكومية والأرباح الصافية' : 'Sales vs Ministry Outflows vs Work Margins (OMR)'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-56 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={financialChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px', fontSize: '11px' }}
+                      formatter={(value: any) => [`OMR ${Number(value).toFixed(3)}`, 'Amount']}
+                    />
+                    <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
+                      {financialChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex items-center justify-around border-t border-border/40 pt-3 text-center">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">{isRtl ? 'المبيعات' : 'Sales'}</p>
+                  <p className="text-xs font-bold text-emerald-400 font-mono">OMR {(auditData?.kpis.totalSalesRevenue || 0).toFixed(3)}</p>
+                </div>
+                <div className="h-6 w-px bg-border/40" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">{isRtl ? 'الرسوم الحكومية' : 'Gov Fees'}</p>
+                  <p className="text-xs font-bold text-blue-400 font-mono">OMR {(auditData?.kpis.totalGovFeesPaid || 0).toFixed(3)}</p>
+                </div>
+                <div className="h-6 w-px bg-border/40" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground">{isRtl ? 'هامش المكتب' : 'Work Margin'}</p>
+                  <p className="text-xs font-bold text-primary font-mono">OMR {(auditData?.kpis.totalWorkFees || 0).toFixed(3)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Chart 2: Ministry Disbursements PieChart */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Building2 size={16} className="text-blue-400" />
+                    <span>{isRtl ? 'توزيع الرسوم الحكومية حسب الجهة' : 'Gov Outflows by Entity'}</span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isRtl ? 'الشرطة، العمل، التجارة والصناعة، والغرفة' : 'Disbursements to ROP, MOL, MOCIIP, OCCI'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-56 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={ministryDistributionData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={75}
+                      paddingAngle={4}
+                    >
+                      {ministryDistributionData.map((entry, index) => (
+                        <Cell key={`pie-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px', fontSize: '11px' }}
+                      formatter={(value: any) => [`OMR ${Number(value).toFixed(3)}`, 'Disbursed']}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36} 
+                      wrapperStyle={{ fontSize: '10px' }} 
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="border-t border-border/40 pt-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{isRtl ? 'إجمالي المعاملات الحكومية' : 'Total Ministry Transactions'}</span>
+                <span className="font-bold text-foreground font-mono">{auditData?.govOutflows.length || 0}</span>
+              </div>
+            </div>
+
+            {/* Chart 3: Staff Department Breakdown & Compliance Health */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Users size={16} className="text-purple-400" />
+                    <span>{isRtl ? 'توزيع الكادر البشري والامتثال' : 'Staff Departments & Health'}</span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isRtl ? 'توزيع الموظفين وصلاحية المستندات' : 'Headcount and document expiry status'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Department breakdown meters */}
+              <div className="space-y-3 py-1">
+                {departmentDistributionData.slice(0, 4).map((d) => (
+                  <div key={d.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-foreground">{d.name}</span>
+                      <span className="text-muted-foreground font-mono">{d.count} {isRtl ? 'موظف' : 'staff'} ({employees.length > 0 ? Math.round((d.count / employees.length) * 100) : 0}%)</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-muted/40 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all" 
+                        style={{ 
+                          width: `${employees.length > 0 ? Math.round((d.count / employees.length) * 100) : 0}%`,
+                          backgroundColor: d.fill 
+                        }} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick Compliance Summary Badges */}
+              <div className="grid grid-cols-3 gap-2 border-t border-border/40 pt-3 text-center">
+                <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <p className="text-[10px] text-rose-400">{isRtl ? 'منتهية' : 'Expired'}</p>
+                  <p className="text-sm font-bold text-rose-400 font-mono">{complianceStats.expiredCount}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-[10px] text-amber-400">{isRtl ? 'أقل من 15 يوم' : '≤ 15d Critical'}</p>
+                  <p className="text-sm font-bold text-amber-400 font-mono">{complianceStats.critical15Count}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-[10px] text-emerald-400">{isRtl ? 'نظامية' : 'Compliant'}</p>
+                  <p className="text-sm font-bold text-emerald-400 font-mono">{complianceStats.compliantCount}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Executive Action Radar (Priority Items) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Missing Slips Action Card */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    {isRtl ? 'تدقيق مالي عاجل' : 'Audit Attention'}
+                  </span>
+                  <span className="text-xs text-rose-400 font-bold">{missingSlipsList.length} {isRtl ? 'معاملة بدون سند' : 'unverified'}</span>
+                </div>
+                <h4 className="text-sm font-bold text-foreground">{isRtl ? 'سندات قبض مفقودة' : 'Unattached Receipt Slips'}</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {missingSlipsList.length > 0 
+                    ? (isRtl ? 'يوجد مبيعات مسجلة لم يقم الموظف بإرفاق سند القبض المالي المعتمد لها.' : 'Sales entries recorded without verified voucher receipts uploaded.')
+                    : (isRtl ? 'جميع سندات القبض معتمدة ومرفقة بشكل ممتاز.' : 'All sales transactions have verified vouchers attached.')}
+                </p>
+              </div>
+
+              {missingSlipsList.length > 0 && (
+                <div className="space-y-1.5 border-t border-border/40 pt-2.5">
+                  {missingSlipsList.slice(0, 2).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-muted/20">
+                      <span className="font-semibold text-foreground truncate max-w-[140px]">{s.clientName}</span>
+                      <span className="font-mono text-emerald-400 font-bold">OMR {s.totalAmount.toFixed(3)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setActiveTab('sales');
+                  setSalesReceiptFilter('missing');
+                }}
+                className="w-full py-2 rounded-xl bg-card border border-border hover:bg-muted text-xs font-bold text-foreground transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>{isRtl ? 'تدقيق سندات المبيعات الآن' : 'Review Missing Slips'}</span>
+                <ArrowRight size={14} className="text-primary" />
+              </button>
+            </div>
+
+            {/* Card 2: Pending Leave Requests */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                    <Calendar size={12} />
+                    {isRtl ? 'قرارات الإدارة' : 'HR Decisions'}
+                  </span>
+                  <span className="text-xs text-amber-400 font-bold">{pendingLeavesList.length} {isRtl ? 'طلب قيد الانتظار' : 'pending'}</span>
+                </div>
+                <h4 className="text-sm font-bold text-foreground">{isRtl ? 'طلبات الإجازة المعلقة' : 'Pending Leave Approvals'}</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {pendingLeavesList.length > 0
+                    ? (isRtl ? 'طلبات إجازة من الموظفين بانتظار اعتماد أو رفض إدارة الموارد البشرية.' : 'Staff leave applications requiring managerial approval or rejection.')
+                    : (isRtl ? 'لا توجد طلبات إجازة معلقة حالياً.' : 'No pending staff leave applications at this time.')}
+                </p>
+              </div>
+
+              {pendingLeavesList.length > 0 && (
+                <div className="space-y-2 border-t border-border/40 pt-2.5">
+                  {pendingLeavesList.slice(0, 2).map((req) => (
+                    <div key={req.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-muted/20">
+                      <div>
+                        <p className="font-bold text-foreground">{req.employee?.full_name}</p>
+                        <p className="text-[10px] text-muted-foreground">{req.leave_type} ({req.days_count}d)</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleApproveLeave(req)}
+                          disabled={isReviewingLeave}
+                          className="px-2 py-1 rounded-md bg-emerald-500 text-white font-bold text-[10px] hover:bg-emerald-600"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectLeave(req)}
+                          disabled={isReviewingLeave}
+                          className="px-2 py-1 rounded-md bg-rose-500/10 text-rose-400 font-bold text-[10px] hover:bg-rose-500/20"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setActiveTab('leaves_attendance');
+                  setLeavesSubTab('requests');
+                }}
+                className="w-full py-2 rounded-xl bg-card border border-border hover:bg-muted text-xs font-bold text-foreground transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>{isRtl ? 'عرض سجل الإجازات' : 'Manage All Leaves'}</span>
+                <ArrowRight size={14} className="text-primary" />
+              </button>
+            </div>
+
+            {/* Card 3: Document Expiry Radar */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                    <Clock size={12} />
+                    {isRtl ? 'إنذار الصلاحية' : 'Expiry Radar'}
+                  </span>
+                  <span className="text-xs text-blue-400 font-bold">{urgentExpiryList.length} {isRtl ? 'مستند قريب الانتهاء' : 'approaching'}</span>
+                </div>
+                <h4 className="text-sm font-bold text-foreground">{isRtl ? 'انتهاء الجوازات والإقامات' : 'Visa & Passport Expiry Watch'}</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {urgentExpiryList.length > 0
+                    ? (isRtl ? 'تنبيه استباقي لتجديد وثائق الموظفين المنتهية أو التي تقترب من 30 يوماً.' : 'Alerts for staff documents expiring within 30 days to avoid gov fines.')
+                    : (isRtl ? 'جميع وثائق الموظفين سارية ومطابقة للمواصفات.' : 'All staff legal documents are current and compliant.')}
+                </p>
+              </div>
+
+              {urgentExpiryList.length > 0 && (
+                <div className="space-y-1.5 border-t border-border/40 pt-2.5">
+                  {urgentExpiryList.slice(0, 2).map((emp) => (
+                    <div key={emp.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-muted/20">
+                      <div>
+                        <p className="font-bold text-foreground">{emp.full_name}</p>
+                        <p className="text-[10px] text-muted-foreground">{emp.job_title || emp.department}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        (emp.minDays || 0) < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {(emp.minDays || 0) < 0 ? 'Expired' : `${emp.minDays}d left`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setActiveTab('team');
+                  setComplianceFilter('critical_15');
+                }}
+                className="w-full py-2 rounded-xl bg-card border border-border hover:bg-muted text-xs font-bold text-foreground transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>{isRtl ? 'فتح رادار الامتثال' : 'Inspect Expiry Radar'}</span>
+                <ArrowRight size={14} className="text-primary" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── TAB 1: SALES & FINANCE AUDIT ───────────────────────────────────── */}
       {activeTab === 'sales' && (
         <div className="space-y-4">
+          {/* Dedicated Sales Audit KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي المبيعات' : 'Sales Logged'}</span>
+                <DollarSign size={16} className="text-emerald-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-foreground">{auditData?.kpis.totalSalesCount ?? 0}</p>
+              <p className="text-[11px] text-emerald-400 font-mono font-bold">OMR {(auditData?.kpis.totalSalesRevenue ?? 0).toFixed(3)}</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'سندات معتمدة' : 'Verified Receipts'}</span>
+                <CheckCircle2 size={16} className="text-blue-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-blue-400">{auditData?.kpis.salesWithReceipt ?? 0}</p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'سند قبض مؤكد' : 'Voucher slips attached'}</p>
+            </div>
+
+            <button
+              onClick={() => setSalesReceiptFilter('missing')}
+              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${
+                (auditData?.kpis.salesMissingReceipt ?? 0) > 0
+                  ? 'bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/20'
+                  : 'bg-card border-border/80'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                  {(auditData?.kpis.salesMissingReceipt ?? 0) > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+                  {isRtl ? 'سندات غير مرفقة' : 'Missing Slips'}
+                </span>
+                <AlertTriangle size={16} className="text-rose-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-rose-400">{auditData?.kpis.salesMissingReceipt ?? 0}</p>
+              <p className="text-[11px] text-rose-400/80">{isRtl ? 'اضغط لعرض النواقص' : 'Click to filter missing'}</p>
+            </button>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'نسبة الامتثال بالسندات' : 'Slip Compliance'}</span>
+                <FileCheck size={16} className="text-primary" />
+              </div>
+              <p className="text-2xl font-black font-syne text-primary">
+                {auditData?.kpis.totalSalesCount
+                  ? Math.round(((auditData.kpis.salesWithReceipt || 0) / auditData.kpis.totalSalesCount) * 100)
+                  : 100}%
+              </p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'جاهزية التدقيق المالي' : 'Financial audit readiness'}</p>
+            </div>
+          </div>
           {/* Sub-Filters Pill Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border/80">
@@ -983,6 +1449,64 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
       {/* ─── TAB 2: OPERATIONS & GOV / SUPPLIER OUTFLOWS ────────────────────── */}
       {activeTab === 'gov_outflows' && (
         <div className="space-y-4">
+          {/* Dedicated Gov Outflow & Profit Margin KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'الرسوم الحكومية المسددة' : 'Gov Fees Paid'}</span>
+                <Building2 size={16} className="text-blue-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-blue-400">
+                OMR {(auditData?.kpis.totalGovFeesPaid ?? 0).toFixed(3)}
+              </p>
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {auditData?.govOutflows.length ?? 0} {isRtl ? 'معاملة حكومية' : 'procedures disbursed'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي رسوم العقود' : 'Gross Deal Fees'}</span>
+                <DollarSign size={16} className="text-emerald-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-foreground">
+                OMR {filteredGovOutflows.reduce((acc, g) => acc + g.dealFee, 0).toFixed(3)}
+              </p>
+              <p className="text-[11px] text-emerald-400">{isRtl ? 'قيمة مبيعات المعاملات' : 'Client contract volume'}</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'أتعاب المكتب الصافية' : 'Net Office Margin'}</span>
+                <Sparkles size={16} className="text-primary" />
+              </div>
+              <p className="text-2xl font-black font-syne text-primary">
+                OMR {(auditData?.kpis.totalWorkFees ?? 0).toFixed(3)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'صافي الربح بعد خصم الرسوم' : 'Net profit retained'}</p>
+            </div>
+
+            <button
+              onClick={() => setGovReceiptFilter('missing')}
+              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${
+                filteredGovOutflows.filter(g => !g.hasGovReceipt).length > 0
+                  ? 'bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/20'
+                  : 'bg-card border-border/80'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400">
+                  {isRtl ? 'إيصالات ناقصة' : 'Missing Gov Slips'}
+                </span>
+                <AlertTriangle size={16} className="text-rose-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-rose-400">
+                {filteredGovOutflows.filter(g => !g.hasGovReceipt).length}
+              </p>
+              <p className="text-[11px] text-rose-400/80">{isRtl ? 'تحتاج إرفاق إيصال الدفع' : 'Requires slip attachment'}</p>
+            </button>
+          </div>
+
           <div className="flex flex-col gap-3">
             {/* Top Filter Bar: Receipt Status + Entity Category */}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1169,8 +1693,25 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
       {/* ─── TAB 3: TEAM DIRECTORY & COMPLIANCE RADAR ───────────────────────── */}
       {activeTab === 'team' && (
         <div className="space-y-4">
-          {/* Document Expiry Countdown Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Document Expiry Countdown & Staff Headcount Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Card 0: Total Staff */}
+            <button
+              onClick={() => setComplianceFilter('all')}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                complianceFilter === 'all'
+                  ? 'bg-purple-500/15 border-purple-500 shadow-md shadow-purple-500/10'
+                  : 'bg-card border-border/80 hover:border-purple-500/40'
+              }`}
+            >
+              <div className="flex items-center justify-between text-purple-400 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي الموظفين' : 'Staff Members'}</span>
+                <Users size={16} />
+              </div>
+              <p className="text-2xl font-black font-syne text-foreground">{employees.length}</p>
+              <p className="text-[10px] text-purple-400 mt-1">{isRtl ? 'جميع الأقسام والفروع' : 'Across all branches'}</p>
+            </button>
+
             {/* Card 1: Expired */}
             <button
               onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
@@ -1387,6 +1928,59 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
       {/* ─── TAB 4: LEAVES & ATTENDANCE ─────────────────────────────────────── */}
       {activeTab === 'leaves_attendance' && (
         <div className="space-y-4">
+          {/* Dedicated Leaves & Attendance KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className={`p-4 rounded-2xl border space-y-1 shadow-sm ${
+              leaveRequests.filter(r => r.status === 'pending').length > 0
+                ? 'bg-amber-500/10 border-amber-500/40'
+                : 'bg-card border-border/80'
+            }`}>
+              <div className="flex items-center justify-between text-amber-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'طلبات قيد المراجعة' : 'Pending Approvals'}</span>
+                <Calendar size={16} />
+              </div>
+              <p className="text-2xl font-black font-syne text-amber-400">
+                {leaveRequests.filter(r => r.status === 'pending').length}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'بانتظار قرار الإدارة' : 'Awaiting HR review'}</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجازات معتمدة هذا الشهر' : 'Approved Leaves'}</span>
+                <CheckCircle2 size={16} className="text-emerald-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-emerald-400">
+                {leaveRequests.filter(r => r.status === 'approved').length}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'تمت الموافقة وتحديث الرصيد' : 'Processed applications'}</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'حضور اليوم المسجل' : 'Today Check-ins'}</span>
+                <Clock size={16} className="text-blue-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-blue-400">
+                {attendanceLogs.filter(l => l.status === 'present' || l.status === 'late').length} / {employees.length}
+              </p>
+              <p className="text-[11px] text-blue-400/80 font-mono">
+                {employees.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === 'present' || l.status === 'late').length / employees.length) * 100) : 0}% {isRtl ? 'نسبة الحضور' : 'attendance rate'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'في إجازة مصرحة اليوم' : 'On Leave Today'}</span>
+                <Users size={16} className="text-purple-400" />
+              </div>
+              <p className="text-2xl font-black font-syne text-purple-400">
+                {attendanceLogs.filter(l => l.status === 'on_leave').length}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{isRtl ? 'موظف في إجازة معتمدة' : 'Staff members away'}</p>
+            </div>
+          </div>
+
           {/* Sub Navigation */}
           <div className="flex items-center justify-between gap-4 border-b border-border/40 pb-3">
             <div className="flex items-center gap-2">
