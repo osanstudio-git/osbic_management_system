@@ -34,8 +34,10 @@ export interface GovOutflowItem {
   serviceName: string;
   supplierName: string; // e.g. MOCIIP, ROP, MOL, OCCI, Sanad
   date: string;
+  dealFee: number;
   estimatedGovFee: number;
   actualPaidGovFee: number;
+  workFeeMargin: number; // Deal Fee - Gov Fee
   hasGovReceipt: boolean;
   govReceiptUrl?: string | null;
   opsRepName: string;
@@ -193,6 +195,10 @@ export const useHRAdminAudit = (filters?: {
               }
             }
 
+            const dealFee = (Number(js.work_fee) || 0) + estimatedFee;
+            const actualPaidGovFee = Number(js.gov_fee_actual_paid) || estimatedFee;
+            const workFeeMargin = Math.max(0, dealFee - actualPaidGovFee);
+
             govList.push({
               id: js.id,
               jobId: j.id,
@@ -201,8 +207,10 @@ export const useHRAdminAudit = (filters?: {
               serviceName: js.service_name || 'Ministry Service',
               supplierName: supplier,
               date: js.gov_paid_at || j.created_at,
+              dealFee,
               estimatedGovFee: estimatedFee,
-              actualPaidGovFee: Number(js.gov_fee_actual_paid) || estimatedFee,
+              actualPaidGovFee,
+              workFeeMargin,
               hasGovReceipt,
               govReceiptUrl,
               opsRepName: j.ops_rep?.full_name || 'Operations Team',
@@ -219,6 +227,28 @@ export const useHRAdminAudit = (filters?: {
         const total = Number(w.total_amount) || 0;
         const govFee = Number(w.government_fee) || 0;
         const workFee = Number(w.profit) || (total - govFee);
+
+        if (govFee > 0) {
+          govList.push({
+            id: `walkin-gov-${w.id}`,
+            jobId: `walkin-${w.id}`,
+            jobCode: `WALK-${w.id.slice(0, 5).toUpperCase()}`,
+            clientName: w.client_name || 'Walk-in Client',
+            serviceName: w.work_type || 'Walk-in Ministry Service',
+            supplierName: 'Sanad / Gov Portal',
+            date: w.date || w.created_at,
+            dealFee: total,
+            estimatedGovFee: govFee,
+            actualPaidGovFee: govFee,
+            workFeeMargin: workFee,
+            hasGovReceipt: Boolean(w.receipt_url || w.client_receipt_url),
+            govReceiptUrl: w.receipt_url || w.client_receipt_url || null,
+            opsRepName: w.employee?.full_name || 'Operations Counter',
+            branchName: w.branch?.name || 'Main Branch',
+            branchId: w.branch_id || null,
+            status: 'paid'
+          });
+        }
 
         salesList.push({
           id: `walkin-${w.id}`,
