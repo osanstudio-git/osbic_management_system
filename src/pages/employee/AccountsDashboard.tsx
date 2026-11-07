@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard } from 'lucide-react';
+import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -45,6 +45,9 @@ export default function AccountsDashboard() {
   // Job Details Modal State
   const [jobDetailsModalOpen, setJobDetailsModalOpen] = useState(false);
   const [jobDetailsTarget, setJobDetailsTarget] = useState<any | null>(null);
+
+  // Receivables Sub-tab State
+  const [receivablesSubTab, setReceivablesSubTab] = useState<'due' | 'surplus'>('due');
 
   const { pendingExpenses, loadingPending, updateExpenseStatus } = useExpenses();
   const { data: accountsData, isLoading: loadingOverview } = useAccountsOverview();
@@ -895,85 +898,183 @@ export default function AccountsDashboard() {
                 </div>
               </div>
             );
-          })()}
-
-          {/* RECEIVABLES AGING TAB */}
+          })()}          {/* RECEIVABLES AGING & CLIENT SURPLUS TAB */}
           {activeTab === 'receivables' && (() => {
             const receivablesJobs = allJobsReport.filter((j: any) => (j.remaining_amount || 0) > 0);
             const totalReceivable = receivablesJobs.reduce((sum: number, j: any) => sum + (j.remaining_amount || 0), 0);
+
+            const surplusJobs = allJobsReport.filter((j: any) => {
+              const paid = Number(j.advance_amount || 0);
+              const totalBilled = Number(j.total_fee || 0);
+              return paid > totalBilled && totalBilled > 0;
+            });
+            const totalSurplus = surplusJobs.reduce((sum: number, j: any) => sum + (Number(j.advance_amount || 0) - Number(j.total_fee || 0)), 0);
 
             return (
               <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border p-6 rounded-3xl">
                   <div>
-                    <h3 className="font-syne font-bold text-xl text-foreground">Outstanding Customer Receivables</h3>
-                    <p className="text-sm text-muted-foreground mt-1">Clients with remaining unpaid balances, aging status, and instant WhatsApp payment reminder action.</p>
+                    <h3 className="font-syne font-bold text-xl text-foreground">Customer Balances & Surplus Reconciliation</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Monitor outstanding client receivables or surplus customer refunds from ministry fee savings.</p>
                   </div>
-                  <div className="bg-amber-500/10 border border-amber-500/20 px-6 py-3 rounded-2xl shrink-0">
-                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest block">Total Outstanding Balance</span>
-                    <span className="font-mono font-black text-2xl text-amber-500">{totalReceivable.toFixed(3)} OMR</span>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-amber-500/10 border border-amber-500/20 px-5 py-3 rounded-2xl shrink-0">
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest block">Receivables Due</span>
+                      <span className="font-mono font-black text-xl text-amber-500">{totalReceivable.toFixed(3)} OMR</span>
+                    </div>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl shrink-0">
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Client Surplus / Refunds</span>
+                      <span className="font-mono font-black text-xl text-emerald-400">{totalSurplus.toFixed(3)} OMR</span>
+                    </div>
                   </div>
+                </div>
+
+                {/* Sub Tab Switcher */}
+                <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-2xl border border-border w-fit">
+                  <button
+                    onClick={() => setReceivablesSubTab('due')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      receivablesSubTab === 'due'
+                        ? 'bg-amber-500 text-black shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Outstanding Balances Due ({receivablesJobs.length})
+                  </button>
+                  <button
+                    onClick={() => setReceivablesSubTab('surplus')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      receivablesSubTab === 'surplus'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Client Surplus & Refunds Due ({surplusJobs.length})
+                  </button>
                 </div>
 
                 <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/20">
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Contact</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Code</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sales Rep</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Total Fee</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Paid</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Balance Due</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {receivablesJobs.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                              No outstanding customer payments! All receivables are fully collected.
-                            </td>
+                    {receivablesSubTab === 'due' ? (
+                      <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Contact</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Code</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sales Rep</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Total Fee</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Paid</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Balance Due</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Actions</th>
                           </tr>
-                        ) : (
-                          receivablesJobs.map((job: any) => {
-                            const phoneClean = job.client?.phone?.replace(/[^0-9]/g, '') || '';
-                            const waMsg = encodeURIComponent(`Dear ${job.client?.full_name || 'Client'},\nThis is a payment reminder from OSBIC Accounts regarding Job ${job.job_code}. Outstanding balance: ${job.remaining_amount.toFixed(3)} OMR.\nPlease contact us to finalize payment.\nThank you!`);
-                            const waUrl = phoneClean ? `https://wa.me/${phoneClean}?text=${waMsg}` : null;
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {receivablesJobs.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                                No outstanding customer payments! All receivables are fully collected.
+                              </td>
+                            </tr>
+                          ) : (
+                            receivablesJobs.map((job: any) => {
+                              const phoneClean = job.client?.phone?.replace(/[^0-9]/g, '') || '';
+                              const waMsg = encodeURIComponent(`Dear ${job.client?.full_name || 'Client'},\nThis is a payment reminder from OSBIC Accounts regarding Job ${job.job_code}. Outstanding balance: ${job.remaining_amount.toFixed(3)} OMR.\nPlease contact us to finalize payment.\nThank you!`);
+                              const waUrl = phoneClean ? `https://wa.me/${phoneClean}?text=${waMsg}` : null;
 
-                            return (
-                              <tr key={job.id} className="hover:bg-muted/10 transition-colors">
-                                <td className="px-6 py-4">
-                                  <div className="font-bold text-foreground text-sm">{job.client?.full_name || 'Unknown'}</div>
-                                  <div className="text-xs text-muted-foreground mt-0.5">{job.client?.company_name || 'Individual'}</div>
-                                  {job.client?.phone && <div className="text-xs font-mono text-primary mt-1 flex items-center gap-1"><Phone size={12} /> {job.client?.phone}</div>}
-                                </td>
-                                <td className="px-6 py-4 font-mono font-bold text-sm text-foreground">{job.job_code}</td>
-                                <td className="px-6 py-4 text-xs font-bold text-muted-foreground">{job.sales_employee?.full_name || 'Unassigned'}</td>
-                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</td>
-                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-emerald-500">{(job.advance_amount || 0).toFixed(3)}</td>
-                                <td className="px-6 py-4 text-right font-mono text-sm font-bold text-amber-500">{(job.remaining_amount || 0).toFixed(3)}</td>
-                                <td className="px-6 py-4 text-center">
-                                  {waUrl ? (
-                                    <a
-                                      href={waUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors"
-                                    >
-                                      <Phone size={13} /> Send Reminder
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground italic">No phone</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
+                              return (
+                                <tr key={job.id} className="hover:bg-muted/10 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="font-bold text-foreground text-sm">{job.client?.full_name || 'Unknown'}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">{job.client?.company_name || 'Individual'}</div>
+                                    {job.client?.phone && <div className="text-xs font-mono text-primary mt-1 flex items-center gap-1"><Phone size={12} /> {job.client?.phone}</div>}
+                                  </td>
+                                  <td className="px-6 py-4 font-mono font-bold text-sm text-foreground">{job.job_code}</td>
+                                  <td className="px-6 py-4 text-xs font-bold text-muted-foreground">{job.sales_employee?.full_name || 'Unassigned'}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-bold text-emerald-500">{(job.advance_amount || 0).toFixed(3)}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-bold text-amber-500">{(job.remaining_amount || 0).toFixed(3)}</td>
+                                  <td className="px-6 py-4 text-center">
+                                    {waUrl ? (
+                                      <a
+                                        href={waUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors"
+                                      >
+                                        <Phone size={13} /> Send Reminder
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">No phone</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Contact</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Code</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sales Rep</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Billed Cost</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Customer Deposited</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Surplus Refund Due</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {surplusJobs.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                                No customer surplus or refunds due. All accounts balanced.
+                              </td>
+                            </tr>
+                          ) : (
+                            surplusJobs.map((job: any) => {
+                              const surplusAmount = Number(job.advance_amount || 0) - Number(job.total_fee || 0);
+                              const phoneClean = job.client?.phone?.replace(/[^0-9]/g, '') || '';
+                              const waMsg = encodeURIComponent(`Dear ${job.client?.full_name || 'Client'},\nGreetings from OSBIC Accounts regarding Job ${job.job_code}.\nYour account has a surplus balance of ${surplusAmount.toFixed(3)} OMR from lower government fee expenses.\nPlease share your bank IBAN for refund transfer or confirm crediting to your account.\nThank you!`);
+                              const waUrl = phoneClean ? `https://wa.me/${phoneClean}?text=${waMsg}` : null;
+
+                              return (
+                                <tr key={job.id} className="hover:bg-muted/10 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="font-bold text-foreground text-sm">{job.client?.full_name || 'Unknown'}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">{job.client?.company_name || 'Individual'}</div>
+                                    {job.client?.phone && <div className="text-xs font-mono text-primary mt-1 flex items-center gap-1"><Phone size={12} /> {job.client?.phone}</div>}
+                                  </td>
+                                  <td className="px-6 py-4 font-mono font-bold text-sm text-foreground">{job.job_code}</td>
+                                  <td className="px-6 py-4 text-xs font-bold text-muted-foreground">{job.sales_employee?.full_name || 'Unassigned'}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-bold text-blue-400">{(job.advance_amount || 0).toFixed(3)}</td>
+                                  <td className="px-6 py-4 text-right font-mono text-sm font-extrabold text-emerald-400">
+                                    +{surplusAmount.toFixed(3)} OMR
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    {waUrl ? (
+                                      <a
+                                        href={waUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors"
+                                      >
+                                        <Phone size={13} /> Notify Refund via WA
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">No phone</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 </div>
               </div>

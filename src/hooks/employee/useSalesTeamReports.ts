@@ -357,6 +357,7 @@ export const useSalesTeamReports = (
             govtFee: Number(l.govt_fee) || 0,
             profit: Number(l.profit) || 0,
             date: l.conversion_date || l.created_at,
+            createdAt: l.created_at,
             status: l.status,
           })),
           ...empWalkin.filter(ws => ws.status !== 'cancelled').map(ws => ({
@@ -368,6 +369,7 @@ export const useSalesTeamReports = (
             govtFee: Number(ws.government_fee) || 0,
             profit: Number(ws.profit) || 0,
             date: ws.date || ws.created_at,
+            createdAt: ws.created_at,
             status: ws.status,
           })),
         ];

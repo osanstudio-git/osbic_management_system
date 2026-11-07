@@ -11,6 +11,7 @@ import { useWalkinSales, useWalkinEnquiries, calcProfit } from '../../hooks/empl
 import type { WalkinSale, WalkinSaleFormData, WalkinStatus, PaymentMode, WalkinEnquiry, WalkinEnquiryFormData } from '../../hooks/employee/useWalkinSales';
 import { useAuth } from '../../contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
+import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -635,6 +636,9 @@ const WalkinSales: React.FC = () => {
   const [editSale, setEditSale] = useState<WalkinSale | null>(null);
   const [convertedEnquiry, setConvertedEnquiry] = useState<WalkinEnquiry | null>(null);
 
+  const [unifiedModalOpen, setUnifiedModalOpen] = useState(false);
+  const [unifiedModalTab, setUnifiedModalTab] = useState<'new_sale' | 'rest_payment'>('new_sale');
+
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deleteEnquiryId, setDeleteEnquiryId] = useState<string | null>(null);
 
@@ -776,10 +780,22 @@ const WalkinSales: React.FC = () => {
             <MessageSquare size={16} /> Quick Enquiry
           </button>
           <button
-            onClick={handleAddSale}
+            onClick={() => {
+              setUnifiedModalTab('rest_payment');
+              setUnifiedModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm"
+          >
+            <CheckCircle2 size={16} /> Collect Balance
+          </button>
+          <button
+            onClick={() => {
+              setUnifiedModalTab('new_sale');
+              setUnifiedModalOpen(true);
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
           >
-            <Plus size={18} /> Add New Sale
+            <Plus size={18} /> Record Sale & Deal
           </button>
         </div>
       </div>
@@ -1317,6 +1333,12 @@ const WalkinSales: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* ── Unified Record Sale Modal (Backlog & Rest Payments) ─── */}
+      <UnifiedRecordSaleModal
+        isOpen={unifiedModalOpen}
+        onClose={() => setUnifiedModalOpen(false)}
+        defaultTab={unifiedModalTab}
+      />
     </div>
   );
 };

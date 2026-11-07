@@ -25,6 +25,38 @@ interface LeadDistributionHubModalProps {
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom';
 type ListTab = 'unassigned' | 'assigned' | 'date_log';
 
+export interface DistributionLeadProfile {
+  id?: string;
+  full_name?: string | null;
+  employee_code?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface DistributionLead {
+  id: string;
+  lead_code?: string | null;
+  contact_name: string;
+  contact_phone?: string | null;
+  contact_whatsapp?: string | null;
+  contact_email?: string | null;
+  company_name?: string | null;
+  service_required?: string | null;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  assigned_to?: string | null;
+  assigned_by?: string | null;
+  date_reassigned?: string | null;
+  is_reassigned?: boolean | null;
+  branch_id?: string | null;
+  quoted_amount?: number | null;
+  total_amount?: number | null;
+  lead_sources?: { name: string } | null;
+  assigned_to_profile?: DistributionLeadProfile | null;
+  assigned_by_profile?: DistributionLeadProfile | null;
+}
+
 export default function LeadDistributionHubModal({
   isOpen,
   onClose,
@@ -48,10 +80,10 @@ export default function LeadDistributionHubModal({
   const [workloadSearchQuery, setWorkloadSearchQuery] = useState<string>('');
 
   // 1. Fetch All Leads for Distribution
-  const { data: allLeads = [], isLoading: loadingLeads, refetch: refetchLeads } = useQuery({
+  const { data: allLeads = [], isLoading: loadingLeads, refetch: refetchLeads } = useQuery<DistributionLead[]>({
     queryKey: ['lead_distribution_hub_leads', branchId],
     enabled: isOpen,
-    queryFn: async () => {
+    queryFn: async (): Promise<DistributionLead[]> => {
       let query = supabase
         .from('leads')
         .select(`
@@ -85,7 +117,7 @@ export default function LeadDistributionHubModal({
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return (data as unknown as DistributionLead[]) || [];
     }
   });
 

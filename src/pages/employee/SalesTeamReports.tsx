@@ -28,6 +28,7 @@ import {
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
+import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 
 export default function SalesTeamReports() {
   const { profile, role } = useAuth();
@@ -42,6 +43,8 @@ export default function SalesTeamReports() {
   const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales' | 'jobs'>('leads');
   const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [isDistributionHubOpen, setIsDistributionHubOpen] = useState(false);
+  const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
+  const [recordSaleTab, setRecordSaleTab] = useState<'new_sale' | 'rest_payment'>('new_sale');
 
   // Fetch performance data
   const { data, isLoading, refetch, isRefetching } = useSalesTeamReports(
@@ -276,6 +279,17 @@ export default function SalesTeamReports() {
                 {summary.totalUnassignedLeads} Unassigned
               </span>
             ) : null}
+          </button>
+
+          <button
+            onClick={() => {
+              setRecordSaleTab('new_sale');
+              setIsRecordSaleOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-500 text-white font-extrabold text-xs hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-emerald-500/20"
+          >
+            <DollarSign size={15} />
+            <span>Record Sale / Payment</span>
           </button>
 
           <button
@@ -1295,9 +1309,14 @@ export default function SalesTeamReports() {
                             <p className="text-[11px] text-muted-foreground mt-0.5">
                               {s.workType ? `Work: ${s.workType}` : s.companyName ? `Company: ${s.companyName}` : 'Service Sale'}
                             </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {format(parseISO(s.date), 'dd MMM yyyy')}
-                            </p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 flex-wrap">
+                              <span className="font-semibold text-foreground">Deal: {format(parseISO(s.date), 'dd MMM yyyy')}</span>
+                              {s.createdAt && s.createdAt.slice(0, 10) !== s.date.slice(0, 10) && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold flex items-center gap-1">
+                                  <Clock size={10} /> Backlog (Logged {format(parseISO(s.createdAt), 'dd MMM')})
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="text-right space-y-0.5">
@@ -1507,6 +1526,16 @@ export default function SalesTeamReports() {
         isOpen={isDistributionHubOpen}
         onClose={() => setIsDistributionHubOpen(false)}
         branchId={profile?.branch_id}
+      />
+
+      {/* 💰 Unified Sales & Backlog Record Modal */}
+      <UnifiedRecordSaleModal
+        isOpen={isRecordSaleOpen}
+        onClose={() => {
+          setIsRecordSaleOpen(false);
+          refetch();
+        }}
+        defaultTab={recordSaleTab}
       />
     </div>
   );

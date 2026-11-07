@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, Briefcase, 
-  CheckCircle2, CreditCard, CheckSquare, Square, Calendar, 
-  Camera, Layers, Settings2, Sliders, UserCheck, User, 
+import {
+  ChevronLeft, Save, Plus, Trash2, FileText, Printer, Edit, Briefcase,
+  CheckCircle2, CreditCard, CheckSquare, Square, Calendar,
+  Camera, Layers, Settings2, Sliders, UserCheck, User,
   Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle,
   GripVertical
 } from 'lucide-react';
@@ -206,11 +206,10 @@ const SortableQuotationItem: React.FC<SortableQuotationItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-muted/10 p-4 rounded-xl border transition-all ${
-        isDragging
+      className={`bg-muted/10 p-4 rounded-xl border transition-all ${isDragging
           ? 'border-primary shadow-2xl bg-card ring-2 ring-primary/20 opacity-80 scale-[1.01]'
           : 'border-border/40 hover:border-primary/30'
-      } space-y-3 group`}
+        } space-y-3 group`}
     >
       <div className="flex gap-2.5 items-end">
         {/* Drag Handle */}
@@ -361,7 +360,7 @@ const QuotationBuilder = () => {
 
   // Concurrency Mutex & Timers
   const isSavingRef = useRef<boolean>(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitializedRef = useRef<boolean>(false);
   const draftStorageKey = `quotation_draft_${isNew ? 'new' : id}`;
 
@@ -1112,10 +1111,10 @@ const QuotationBuilder = () => {
       debounceTimerRef.current = setTimeout(async () => {
         if (isSavingRef.current) return;
         if (!formData.client_id && !formData.lead_id) return;
-        
+
         const isB2BProposal = formData.metadata?.proposal_type === 'b2b_proposal';
         let itemsToSave = [...(formData.items || [])];
-        
+
         if (isB2BProposal) {
           if (itemsToSave.length === 0) {
             itemsToSave = [{
@@ -1123,7 +1122,7 @@ const QuotationBuilder = () => {
               description: 'Strategic B2B Partnership Proposal - Oman Company Formation Services',
               unit_price: Number(formData.metadata?.pkg_existing_cr || 12250),
               quantity: 1,
-              amount: Number(formData.metadata?.pkg_existing_cr || 12250)
+              total: Number(formData.metadata?.pkg_existing_cr || 12250)
             }];
           } else {
             itemsToSave = itemsToSave.map(item => ({
@@ -1206,7 +1205,7 @@ const QuotationBuilder = () => {
           description: 'Strategic B2B Partnership Proposal - Oman Company Formation Services',
           unit_price: Number(formData.metadata?.pkg_existing_cr || 12250),
           quantity: 1,
-          amount: Number(formData.metadata?.pkg_existing_cr || 12250)
+          total: Number(formData.metadata?.pkg_existing_cr || 12250)
         }];
       } else {
         itemsToSave = itemsToSave.map(item => ({
@@ -1449,7 +1448,7 @@ const QuotationBuilder = () => {
           <div className="w-full lg:w-[48%] space-y-6 print:hidden">
 
             <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-6">
-              
+
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
                 <div className="space-y-2 col-span-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">Select Recipient *</label>
@@ -1571,8 +1570,8 @@ const QuotationBuilder = () => {
                           metadata: { ...formData.metadata, recipient_display_mode: 'both' }
                         })}
                         className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${(formData.metadata?.recipient_display_mode || (formData.metadata?.company_name || formData.client?.company_name || formData.lead?.company_name ? 'both' : 'contact')) === 'both'
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                       >
                         <span className="text-[11px] font-bold">🏢👤 Both</span>
@@ -1586,8 +1585,8 @@ const QuotationBuilder = () => {
                           metadata: { ...formData.metadata, recipient_display_mode: 'company' }
                         })}
                         className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${formData.metadata?.recipient_display_mode === 'company'
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                       >
                         <span className="text-[11px] font-bold">🏢 Company</span>
@@ -1601,8 +1600,8 @@ const QuotationBuilder = () => {
                           metadata: { ...formData.metadata, recipient_display_mode: 'contact' }
                         })}
                         className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${formData.metadata?.recipient_display_mode === 'contact'
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                       >
                         <span className="text-[11px] font-bold">👤 Client</span>
@@ -1616,8 +1615,8 @@ const QuotationBuilder = () => {
                           metadata: { ...formData.metadata, recipient_display_mode: 'custom' }
                         })}
                         className={`px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all border ${formData.metadata?.recipient_display_mode === 'custom'
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                       >
                         <span className="text-[11px] font-bold">✍️ Custom</span>
@@ -2355,11 +2354,10 @@ const QuotationBuilder = () => {
                                   key={idx}
                                   type="button"
                                   onClick={() => toggleActivitySuggestion(sug)}
-                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
-                                    isAdded 
-                                      ? 'bg-primary/15 text-primary border-primary/30 font-bold' 
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${isAdded
+                                      ? 'bg-primary/15 text-primary border-primary/30 font-bold'
                                       : 'bg-background hover:bg-muted text-muted-foreground border-border'
-                                  }`}
+                                    }`}
                                 >
                                   {isAdded ? '✓ ' : '+ '} {sug}
                                 </button>
@@ -2402,12 +2400,12 @@ const QuotationBuilder = () => {
                           value={typeof formData.metadata?.activities === 'string' ? formData.metadata.activities : (currentActivitiesList.join('\n') || '')}
                           onChange={e => {
                             const lines = e.target.value.split('\n').map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
-                            setFormData({ 
-                              ...formData, 
-                              metadata: { 
-                                ...formData.metadata, 
-                                activities: lines 
-                              } 
+                            setFormData({
+                              ...formData,
+                              metadata: {
+                                ...formData.metadata,
+                                activities: lines
+                              }
                             });
                           }}
                           placeholder="1. Import and Export Offices.&#10;2. SPORT CENTER"
@@ -2602,11 +2600,10 @@ const QuotationBuilder = () => {
                           exchange_rate_to_omr: rate
                         }));
                       }}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-                        activeCurrency === c.code
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${activeCurrency === c.code
                           ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
                           : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted'
-                      }`}
+                        }`}
                       title={c.name}
                     >
                       <span>{c.flag}</span>

@@ -162,8 +162,9 @@ export default function EmployeeReports() {
     }
 
     return dataArray.filter(item => {
-      // Time filter
-      const itemDate = new Date(item[dateField]);
+      // Time filter (prefer payment_date for payments)
+      const rawDate = (reportType === 'payments' && item.payment_date) ? item.payment_date : item[dateField];
+      const itemDate = new Date(rawDate);
       const matchesStart = startDate ? isAfter(itemDate, startDate) || itemDate.getTime() === startDate.getTime() : true;
       const matchesEnd = endDate ? isBefore(itemDate, endDate) || itemDate.getTime() === endDate.getTime() : true;
       const matchesTime = matchesStart && matchesEnd;
@@ -1079,11 +1080,18 @@ export default function EmployeeReports() {
                       >
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">
-                              {format(new Date(item.created_at), isRtl ? 'dd LLL yyyy' : 'dd MMM yyyy')}
+                            <span className="text-sm font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                              {format(new Date((reportType === 'payments' && item.payment_date) ? item.payment_date : item.created_at), isRtl ? 'dd LLL yyyy' : 'dd MMM yyyy')}
+                              {reportType === 'payments' && item.payment_date && item.payment_date !== item.created_at.slice(0, 10) && (
+                                <span className="px-1.5 py-0.2 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-bold rounded">
+                                  Backlog
+                                </span>
+                              )}
                             </span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
-                              {format(new Date(item.created_at), 'HH:mm')}
+                              {reportType === 'payments' && item.payment_date && item.payment_date !== item.created_at.slice(0, 10)
+                                ? `Logged: ${format(new Date(item.created_at), 'dd MMM HH:mm')}`
+                                : format(new Date(item.created_at), 'HH:mm')}
                             </span>
                           </div>
                         </td>

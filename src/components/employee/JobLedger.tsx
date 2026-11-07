@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Receipt, DollarSign, CheckCircle2, AlertCircle, X, CreditCard, Banknote, Landmark, Upload, Paperclip, Download, Eye, Loader2, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Lock, LockOpen } from 'lucide-react';
+import { Plus, Receipt, DollarSign, CheckCircle2, AlertCircle, X, CreditCard, Banknote, Landmark, Upload, Paperclip, Download, Eye, Loader2, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Lock, LockOpen, Building2, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { pdf } from '@react-pdf/renderer';
+import { format } from 'date-fns';
 import { downloadReceipt } from '../../utils/invoiceGenerator';
 import { AllocationModal } from './AllocationModal';
 
@@ -25,7 +26,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
   const [isAddingCharge, setIsAddingCharge] = useState(false);
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
-  const [newPayment, setNewPayment] = useState({ amount: '', method: 'bank_transfer', reference: '', notes: '' });
+  const [newPayment, setNewPayment] = useState({ amount: '', method: 'bank_transfer', reference: '', notes: '', date: format(new Date(), 'yyyy-MM-dd') });
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -223,20 +224,22 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         finalNotes = finalNotes ? `${finalNotes}\n${receiptTags}` : receiptTags;
       }
 
-      const firstProofUrl = uploadedReceipts.length > 0 ? uploadedReceipts[0].path : null;
+      const dateTag = newPayment.date ? `[PAYMENT_DATE:${newPayment.date}]` : '';
+      const notesWithDate = dateTag ? (finalNotes ? `${dateTag}\n${finalNotes}` : dateTag) : finalNotes;
 
       const insertPayload: any = {
         job_id: job.id,
         amount: parseFloat(newPayment.amount),
         payment_method: newPayment.method,
         reference_number: newPayment.reference || null,
-        notes: finalNotes,
+        notes: notesWithDate,
         recorded_by: profile?.id,
       };
 
-      // Try inserting with proof_url if available, with automatic fallback if column does not exist in schema
+      // Try inserting with proof_url and payment_date if available
       let insertRes = await supabase.from('job_payments').insert({
         ...insertPayload,
+        payment_date: newPayment.date || undefined,
         ...(firstProofUrl ? { proof_url: firstProofUrl } : {})
       } as any).select('*, profiles:recorded_by(full_name)').single();
 
@@ -635,6 +638,11 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                 <div>
                   <h5 className="text-base font-syne font-bold text-emerald-400">Ledger Reconciled & Fully Paid</h5>
                   <p className="text-xs text-emerald-500/70 mt-1">This project has no remaining balance due. All milestones are fully funded.</p>
+                  {(totalPaid - (job.work_fee + totalAdditional + totalSpent)) > 0 && totalSpent > 0 && (
+                    <div className="mt-3 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl inline-block text-xs font-semibold text-emerald-300">
+                      💰 Client Surplus Balance (Refund Due): {(totalPaid - (job.work_fee + totalAdditional + totalSpent)).toFixed(3)} OMR
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -833,19 +841,33 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {newPayment.method !== 'cash' && (
-                      <div>
-                        <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5">Reference Number *</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Transaction ID or Bank Ref"
-                          value={newPayment.reference}
-                          onChange={e => setNewPayment({ ...newPayment, reference: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary text-foreground"
-                        />
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5 flex items-center gap-1">
+                        <Calendar size={12} className="text-primary" /> Payment Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newPayment.date}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        onChange={e => setNewPayment({ ...newPayment, date: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs outline-none focus:border-primary text-foreground font-semibold"
+                      />
+                    </div>
+
+                    <div className={newPayment.method === 'cash' ? "sm:col-span-2" : ""}>
+                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5">
+                        {newPayment.method !== 'cash' ? 'Reference Number *' : 'Reference / Receipt Note'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Transaction ID or Bank Ref"
+                        value={newPayment.reference}
+                        onChange={e => setNewPayment({ ...newPayment, reference: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs outline-none focus:border-primary text-foreground"
+                      />
+                    </div>
+                  </div>
 
                     <div className={cn(newPayment.method === 'cash' ? "sm:col-span-2" : "")}>
                       <div className="flex items-center justify-between mb-1.5">
@@ -917,7 +939,6 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                         )}
                       </div>
                     </div>
-                  </div>
 
                   <div>
                     <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5">Internal Notes (Optional)</label>
