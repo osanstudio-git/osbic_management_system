@@ -77,10 +77,7 @@ import SalesTeamReports from './pages/employee/SalesTeamReports';
 import OpsTeamReports from './pages/employee/OpsTeamReports';
 import OpsCommandCenter from './pages/employee/OpsCommandCenter';
 import TaskPool from './pages/employee/TaskPool';
-
-
-
-
+import HRAdminPortal from './pages/employee/HRAdminPortal';
 // i18n
 import './i18n/config';
 
@@ -492,6 +489,8 @@ function App() {
               <Route path="b2b/proposals/:id" element={<B2BProposalBuilder />} />
               <Route path="b2b-saudi" element={<SaudiB2BWorkspace />} />
               <Route path="b2b" element={<SaudiB2BWorkspace />} />
+              <Route path="hr-admin" element={<HRAdminPortal />} />
+              <Route path="hr" element={<HRAdminPortal />} />
             </Route>
 
             {/* Employee Portal */}
@@ -535,6 +534,8 @@ function App() {
               <Route path="ops-hub" element={<OpsTeamReports />} />
               <Route path="ops-command" element={<OpsCommandCenter />} />
               <Route path="ops-command-center" element={<OpsCommandCenter />} />
+              <Route path="hr-admin" element={<HRAdminPortal />} />
+              <Route path="hr" element={<HRAdminPortal />} />
             </Route>
 
             {/* Client Portal */}

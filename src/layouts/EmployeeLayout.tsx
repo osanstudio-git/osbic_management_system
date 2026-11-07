@@ -31,7 +31,8 @@ import {
    BarChart3,
    Briefcase,
    Compass,
-   Sparkles
+   Sparkles,
+   Landmark
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -145,6 +146,13 @@ const EmployeeLayout: React.FC = () => {
     role === 'admin'
   );
 
+  const isHRAdmin = Boolean(
+    profile?.department === 'hr' ||
+    profile?.is_manager ||
+    profile?.role === 'admin' ||
+    role === 'admin'
+  );
+
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
     ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
@@ -172,6 +180,9 @@ const EmployeeLayout: React.FC = () => {
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
+    ...(isHRAdmin ? [
+      { key: 'hr_admin', label: isRtl ? 'الموارد البشرية والإدارة' : 'HR & Administration', icon: Landmark, path: '/employee/hr-admin' }
+    ] : []),
     ...(profile?.is_manager ? [
       { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
       { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
@@ -185,6 +196,10 @@ const EmployeeLayout: React.FC = () => {
     // PRO agents: only home, pro queue, and profile
     if (profile?.is_pro) {
       return ['home', 'pro_queue', 'profile'].includes(item.key);
+    }
+    // HR-only staff: only Dashboard, HR & Admin, Messages, Notifications, Profile
+    if (profile?.department === 'hr' && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.can_do_accounts && !profile?.is_pro) {
+      return ['home', 'hr_admin', 'messages', 'notifications', 'profile'].includes(item.key);
     }
     // Accounts-only staff: only Dashboard, Accounts, Invoices, Messages, Profile
     if (profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.is_pro) {
