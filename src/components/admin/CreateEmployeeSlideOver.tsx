@@ -45,6 +45,13 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     gender: 'male' as 'male' | 'female',
     dateOfBirth: '',
     showBirthdayToTeam: true,
+    job_title: '',
+    date_of_joining: '',
+    leave_balance: 30,
+    basic_salary: 0,
+    visa_expiry: '',
+    civil_id_expiry: '',
+    passport_expiry: '',
   });
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -93,7 +100,14 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         date_of_birth: formData.dateOfBirth || null,
         gender: formData.gender,
         show_birthday_to_team: formData.showBirthdayToTeam,
-      }, {
+        job_title: formData.job_title || null,
+        date_of_joining: formData.date_of_joining || null,
+        leave_balance: Number(formData.leave_balance) || 30,
+        basic_salary: Number(formData.basic_salary) || 0,
+        visa_expiry: formData.visa_expiry || null,
+        civil_id_expiry: formData.civil_id_expiry || null,
+        passport_expiry: formData.passport_expiry || null,
+      } as any, {
       onSuccess: (data: any) => {
         setCredentials({
           username: username,
@@ -584,6 +598,94 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                                 }`}
                               />
                             </button>
+                          </div>
+                        </div>
+
+                        {/* HR & Employment Details Section */}
+                        <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                              💼 HR & Employment Details
+                            </label>
+                            <span className="text-[10px] text-muted-foreground">Admin & HR Management</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Job Title / Designation</label>
+                              <input
+                                type="text"
+                                value={formData.job_title}
+                                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                                placeholder="e.g. Sales Consultant, Video Editor"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Date of Joining</label>
+                              <input
+                                type="date"
+                                value={formData.date_of_joining}
+                                onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Leave Balance (Days)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.leave_balance}
+                                onChange={(e) => setFormData({ ...formData, leave_balance: Number(e.target.value) })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                                placeholder="30"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Basic Salary (OMR)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                value={formData.basic_salary}
+                                onChange={(e) => setFormData({ ...formData, basic_salary: Number(e.target.value) })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                                placeholder="OMR 0.000"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-white/5">
+                            <div>
+                              <label className="block text-[11px] font-medium text-muted-foreground mb-1">Visa Expiry</label>
+                              <input
+                                type="date"
+                                value={formData.visa_expiry}
+                                onChange={(e) => setFormData({ ...formData, visa_expiry: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-muted-foreground mb-1">Civil ID Expiry</label>
+                              <input
+                                type="date"
+                                value={formData.civil_id_expiry}
+                                onChange={(e) => setFormData({ ...formData, civil_id_expiry: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-muted-foreground mb-1">Passport Expiry</label>
+                              <input
+                                type="date"
+                                value={formData.passport_expiry}
+                                onChange={(e) => setFormData({ ...formData, passport_expiry: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

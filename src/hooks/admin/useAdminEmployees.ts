@@ -55,6 +55,15 @@ export interface Employee {
   is_sales_head?: boolean;
   can_assign_leads?: boolean;
   is_ops_head?: boolean;
+  job_title?: string | null;
+  date_of_joining?: string | null;
+  leave_balance?: number | null;
+  basic_salary?: number | null;
+  visa_expiry?: string | null;
+  civil_id_expiry?: string | null;
+  passport_expiry?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
 }
 
 // ─── List All Employees (with optional branch filter) ─────────────────────────
@@ -320,6 +329,15 @@ export const useCreateEmployee = () => {
         if (newEmployee.is_sales_head !== undefined) extraProfileUpdates.is_sales_head = newEmployee.is_sales_head;
         if (newEmployee.can_assign_leads !== undefined) extraProfileUpdates.can_assign_leads = newEmployee.can_assign_leads;
         if (newEmployee.is_ops_head !== undefined) extraProfileUpdates.is_ops_head = newEmployee.is_ops_head;
+        if ((newEmployee as any).job_title !== undefined) extraProfileUpdates.job_title = (newEmployee as any).job_title;
+        if ((newEmployee as any).date_of_joining !== undefined) extraProfileUpdates.date_of_joining = (newEmployee as any).date_of_joining;
+        if ((newEmployee as any).leave_balance !== undefined) extraProfileUpdates.leave_balance = (newEmployee as any).leave_balance;
+        if ((newEmployee as any).basic_salary !== undefined) extraProfileUpdates.basic_salary = (newEmployee as any).basic_salary;
+        if ((newEmployee as any).visa_expiry !== undefined) extraProfileUpdates.visa_expiry = (newEmployee as any).visa_expiry;
+        if ((newEmployee as any).civil_id_expiry !== undefined) extraProfileUpdates.civil_id_expiry = (newEmployee as any).civil_id_expiry;
+        if ((newEmployee as any).passport_expiry !== undefined) extraProfileUpdates.passport_expiry = (newEmployee as any).passport_expiry;
+        if ((newEmployee as any).emergency_contact_name !== undefined) extraProfileUpdates.emergency_contact_name = (newEmployee as any).emergency_contact_name;
+        if ((newEmployee as any).emergency_contact_phone !== undefined) extraProfileUpdates.emergency_contact_phone = (newEmployee as any).emergency_contact_phone;
         
         if (Object.keys(extraProfileUpdates).length > 0) {
           try {
@@ -399,6 +417,15 @@ export const useUpdateEmployee = () => {
         if (updates.is_sales_head !== undefined) extraUpdateFields.is_sales_head = updates.is_sales_head;
         if (updates.can_assign_leads !== undefined) extraUpdateFields.can_assign_leads = updates.can_assign_leads;
         if (updates.is_ops_head !== undefined) extraUpdateFields.is_ops_head = updates.is_ops_head;
+        if (updates.job_title !== undefined) extraUpdateFields.job_title = updates.job_title;
+        if (updates.date_of_joining !== undefined) extraUpdateFields.date_of_joining = updates.date_of_joining;
+        if (updates.leave_balance !== undefined) extraUpdateFields.leave_balance = updates.leave_balance;
+        if (updates.basic_salary !== undefined) extraUpdateFields.basic_salary = updates.basic_salary;
+        if (updates.visa_expiry !== undefined) extraUpdateFields.visa_expiry = updates.visa_expiry;
+        if (updates.civil_id_expiry !== undefined) extraUpdateFields.civil_id_expiry = updates.civil_id_expiry;
+        if (updates.passport_expiry !== undefined) extraUpdateFields.passport_expiry = updates.passport_expiry;
+        if (updates.emergency_contact_name !== undefined) extraUpdateFields.emergency_contact_name = updates.emergency_contact_name;
+        if (updates.emergency_contact_phone !== undefined) extraUpdateFields.emergency_contact_phone = updates.emergency_contact_phone;
 
         if (Object.keys(extraUpdateFields).length > 0) {
           try {

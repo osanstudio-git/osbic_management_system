@@ -98,6 +98,15 @@ export interface Database {
         is_sales_head: boolean | null
         can_assign_leads: boolean | null
         is_ops_head: boolean | null
+        job_title: string | null
+        date_of_joining: string | null
+        leave_balance: number | null
+        basic_salary: number | null
+        visa_expiry: string | null
+        civil_id_expiry: string | null
+        passport_expiry: string | null
+        emergency_contact_name: string | null
+        emergency_contact_phone: string | null
       }, never, 'role'>
 
 
@@ -815,6 +824,36 @@ export interface Database {
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at', 'date' | 'payment_mode' | 'total_amount' | 'government_fee' | 'profit' | 'status'>
+
+      leave_requests: TableDef<{
+        id: string
+        employee_id: string
+        leave_type: 'annual' | 'sick' | 'emergency' | 'unpaid' | 'maternity' | 'paternity'
+        start_date: string
+        end_date: string
+        days_count: number
+        reason: string | null
+        status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+        reviewed_by: string | null
+        reviewed_at: string | null
+        rejection_reason: string | null
+        attachment_url: string | null
+        branch_id: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'status' | 'days_count'>
+
+      attendance_logs: TableDef<{
+        id: string
+        employee_id: string
+        date: string
+        check_in: string | null
+        check_out: string | null
+        status: 'present' | 'late' | 'absent' | 'half_day' | 'on_leave' | 'remote'
+        notes: string | null
+        branch_id: string | null
+        created_at: string
+      }, 'id' | 'created_at', 'date' | 'status'>
     }
     Views: {
       [_ in never]: never
