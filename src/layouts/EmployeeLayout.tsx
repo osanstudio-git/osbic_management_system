@@ -32,7 +32,9 @@ import {
    Briefcase,
    Compass,
    Sparkles,
-   Landmark
+   Landmark,
+   DollarSign,
+   Calendar
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -181,7 +183,10 @@ const EmployeeLayout: React.FC = () => {
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
     ...(profile?.can_do_accounts ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
     ...(isHRAdmin ? [
-      { key: 'hr_admin', label: isRtl ? 'الموارد البشرية والإدارة' : 'HR & Administration', icon: Landmark, path: '/employee/hr-admin' }
+      { key: 'hr_sales_audit', label: isRtl ? 'تدقيق سندات المبيعات' : 'Sales Receipt Audit', icon: DollarSign, path: '/employee/sales-audit' },
+      { key: 'hr_gov_outflows', label: isRtl ? 'المدفوعات الحكومية والموردين' : 'Gov & Supplier Outflows', icon: Landmark, path: '/employee/gov-outflows' },
+      { key: 'hr_team_directory', label: isRtl ? 'سجل الموظفين والامتثال' : 'Team & Expiry Radar', icon: Users, path: '/employee/team-directory' },
+      { key: 'hr_leaves_attendance', label: isRtl ? 'الإجازات والحضور اليومي' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
     ] : []),
     ...(profile?.is_manager ? [
       { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
@@ -197,9 +202,9 @@ const EmployeeLayout: React.FC = () => {
     if (profile?.is_pro) {
       return ['home', 'pro_queue', 'profile'].includes(item.key);
     }
-    // HR-only staff: only Dashboard, HR & Admin, Messages, Notifications, Profile
+    // HR-only staff: only Dashboard, the 4 dedicated HR pages, Messages, Notifications, Profile
     if (profile?.department === 'hr' && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.can_do_accounts && !profile?.is_pro) {
-      return ['home', 'hr_admin', 'messages', 'notifications', 'profile'].includes(item.key);
+      return ['home', 'hr_sales_audit', 'hr_gov_outflows', 'hr_team_directory', 'hr_leaves_attendance', 'messages', 'notifications', 'profile'].includes(item.key);
     }
     // Accounts-only staff: only Dashboard, Accounts, Invoices, Messages, Profile
     if (profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.is_pro) {

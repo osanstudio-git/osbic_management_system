@@ -491,6 +491,10 @@ function App() {
               <Route path="b2b" element={<SaudiB2BWorkspace />} />
               <Route path="hr-admin" element={<HRAdminPortal />} />
               <Route path="hr" element={<HRAdminPortal />} />
+              <Route path="sales-audit" element={<HRAdminPortal pageMode="sales" />} />
+              <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
+              <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
+              <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
             </Route>
 
             {/* Employee Portal */}
@@ -536,6 +540,10 @@ function App() {
               <Route path="ops-command-center" element={<OpsCommandCenter />} />
               <Route path="hr-admin" element={<HRAdminPortal />} />
               <Route path="hr" element={<HRAdminPortal />} />
+              <Route path="sales-audit" element={<HRAdminPortal pageMode="sales" />} />
+              <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
+              <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
+              <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
             </Route>
 
             {/* Client Portal */}

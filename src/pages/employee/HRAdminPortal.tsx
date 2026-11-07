@@ -17,12 +17,19 @@ import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import EditEmployeeSlideOver from '../../components/admin/EditEmployeeSlideOver';
 import { format, parseISO, isToday, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 type MasterTab = 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
 type TimeframePreset = 'today' | 'week' | 'month' | 'all';
 
-export default function HRAdminPortal() {
+interface HRAdminPortalProps {
+  pageMode?: MasterTab;
+}
+
+export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
+  const [searchParams] = useSearchParams();
+  const queryTab = searchParams.get('tab') as MasterTab | null;
   const { profile, role } = useAuth();
   const { branches } = useBranch();
   const { t, i18n } = useTranslation();
@@ -32,7 +39,55 @@ export default function HRAdminPortal() {
 
   // Filters state
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(profile?.branch_id || null);
-  const [activeTab, setActiveTab] = useState<MasterTab>('sales');
+  const [internalActiveTab, setInternalActiveTab] = useState<MasterTab>(pageMode || queryTab || 'sales');
+
+  const activeTab = pageMode || internalActiveTab;
+  const setActiveTab = (tab: MasterTab) => setInternalActiveTab(tab);
+
+  React.useEffect(() => {
+    if (pageMode) {
+      setInternalActiveTab(pageMode);
+    } else if (queryTab) {
+      setInternalActiveTab(queryTab);
+    }
+  }, [pageMode, queryTab]);
+
+  const getHeaderInfo = () => {
+    switch (activeTab) {
+      case 'sales':
+        return {
+          badge: isRtl ? 'المبيعات والإيرادات' : 'Finance & Revenue',
+          title: isRtl ? 'تدقيق سندات ومبيعات الفرع' : 'Sales & Payment Receipt Audit',
+          subtitle: isRtl ? 'مراجعة سندات القبض، المدفوعات المسددة، وتنبيهات السندات غير المرفقة' : 'Audit customer payments, verify voucher slips, and track missing receipts'
+        };
+      case 'gov_outflows':
+        return {
+          badge: isRtl ? 'العمليات والمصروفات الحكومية' : 'Operations & Gov Outflows',
+          title: isRtl ? 'المدفوعات الحكومية والموردين' : 'Gov & Supplier Outflow Tracker',
+          subtitle: isRtl ? 'متابعة رسوم الجهات الحكومية (ROP, MOCIIP, Labour, OCCI) وحساب أرباح المعاملات' : 'Monitor ministry fee disbursements, profit margins, and verified payment slips'
+        };
+      case 'team':
+        return {
+          badge: isRtl ? 'الموارد البشرية والامتثال' : 'HR & Compliance',
+          title: isRtl ? 'سجل الموظفين ورادار الامتثال' : 'Staff Directory & Expiry Radar',
+          subtitle: isRtl ? 'دليل موظفي الشركة، رصيد الإجازات، والعد التنازلي لصلاحية الجوازات والإقامات' : 'Company staff profiles, leave balances, and passport/visa countdown alerts'
+        };
+      case 'leaves_attendance':
+        return {
+          badge: isRtl ? 'الموارد البشرية والإجازات' : 'HR & Attendance',
+          title: isRtl ? 'إدارة الإجازات وسجل الحضور' : 'Staff Leaves & Attendance Management',
+          subtitle: isRtl ? 'موافقة طلبات الإجازة، سجل الحضور والانصراف، والملخص الشهري للموظفين' : 'Review leave requests, daily clock-in records, and monthly leave summaries'
+        };
+      default:
+        return {
+          badge: isRtl ? 'الرقابة الإدارية والمالية' : 'Executive Governance Hub',
+          title: isRtl ? 'بوابة الموارد البشرية والإدارة' : 'HR & Administration Portal',
+          subtitle: isRtl ? 'الرقابة الشاملة على المبيعات، المدفوعات الحكومية، شؤون الموظفين والإجازات' : 'Comprehensive oversight of sales revenue, government fees, staff compliance, and leaves'
+        };
+    }
+  };
+
+  const headerInfo = getHeaderInfo();
   const [timeframe, setTimeframe] = useState<TimeframePreset>('month');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -480,15 +535,15 @@ export default function HRAdminPortal() {
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5">
               <Landmark size={12} />
-              {isRtl ? 'إدارة الموارد البشرية والمالية' : 'Executive Governance Hub'}
+              {headerInfo.badge}
             </span>
             <span className="text-xs text-muted-foreground">•</span>
             <span className="text-xs text-muted-foreground font-medium">
-              {isRtl ? 'متابعة المبيعات، سندات القبض، المدفوعات الحكومية، وفريق العمل' : 'Sales Audit, Receipt Verification, Gov Outflows & Staff'}
+              {headerInfo.subtitle}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground tracking-tight flex items-center gap-3">
-            {isRtl ? 'بوابة الموارد البشرية والإدارة' : 'HR & Administration Portal'}
+            {headerInfo.title}
           </h1>
         </div>
 
@@ -656,80 +711,107 @@ export default function HRAdminPortal() {
         </div>
       </div>
 
-      {/* ─── 3. Navigation Master Tabs ──────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 border-b border-border/80 overflow-x-auto no-scrollbar pt-2">
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setActiveTab('sales')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'sales'
-                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-            }`}
-          >
-            <DollarSign size={15} />
-            <span>{isRtl ? 'تدقيق المبيعات وسندات القبض' : 'Sales & Receipt Audit'}</span>
-            {(auditData?.kpis.salesMissingReceipt ?? 0) > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500 text-white">
-                {auditData?.kpis.salesMissingReceipt}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('gov_outflows')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'gov_outflows'
-                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-            }`}
-          >
-            <Building2 size={15} />
-            <span>{isRtl ? 'المدفوعات الحكومية والجهات' : 'Gov & Supplier Outflows'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('team')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'team'
-                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-            }`}
-          >
-            <Users size={15} />
-            <span>{isRtl ? 'سجل الموظفين والامتثال' : 'Team Directory & Expiry Radar'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('leaves_attendance')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-              activeTab === 'leaves_attendance'
-                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-            }`}
-          >
-            <Calendar size={15} />
-            <span>{isRtl ? 'الإجازات والحضور' : 'Leaves & Attendance'}</span>
-          </button>
-        </div>
-
-        {/* Global Search Box */}
-        <div className="relative w-full max-w-xs shrink-0 hidden sm:block">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder={isRtl ? 'بحث بالعميل أو الخدمة أو الموظف...' : 'Search client, service, staff...'}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-card border border-border/80 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={12} />
+      {/* ─── 3. Navigation Master Tabs (Only shown when not in dedicated single pageMode) ─── */}
+      {!pageMode ? (
+        <div className="flex items-center justify-between gap-4 border-b border-border/80 overflow-x-auto no-scrollbar pt-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setActiveTab('sales')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'sales'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <DollarSign size={15} />
+              <span>{isRtl ? 'تدقيق المبيعات وسندات القبض' : 'Sales & Receipt Audit'}</span>
+              {(auditData?.kpis.salesMissingReceipt ?? 0) > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500 text-white">
+                  {auditData?.kpis.salesMissingReceipt}
+                </span>
+              )}
             </button>
-          )}
+
+            <button
+              onClick={() => setActiveTab('gov_outflows')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'gov_outflows'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <Building2 size={15} />
+              <span>{isRtl ? 'المدفوعات الحكومية والجهات' : 'Gov & Supplier Outflows'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('team')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'team'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <Users size={15} />
+              <span>{isRtl ? 'سجل الموظفين والامتثال' : 'Team Directory & Expiry Radar'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('leaves_attendance')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'leaves_attendance'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <Calendar size={15} />
+              <span>{isRtl ? 'الإجازات والحضور' : 'Leaves & Attendance'}</span>
+            </button>
+          </div>
+
+          {/* Global Search Box */}
+          <div className="relative w-full max-w-xs shrink-0 hidden sm:block">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={isRtl ? 'بحث بالعميل أو الخدمة أو الموظف...' : 'Search client, service, staff...'}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-card border border-border/80 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4 border-b border-border/40 pb-3 pt-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-mono">
+              OSBIC {headerInfo.badge}
+            </span>
+          </div>
+
+          {/* Dedicated Search Box */}
+          <div className="relative w-full max-w-xs shrink-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={isRtl ? 'بحث في هذا السجل...' : 'Search this module...'}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-card border border-border/80 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── TAB 1: SALES & FINANCE AUDIT ───────────────────────────────────── */}
       {activeTab === 'sales' && (
