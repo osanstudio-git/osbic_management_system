@@ -59,7 +59,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   const [clientMode, setClientMode] = useState<'existing' | 'new'>('new');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientSearch, setClientSearch] = useState<string>('');
-  
+
   // New Client fields (Phone is now optional!)
   const [newClientName, setNewClientName] = useState<string>('');
   const [newClientPhone, setNewClientPhone] = useState<string>('');
@@ -454,7 +454,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
 
       // 5. Create Multiple Completed Job Service Items
       setSubmitStep(isRtl ? `تسجيل بنود الخدمات المكتملة (${serviceItems.length})...` : `Recording completed services (${serviceItems.length})...`);
-      
+
       const servicePayloads = serviceItems.map((item, idx) => {
         const itemWork = Math.max(0, parseFloat(item.workFee) || 0);
         const itemGov = Math.max(0, parseFloat(item.govFee) || 0);
@@ -792,15 +792,13 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
 
             {/* Automated Branch Attribution (Only visible for transferred employees) */}
             {isTransferred && (
-              <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                dateAttribution.isHistorical
+              <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${dateAttribution.isHistorical
                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
                   : 'bg-primary/10 border-primary/20 text-primary'
-              }`}>
+                }`}>
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    dateAttribution.isHistorical ? 'bg-amber-500/20 text-amber-400' : 'bg-primary/20 text-primary'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${dateAttribution.isHistorical ? 'bg-amber-500/20 text-amber-400' : 'bg-primary/20 text-primary'
+                    }`}>
                     <Building2 size={16} />
                   </div>
                   <div>
@@ -859,22 +857,20 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setClientMode('existing')}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      clientMode === 'existing'
+                    className={`px-3 py-1 rounded-lg transition-all ${clientMode === 'existing'
                         ? 'bg-card text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     {isRtl ? 'عميل مسجل' : 'Registered Client'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setClientMode('new')}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      clientMode === 'new'
+                    className={`px-3 py-1 rounded-lg transition-all ${clientMode === 'new'
                         ? 'bg-card text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     {isRtl ? '+ عميل جديد / سابق' : '+ New / Past Client'}
                   </button>

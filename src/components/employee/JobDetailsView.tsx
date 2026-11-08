@@ -269,6 +269,19 @@ const ApplicantCard = ({
         } as any);
 
       if (dbError) throw dbError;
+
+      // Also update job_services record for HR & financial audit
+      await supabase
+        .from('job_services')
+        .update({
+          gov_receipt_url: filePath,
+          gov_fee_actual_paid: js.ministry_fee || 0,
+          gov_payment_status: (js.ministry_fee || 0) > 0 ? 'paid' : 'na',
+          gov_paid_at: new Date().toISOString(),
+          gov_paid_by: profile.id
+        })
+        .eq('id', js.id);
+
       toast.success('Government fee receipt uploaded');
       onUpdated();
     } catch (err: any) {

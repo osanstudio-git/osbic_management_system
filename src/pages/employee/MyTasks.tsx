@@ -1142,7 +1142,14 @@ const MyTasks: React.FC = () => {
                       const completedDateStr = task.completed_at || task.updated_at || task.created_at;
                       const completedDate = completedDateStr ? parseISO(completedDateStr) : null;
                       const isTaskToday = completedDate && isToday(completedDate);
-                      const outputs = (task.documents || []).filter((d: any) => d.document_category === 'output');
+                      const outputs = (task.documents || []).filter((d: any) =>
+                        d.document_category === 'output' ||
+                        d.document_category === 'gov_receipt' ||
+                        d.notes === 'gov_receipt' ||
+                        d.file_name?.toLowerCase().includes('gov_receipt')
+                      );
+                      const hasDedicatedGovReceipt = Boolean(task.gov_receipt_url);
+                      const totalProofFiles = outputs.length + (hasDedicatedGovReceipt && !outputs.some((d: any) => d.file_path === task.gov_receipt_url) ? 1 : 0);
 
                       return (
                         <tr key={task.id} className="hover:bg-muted/20 transition-colors">
@@ -1197,14 +1204,21 @@ const MyTasks: React.FC = () => {
 
                           {/* Deliverables / Proof files */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            {outputs.length > 0 ? (
+                            {totalProofFiles > 0 ? (
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
-                                  {outputs.length} {outputs.length === 1 ? 'file' : 'files'}
+                                  {totalProofFiles} {totalProofFiles === 1 ? 'file' : 'files'}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[10px] text-muted-foreground/60 italic">No output files</span>
+                              <a
+                                href={`/employee/tasks?jobId=${task.job_id}`}
+                                className="text-[10px] text-muted-foreground/60 hover:text-primary italic hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                title="Open job folder to upload files or receipts"
+                              >
+                                <span>No output files</span>
+                                <span className="text-[9px] font-bold text-primary not-italic bg-primary/10 px-1 rounded border border-primary/20">+ Add</span>
+                              </a>
                             )}
                           </td>
 
