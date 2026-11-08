@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { TaskDashboard } from './TaskDashboard';
 import { 
-  ChevronRight, LayoutGrid, List as ListIcon, Clock, CheckCircle2, 
+  ChevronRight, ChevronDown, LayoutGrid, List as ListIcon, Clock, CheckCircle2, 
   Briefcase, Plus, Zap, Search, Filter, X, ArrowUpDown, RotateCcw, 
-  Users, Pencil, Trash2
+  Users, Pencil, Trash2, User, CornerDownRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -54,6 +54,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'fee_desc'>('newest');
+  const [viewGrouping, setViewGrouping] = useState<'client' | 'flat'>('client');
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
   const acceptJobMutation = useMutation({
     mutationFn: async (jobId: string) => {
@@ -154,6 +156,166 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const standardTasks = filteredJobs.filter(j => j.service_name !== 'Quick Task (POS)' && j.entry_type !== 'walkin');
   
   const displayJobs = jobTypeFilter === 'quick' ? quickTasks : standardTasks;
+
+  // Group display jobs by client with works sorted by date (newest first)
+  const clientJobGroups = React.useMemo(() => {
+    const groups = new Map<string, {
+      clientId: string;
+      clientName: string;
+      clientAvatar?: string;
+      jobs: any[];
+      latestDate: string;
+      activeCount: number;
+      completedCount: number;
+      totalFee: number;
+      totalPendingDue: number;
+    }>();
+
+    displayJobs.forEach(job => {
+      const clientName = getClientName(job) || 'Unknown Client';
+      const clientId = job.client_id || clientName;
+
+      if (!groups.has(clientId)) {
+        groups.set(clientId, {
+          clientId,
+          clientName,
+          clientAvatar: job.client_avatar,
+          jobs: [],
+          latestDate: job.started_date || job.created_at || '',
+          activeCount: 0,
+          completedCount: 0,
+          totalFee: 0,
+          totalPendingDue: 0
+        });
+      }
+
+      const g = groups.get(clientId)!;
+      g.jobs.push(job);
+      if (job.status === 'completed') {
+        g.completedCount += 1;
+      } else {
+        g.activeCount += 1;
+      }
+      const fee = Number(job.total_fee) || 0;
+      g.totalFee += fee;
+      if (!job.remaining_paid && fee > 0) {
+        const remaining = Number(job.remaining_due_amount);
+        g.totalPendingDue += remaining > 0 ? remaining : fee;
+      }
+
+      const jobDate = job.started_date || job.created_at || '';
+      if (jobDate && (!g.latestDate || new Date(jobDate) > new Date(g.latestDate))) {
+        g.latestDate = jobDate;
+      }
+    });
+
+    const result = Array.from(groups.values());
+    result.forEach(group => {
+      group.jobs.sort((a, b) => {
+        const dateA = new Date(a.started_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.started_date || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+    });
+
+    return result;
+  }, [displayJobs]);
+
+  const renderJobSubRow = (job: any, isQuick: boolean) => (
+    <tr 
+      key={job.id} 
+      onClick={() => onTaskSelect(job.id)}
+      className="border-b border-border/40 bg-muted/10 hover:bg-muted/30 transition-colors cursor-pointer group text-start font-sans"
+    >
+      <td className={`py-3 px-6 ${isRtl ? 'pr-12' : 'pl-12'}`}>
+        <div className="flex items-center gap-2.5">
+          <CornerDownRight size={14} className="text-muted-foreground/60 shrink-0" />
+          <div className="flex flex-col">
+            <span className={`text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md border w-fit ${
+              isQuick 
+                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                : 'bg-primary/10 text-primary border-primary/20'
+            }`}>
+              {job.job_code}
+            </span>
+            {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name) && (
+              <span className="text-[10px] text-amber-500/90 font-medium mt-0.5">
+                {isRtl ? 'بواسطة:' : 'By:'} {job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name}
+              </span>
+            )}
+          </div>
+        </div>
+      </td>
+      <td className="py-3 px-6">
+        <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{job.service_name}</div>
+        <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{job.service_category}</div>
+      </td>
+      <td className="py-3 px-6">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            job.status === 'completed' ? 'bg-emerald-500' :
+            job.status === 'active' || job.status === 'in_progress' ? 'bg-primary' :
+            job.status === 'draft' ? 'bg-amber-500' : 'bg-muted-foreground'
+          }`} />
+          <span className="text-[11px] font-bold uppercase tracking-wider">
+            {job.status === 'completed' ? (isRtl ? 'مكتمل' : 'completed') :
+             job.status === 'active' || job.status === 'in_progress' ? (isRtl ? 'نشط' : 'active') :
+             job.status === 'draft' ? (isRtl ? 'مسودة' : 'draft') : (isRtl ? 'معلق' : job.status)}
+          </span>
+        </div>
+        <div className="text-[9px] text-muted-foreground">
+          {isRtl ? `${job.completed_steps || 0} من ${job.total_steps || 0} خطوات` : `${job.completed_steps || 0} of ${job.total_steps || 0} steps`}
+        </div>
+      </td>
+      <td className="py-3 px-6">
+        <div className="text-xs font-bold text-foreground">
+          {(job.total_fee || 0).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+        </div>
+        {job.remaining_paid || job.total_fee === 0 ? (
+          <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1 mt-0.5">
+            <CheckCircle2 size={10} /> {isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}
+          </div>
+        ) : (
+          <div className="text-[9px] font-bold uppercase tracking-widest text-amber-500 flex items-center gap-1 mt-0.5">
+            <Clock size={10} /> {isRtl ? 'مستحق:' : 'Due:'} {(job.remaining_paid ? 0 : (job.remaining_due_amount > 0 ? job.remaining_due_amount : job.total_fee)).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+          </div>
+        )}
+      </td>
+      <td className="py-3 px-6">
+        <div className="flex items-center gap-1 text-muted-foreground text-xs">
+          <Clock size={11} />
+          {job.started_date ? format(new Date(job.started_date), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy') : '-'}
+        </div>
+      </td>
+      <td className="py-3 px-6 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTaskToEdit(job);
+            }}
+            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+            title={isRtl ? 'تعديل المعاملة والأتعاب' : 'Edit Task & Financials'}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTaskToCancel(job);
+            }}
+            className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+            title={isRtl ? 'إلغاء أو حذف المعاملة' : 'Cancel / Void Task'}
+          >
+            <Trash2 size={14} />
+          </button>
+          <ChevronRight size={16} className={`text-muted-foreground group-hover:text-primary transition-colors ${isRtl ? 'rotate-180' : ''}`} />
+        </div>
+      </td>
+    </tr>
+  );
 
   const renderJobRow = (job: any, isQuick: boolean) => (
     <tr 
@@ -433,7 +595,57 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm mt-4">
+        {/* Client Accordion vs Flat List Control Bar */}
+        <div className="flex items-center justify-between px-2 pt-2 pb-1">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-foreground">
+              {viewGrouping === 'client' 
+                ? `${clientJobGroups.length} ${clientJobGroups.length === 1 ? (isRtl ? 'عميل' : 'Client') : (isRtl ? 'عملاء' : 'Clients')}` 
+                : `${displayJobs.length} ${displayJobs.length === 1 ? (isRtl ? 'مهمة' : 'Task') : (isRtl ? 'مهام' : 'Tasks')}`}
+            </span>
+            {viewGrouping === 'client' && clientJobGroups.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const allExpanded = clientJobGroups.every(g => expandedClients[g.clientId] ?? true);
+                  const nextState: Record<string, boolean> = {};
+                  clientJobGroups.forEach(g => { nextState[g.clientId] = !allExpanded; });
+                  setExpandedClients(nextState);
+                }}
+                className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+              >
+                {clientJobGroups.every(g => expandedClients[g.clientId] ?? true)
+                  ? (isRtl ? 'طي الكل' : 'Collapse All') 
+                  : (isRtl ? 'توسيع الكل' : 'Expand All')}
+              </button>
+            )}
+          </div>
+
+          <div className="flex bg-muted/50 p-1 rounded-xl border border-border">
+            <button
+              type="button"
+              onClick={() => setViewGrouping('client')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                viewGrouping === 'client' ? 'bg-card text-primary shadow-sm font-black' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title={isRtl ? 'تجميع حسب العميل (صف ملخص واحد لكل عميل مع قائمة الأعمال)' : 'Group by Client (One clean summary row per client)'}
+            >
+              <Users size={12} /> {isRtl ? 'حسب العميل (الأكورديون)' : 'By Client'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewGrouping('flat')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                viewGrouping === 'flat' ? 'bg-card text-primary shadow-sm font-black' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title={isRtl ? 'عرض كل المهام منفصلة' : 'Flat List (All Tasks)'}
+            >
+              <ListIcon size={12} /> {isRtl ? 'كل المهام' : 'All Tasks'}
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm mt-3">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[800px]" dir={isRtl ? 'rtl' : 'ltr'}>
               <thead>
@@ -447,7 +659,93 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {displayJobs.map((job) => renderJobRow(job, jobTypeFilter === 'quick'))}
+                {viewGrouping === 'client' ? (
+                  clientJobGroups.map(group => {
+                    const isExpanded = expandedClients[group.clientId] ?? true;
+
+                    return (
+                      <React.Fragment key={group.clientId}>
+                        {/* Client Accordion Header Summary Row (Shown ONLY ONCE) */}
+                        <tr 
+                          onClick={() => setExpandedClients(prev => ({ ...prev, [group.clientId]: !isExpanded }))}
+                          className="border-b-2 border-border/70 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer select-none font-sans"
+                        >
+                          <td className="py-3.5 px-6" colSpan={2}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0 overflow-hidden">
+                                {group.clientAvatar ? (
+                                  <img src={group.clientAvatar} alt={group.clientName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <User size={16} />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-syne font-bold text-sm text-foreground truncate">{group.clientName}</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                    {group.jobs.length} {group.jobs.length === 1 ? (isRtl ? 'معاملة' : 'Work') : (isRtl ? 'معاملات' : 'Works')}
+                                  </span>
+                                  {group.activeCount > 0 && (
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title={`${group.activeCount} active`} />
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                                  <Clock size={11} className="shrink-0" />
+                                  <span>
+                                    {isRtl ? 'آخر تحديث: ' : 'Latest: '}
+                                    {group.latestDate ? format(new Date(group.latestDate), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy') : '-'}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-6">
+                            <div className="flex items-center gap-1.5">
+                              {group.activeCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500">
+                                  {group.activeCount} {isRtl ? 'نشط' : 'Active'}
+                                </span>
+                              )}
+                              {group.completedCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400">
+                                  {group.completedCount} {isRtl ? 'مكتمل' : 'Completed'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-6">
+                            <div className="text-xs font-bold text-foreground">
+                              {group.totalFee.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </div>
+                            {group.totalPendingDue > 0 ? (
+                              <div className="text-[10px] font-bold text-amber-500">
+                                {isRtl ? 'مستحق: ' : 'Due: '} {group.totalPendingDue.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                              </div>
+                            ) : (
+                              <div className="text-[10px] font-bold text-emerald-500">
+                                {isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-6 text-xs text-muted-foreground">
+                            {group.latestDate ? format(new Date(group.latestDate), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy') : '-'}
+                          </td>
+                          <td className={`py-3.5 px-6 ${isRtl ? 'text-left' : 'text-right'}`}>
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-semibold text-muted-foreground group-hover:text-foreground">
+                              <span>{isExpanded ? (isRtl ? 'إخفاء' : 'Collapse') : (isRtl ? 'عرض الأعمال' : 'View Works')}</span>
+                              <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expandable Works List Under This Client - Sorted by Date */}
+                        {isExpanded && group.jobs.map(job => renderJobSubRow(job, jobTypeFilter === 'quick'))}
+                      </React.Fragment>
+                    );
+                  })
+                ) : (
+                  displayJobs.map((job) => renderJobRow(job, jobTypeFilter === 'quick'))
+                )}
                 
                 {displayJobs.length === 0 && (
                   <tr>

@@ -8,8 +8,7 @@ import { JobDetailsView } from '../../components/employee/JobDetailsView';
 import { ClientDetailsView } from '../../components/employee/ClientDetailsView';
 import { ClientListView } from '../../components/employee/ClientListView';
 import { TaskListView } from '../../components/employee/TaskListView';
-import { TaskDashboard } from '../../components/employee/TaskDashboard';
-import { Filter, Search, Plus, Clock, AlertCircle, CheckCircle2, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase } from 'lucide-react';
+import { Filter, Search, Plus, Clock, AlertCircle, CheckCircle2, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase, ChevronDown, Calendar } from 'lucide-react';
 import { JobBuilder } from '../../components/employee/JobBuilder';
 import CreateClientSlideOver from '../../components/shared/clients/CreateClientSlideOver';
 import WalkInModal from '../../components/employee/WalkInModal';
@@ -46,6 +45,9 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const [taskFilter, setTaskFilter] = useState<'all' | 'self' | 'manager' | 'coworker'>('all');
   const [jobTypeFilter, setJobTypeFilter] = useState<'standard' | 'quick'>('standard');
   const [clientTypeFilter, setClientTypeFilter] = useState<'standard' | 'walk-in'>('standard');
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [viewGrouping, setViewGrouping] = useState<'client' | 'flat'>('client');
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const [isBuildingJob, setIsBuildingJob] = useState(false);
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [isRegisterClientOpen, setIsRegisterClientOpen] = useState(false);
@@ -101,13 +103,6 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
     }
   };
 
-  const filteredJobs = getFilteredJobs();
-  const quickTasks = filteredJobs.filter(j => j.service_name === 'Quick Task (POS)' || j.entry_type === 'walkin');
-  const standardTasks = filteredJobs.filter(j => j.service_name !== 'Quick Task (POS)' && j.entry_type !== 'walkin');
-
-  const displayJobs = jobTypeFilter === 'quick' ? quickTasks : standardTasks;
-  const selectedJob = jobs?.find(j => j.id === selectedJobId);
-
   const getClientName = (job: any) => {
     if (job.service_name === 'Quick Task (POS)' && job.notes) {
       const match = job.notes.match(/Walk-in Name:\s*(.*?)\s*\|/);
@@ -117,6 +112,92 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
     }
     return job.client_name;
   };
+
+  const filteredJobs = getFilteredJobs();
+  const quickTasks = filteredJobs.filter(j => j.service_name === 'Quick Task (POS)' || j.entry_type === 'walkin');
+  const standardTasks = filteredJobs.filter(j => j.service_name !== 'Quick Task (POS)' && j.entry_type !== 'walkin');
+
+  const baseDisplayJobs = jobTypeFilter === 'quick' ? quickTasks : standardTasks;
+
+  const displayJobs = React.useMemo(() => {
+    if (!taskSearchQuery.trim()) return baseDisplayJobs;
+    const q = taskSearchQuery.toLowerCase();
+    return baseDisplayJobs.filter(j => 
+      getClientName(j)?.toLowerCase().includes(q) ||
+      j.service_name?.toLowerCase().includes(q) ||
+      j.job_code?.toLowerCase().includes(q) ||
+      j.notes?.toLowerCase().includes(q)
+    );
+  }, [baseDisplayJobs, taskSearchQuery]);
+
+  const selectedJob = jobs?.find(j => j.id === selectedJobId);
+
+  // Group display jobs by client with works sorted by date (newest first)
+  const clientJobGroups = React.useMemo(() => {
+    const groups = new Map<string, {
+      clientId: string;
+      clientName: string;
+      clientAvatar?: string;
+      jobs: any[];
+      latestDate: string;
+      activeCount: number;
+    }>();
+
+    displayJobs.forEach(job => {
+      const clientName = getClientName(job) || 'Unknown Client';
+      const clientId = job.client_id || clientName;
+
+      if (!groups.has(clientId)) {
+        groups.set(clientId, {
+          clientId,
+          clientName,
+          clientAvatar: job.client_avatar,
+          jobs: [],
+          latestDate: job.started_date || job.created_at || '',
+          activeCount: 0
+        });
+      }
+
+      const group = groups.get(clientId)!;
+      group.jobs.push(job);
+      if (job.status !== 'completed' && job.status !== 'cancelled') {
+        group.activeCount++;
+      }
+
+      const jobDate = job.started_date || job.created_at || '';
+      if (jobDate > group.latestDate) {
+        group.latestDate = jobDate;
+      }
+    });
+
+    // Sort jobs inside each client group by date (newest first)
+    groups.forEach(group => {
+      group.jobs.sort((a, b) => {
+        const dateA = new Date(a.started_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.started_date || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+    });
+
+    // Sort client groups by their latest job date (newest first)
+    return Array.from(groups.values()).sort((a, b) => {
+      const dateA = new Date(a.latestDate || 0).getTime();
+      const dateB = new Date(b.latestDate || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [displayJobs]);
+
+  // Auto-expand client containing the currently selected job
+  useEffect(() => {
+    if (selectedJobId && jobs) {
+      const found = jobs.find(j => j.id === selectedJobId);
+      if (found) {
+        const clientName = getClientName(found) || 'Unknown Client';
+        const clientId = found.client_id || clientName;
+        setExpandedClients(prev => ({ ...prev, [clientId]: true }));
+      }
+    }
+  }, [selectedJobId, jobs]);
 
   // Derive unique clients from the filtered jobs & DB profiles
   const uniqueClients = React.useMemo(() => {
@@ -430,18 +511,55 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <div className="flex-1 bg-muted/50 border border-border rounded-xl flex items-center px-3 focus-within:border-primary/50 transition-colors">
-                <Search size={16} className="text-muted-foreground mr-2" />
-                <input
-                  type="text"
-                  placeholder={t('ops.search_placeholder')}
-                  className="w-full bg-transparent py-2.5 text-sm outline-none"
-                />
+            <div className="flex flex-col gap-2.5">
+              <div className="flex gap-2">
+                <div className="flex-1 bg-muted/50 border border-border rounded-xl flex items-center px-3 focus-within:border-primary/50 transition-colors">
+                  <Search size={16} className="text-muted-foreground mr-2 shrink-0" />
+                  <input
+                    type="text"
+                    value={taskSearchQuery}
+                    onChange={(e) => setTaskSearchQuery(e.target.value)}
+                    placeholder={t('ops.search_placeholder') || 'Search client, service, or job code...'}
+                    className="w-full bg-transparent py-2.5 text-sm outline-none text-foreground placeholder:text-muted-foreground/60"
+                  />
+                  {taskSearchQuery && (
+                    <button onClick={() => setTaskSearchQuery('')} className="text-muted-foreground hover:text-foreground p-1">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
-              <button className="p-2.5 bg-muted/50 border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
-                <Filter size={18} />
-              </button>
+
+              {/* View grouping toggle: Grouped by Client vs Flat List */}
+              {filterType === 'tasks' && (
+                <div className="flex items-center justify-between text-[11px] font-sans px-1">
+                  <span className="text-muted-foreground font-semibold">
+                    {viewGrouping === 'client' 
+                      ? `${clientJobGroups.length} ${isRtl ? 'عميل' : clientJobGroups.length === 1 ? 'Client' : 'Clients'}` 
+                      : `${displayJobs.length} ${isRtl ? 'مهمة' : displayJobs.length === 1 ? 'Task' : 'Tasks'}`}
+                  </span>
+                  <div className="flex bg-muted/60 p-0.5 rounded-lg border border-border">
+                    <button
+                      onClick={() => setViewGrouping('client')}
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        viewGrouping === 'client' ? 'bg-card text-primary shadow-sm font-black' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title={isRtl ? 'تجميع حسب العميل (قائمة منسدلة)' : 'Group by Client (Accordion)'}
+                    >
+                      {isRtl ? 'حسب العميل' : 'By Client'}
+                    </button>
+                    <button
+                      onClick={() => setViewGrouping('flat')}
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        viewGrouping === 'flat' ? 'bg-card text-primary shadow-sm font-black' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title={isRtl ? 'عرض قائمة المعاملات كاملة' : 'Flat List (All Tasks)'}
+                    >
+                      {isRtl ? 'كل المعاملات' : 'All Tasks'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -483,61 +601,182 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                   </div>
                 ))
               )
-            ) : filteredJobs.length === 0 ? (
+            ) : displayJobs.length === 0 ? (
               <div className="text-center p-8 border border-dashed border-border rounded-2xl bg-muted/10">
                 <p className="text-muted-foreground text-sm font-medium">{t('ops.no_tasks')}</p>
               </div>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {displayJobs.map(job => (
-                    <div
-                      key={job.id}
-                      onClick={() => {
-                        setSelectedJobId(job.id);
-                        setSelectedClientId(null);
-                      }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer group ${selectedJobId === job.id
-                          ? (jobTypeFilter === 'quick' ? 'bg-amber-500/10 border-amber-500/30 shadow-inner' : 'bg-primary/10 border-primary/30 shadow-inner')
-                          : `bg-card border-border hover:shadow-lg shadow-black/5 ${jobTypeFilter === 'quick' ? 'hover:border-amber-500/30' : 'hover:border-primary/30'}`
-                        }`}
+            ) : viewGrouping === 'client' ? (
+              /* ── Grouped by Client: Clean Accordion Rows (Client shown only once) ── */
+              <div className="space-y-3">
+                {clientJobGroups.map(group => {
+                  const isExpanded = expandedClients[group.clientId] ?? (group.jobs.some(j => j.id === selectedJobId) || clientJobGroups.length === 1);
+                  const hasSelected = group.jobs.some(j => j.id === selectedJobId);
+
+                  return (
+                    <div 
+                      key={group.clientId} 
+                      className={`rounded-2xl border transition-all overflow-hidden ${
+                        hasSelected 
+                          ? 'border-primary/40 bg-card shadow-sm ring-1 ring-primary/20' 
+                          : 'border-border bg-card hover:border-primary/30 shadow-sm'
+                      }`}
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`text-[10px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${jobTypeFilter === 'quick' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-primary bg-primary/10 border-primary/20'}`}>
-                          {job.job_code}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-muted-foreground">
-                          <User size={12} />
-                          {getClientName(job)}
+                      {/* Client Summary Header Row (Shown ONCE) */}
+                      <div 
+                        onClick={() => setExpandedClients(prev => ({ ...prev, [group.clientId]: !isExpanded }))}
+                        className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors select-none"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0 overflow-hidden">
+                            {group.clientAvatar ? (
+                              <img src={group.clientAvatar} alt={group.clientName} className="w-full h-full object-cover" />
+                            ) : (
+                              group.clientName.substring(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-syne font-bold text-xs md:text-sm text-foreground truncate" title={group.clientName}>
+                                {group.clientName}
+                              </h3>
+                              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                {group.jobs.length} {group.jobs.length === 1 ? (isRtl ? 'معاملة' : 'Work') : (isRtl ? 'معاملات' : 'Works')}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                              <Clock size={11} className="shrink-0" />
+                              <span>
+                                {isRtl ? 'آخر تحديث: ' : 'Latest: '}
+                                {group.latestDate ? new Date(group.latestDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {group.activeCount > 0 && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title={`${group.activeCount} active`} />
+                          )}
+                          <div className={`p-1 rounded-lg text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180 text-foreground bg-muted/50' : ''}`}>
+                            <ChevronDown size={15} />
+                          </div>
                         </div>
                       </div>
-                      <h3 className={`font-syne font-bold leading-tight mb-2 ${selectedJobId === job.id ? (jobTypeFilter === 'quick' ? 'text-amber-500' : 'text-primary') : `text-foreground transition-colors ${jobTypeFilter === 'quick' ? 'group-hover:text-amber-500' : 'group-hover:text-primary'}`}`}>
-                        {job.service_name}
-                      </h3>
 
-                      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/40 text-[10px]">
-                        <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
-                            job.status === 'draft' ? 'bg-muted text-muted-foreground' :
-                              'bg-amber-500/10 text-amber-500'
-                          }`}>
-                          {job.status}
-                        </span>
-                        {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
-                          <span className="text-muted-foreground truncate max-w-[160px]">
-                            By: <strong className="text-amber-400 font-bold">{job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name}</strong>
-                          </span>
-                        )}
+                      {/* Expanded Works List Under This Client - Sorted by Date */}
+                      {isExpanded && (
+                        <div className="border-t border-border/50 bg-muted/20 p-2 space-y-1.5">
+                          {group.jobs.map(job => {
+                            const isSelected = selectedJobId === job.id;
+                            const formattedDate = (job.started_date || job.created_at) 
+                              ? new Date(job.started_date || job.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                              : '';
+
+                            return (
+                              <div
+                                key={job.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedJobId(job.id);
+                                  setSelectedClientId(null);
+                                }}
+                                className={`p-3 rounded-xl border transition-all cursor-pointer group flex flex-col gap-1.5 ${
+                                  isSelected
+                                    ? (jobTypeFilter === 'quick' ? 'bg-amber-500/15 border-amber-500/40 shadow-sm' : 'bg-primary/15 border-primary/40 shadow-sm')
+                                    : 'bg-card border-border/60 hover:border-primary/30 hover:bg-card/90'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`text-[9px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${
+                                    isSelected 
+                                      ? 'bg-background text-primary border-primary/30 font-bold' 
+                                      : 'bg-muted/50 text-muted-foreground border-border'
+                                  }`}>
+                                    {job.job_code}
+                                  </span>
+                                  {formattedDate && (
+                                    <span className="text-[10px] text-muted-foreground/80 font-medium flex items-center gap-1">
+                                      <Calendar size={10} className="shrink-0" /> {formattedDate}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4 className={`font-syne text-xs font-bold leading-snug line-clamp-2 ${
+                                  isSelected 
+                                    ? (jobTypeFilter === 'quick' ? 'text-amber-500' : 'text-primary') 
+                                    : 'text-foreground group-hover:text-primary transition-colors'
+                                }`}>
+                                  {job.service_name}
+                                </h4>
+
+                                <div className="flex items-center justify-between text-[9px] pt-1 border-t border-border/30">
+                                  <span className={`px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                    job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
+                                    job.status === 'draft' ? 'bg-muted text-muted-foreground' :
+                                    'bg-amber-500/10 text-amber-500'
+                                  }`}>
+                                    {job.status}
+                                  </span>
+                                  {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
+                                    <span className="text-muted-foreground truncate max-w-[140px]">
+                                      By: <strong className="text-amber-400/90 font-bold">{job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ── Flat List Mode ── */
+              <div className="space-y-3">
+                {displayJobs.map(job => (
+                  <div
+                    key={job.id}
+                    onClick={() => {
+                      setSelectedJobId(job.id);
+                      setSelectedClientId(null);
+                    }}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer group ${selectedJobId === job.id
+                        ? (jobTypeFilter === 'quick' ? 'bg-amber-500/10 border-amber-500/30 shadow-inner' : 'bg-primary/10 border-primary/30 shadow-inner')
+                        : `bg-card border-border hover:shadow-lg shadow-black/5 ${jobTypeFilter === 'quick' ? 'hover:border-amber-500/30' : 'hover:border-primary/30'}`
+                      }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`text-[10px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${jobTypeFilter === 'quick' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-primary bg-primary/10 border-primary/20'}`}>
+                        {job.job_code}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-muted-foreground">
+                        <User size={12} />
+                        {getClientName(job)}
                       </div>
                     </div>
-                  ))}
-                  {displayJobs.length === 0 && (
-                    <div className="text-center p-8 border border-dashed border-border rounded-2xl bg-muted/10 mt-4">
-                      <p className="text-muted-foreground text-sm font-medium">
-                        {isRtl ? 'لم يتم العثور على مهام في هذا العرض.' : `No ${jobTypeFilter === 'quick' ? 'Walk-in Tasks' : 'Standard Jobs'} found.`}
-                      </p>
+                    <h3 className={`font-syne font-bold leading-tight mb-2 ${selectedJobId === job.id ? (jobTypeFilter === 'quick' ? 'text-amber-500' : 'text-primary') : `text-foreground transition-colors ${jobTypeFilter === 'quick' ? 'group-hover:text-amber-500' : 'group-hover:text-primary'}`}`}>
+                      {job.service_name}
+                    </h3>
+
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/40 text-[10px]">
+                      <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                          job.status === 'draft' ? 'bg-muted text-muted-foreground' :
+                            'bg-amber-500/10 text-amber-500'
+                        }`}>
+                        {job.status}
+                      </span>
+                      {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
+                        <span className="text-muted-foreground truncate max-w-[160px]">
+                          By: <strong className="text-amber-400 font-bold">{job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name}</strong>
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
+              </div>
+            )}
               </>
             )}
           </div>
