@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase';
 import {
   X, CheckCircle2, Clock, AlertCircle, FileText, Download,
   ExternalLink, User, Phone, Mail, Globe, Building2, Shield,
-  ArrowRight, History, Layers, Sparkles, UserCheck
+  ArrowRight, History, Layers, Sparkles, UserCheck, Trash2, Loader2,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -14,13 +15,15 @@ interface BriefingProps {
   currentServiceId?: string;
   isOpen: boolean;
   onClose: () => void;
+  onUpdated?: () => void;
 }
 
 export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
   jobId,
   currentServiceId,
   isOpen,
-  onClose
+  onClose,
+  onUpdated
 }) => {
   const [loading, setLoading] = useState(true);
   const [jobData, setJobData] = useState<any>(null);
@@ -29,6 +32,87 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
   const [handoffNotes, setHandoffNotes] = useState<any[]>([]);
   const [allDocs, setAllDocs] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'workflow' | 'timeline' | 'docs'>('overview');
+
+  // Date editing state
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [customDate, setCustomDate] = useState('');
+  const [isSavingDate, setIsSavingDate] = useState(false);
+
+  const handleOpenDateEdit = () => {
+    const currentSvc = services.find(s => s.id === currentServiceId) || services[0];
+    const raw = currentSvc?.completed_at || jobData?.completed_at || jobData?.created_at;
+    const initial = raw ? raw.split('T')[0] : new Date().toISOString().split('T')[0];
+    setCustomDate(initial);
+    setIsEditingDate(true);
+  };
+
+  const handleSaveDate = async () => {
+    if (!customDate) {
+      toast.error('Please pick a valid date');
+      return;
+    }
+    setIsSavingDate(true);
+    try {
+      const newTimestamp = new Date(`${customDate}T12:00:00Z`).toISOString();
+      const currentSvc = services.find(s => s.id === currentServiceId) || services[0];
+
+      // 1. Update job_services
+      if (currentSvc?.id) {
+        await supabase
+          .from('job_services')
+          .update({
+            completed_at: newTimestamp,
+            gov_paid_at: currentSvc.gov_payment_status === 'paid' ? newTimestamp : currentSvc.gov_paid_at
+          })
+          .eq('id', currentSvc.id);
+      } else {
+        await supabase
+          .from('job_services')
+          .update({ completed_at: newTimestamp })
+          .eq('job_id', jobId);
+      }
+
+      // 2. Update jobs table (both completed_at and created_at if completed)
+      const jobUpdate: any = {
+        completed_at: newTimestamp
+      };
+      if (jobData?.status === 'completed' || currentSvc?.status === 'completed') {
+        jobUpdate.created_at = newTimestamp;
+      }
+      await supabase
+        .from('jobs')
+        .update(jobUpdate)
+        .eq('id', jobId);
+
+      // 3. Update any job_expenses linked to this job
+      await supabase
+        .from('job_expenses')
+        .update({ created_at: newTimestamp })
+        .eq('job_id', jobId);
+
+      toast.success('Date updated successfully');
+      setIsEditingDate(false);
+
+      // 4. Update local state
+      setJobData((prev: any) => ({
+        ...prev,
+        completed_at: newTimestamp,
+        created_at: jobUpdate.created_at || prev?.created_at
+      }));
+      setServices((prev: any[]) => prev.map(s => {
+        if (!currentSvc?.id || s.id === currentSvc.id) {
+          return { ...s, completed_at: newTimestamp };
+        }
+        return s;
+      }));
+      if (onUpdated) onUpdated();
+    } catch (err: any) {
+      console.error('Failed to update date:', err);
+      toast.error(err.message || 'Failed to update date');
+    } finally {
+      setIsSavingDate(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || !jobId) return;
@@ -147,6 +231,8 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
     }
   };
 
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+
   const handleViewDoc = async (doc: any) => {
     try {
       const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 3600);
@@ -156,6 +242,79 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
       }
     } catch (err) {
       toast.error('Could not generate view link');
+    }
+  };
+
+  const handleDeleteDoc = async (doc: any) => {
+    const docTitle = doc.document_name || doc.file_name || 'document';
+    if (!window.confirm(`Are you sure you want to delete "${docTitle}"?`)) {
+      return;
+    }
+
+    setDeletingDocId(doc.id);
+    try {
+      // 1. Remove file from storage
+      if (doc.file_path) {
+        try {
+          await supabase.storage.from('documents').remove([doc.file_path]);
+        } catch (storageErr) {
+          console.warn('Storage removal warning:', storageErr);
+        }
+      }
+
+      // 2. Determine if document record should be deleted or reset
+      const isCustomOrOutput =
+        doc.document_category === 'output' ||
+        doc.document_category === 'gov_receipt' ||
+        doc.notes === 'gov_receipt' ||
+        !doc.is_required;
+
+      if (isCustomOrOutput) {
+        const { error: delErr } = await supabase
+          .from('job_service_documents')
+          .delete()
+          .eq('id', doc.id);
+        if (delErr) throw delErr;
+
+        setAllDocs(prev => prev.filter(d => d.id !== doc.id));
+      } else {
+        const { error: updErr } = await supabase
+          .from('job_service_documents')
+          .update({
+            file_name: null,
+            file_path: null,
+            file_size: null,
+            file_type: null,
+            uploaded_by: null,
+            status: 'pending'
+          } as any)
+          .eq('id', doc.id);
+        if (updErr) throw updErr;
+
+        setAllDocs(prev =>
+          prev.map(d => (d.id === doc.id ? { ...d, file_path: null, file_name: null, status: 'pending' } : d))
+        );
+      }
+
+      // 3. If this doc was linked as a government receipt on the job_service, clear it
+      if (doc.job_service_id && doc.file_path) {
+        await supabase
+          .from('job_services')
+          .update({
+            gov_receipt_url: null,
+            gov_payment_status: 'unpaid'
+          })
+          .eq('id', doc.job_service_id)
+          .eq('gov_receipt_url', doc.file_path);
+      }
+
+      toast.success('Document deleted successfully');
+      onUpdated?.();
+    } catch (err: any) {
+      console.error('Delete document failed:', err);
+      toast.error(err.message || 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -276,13 +435,80 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                           )}
                         </p>
                       </div>
-                      <div className="text-left sm:text-right">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold block">Deadline</span>
-                        <span className="text-xs font-semibold text-foreground">
-                          {currentService.deadline ? format(new Date(currentService.deadline), 'MMM d, yyyy') : 'No deadline set'}
-                        </span>
+                      <div className="text-left sm:text-right flex flex-col sm:items-end gap-1.5">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                            {currentService.status === 'completed' ? 'Completed Date' : 'Deadline'}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">
+                            {currentService.status === 'completed'
+                              ? (currentService.completed_at ? format(new Date(currentService.completed_at), 'MMM d, yyyy') : 'Completed')
+                              : (currentService.deadline ? format(new Date(currentService.deadline), 'MMM d, yyyy') : 'No deadline set')}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenDateEdit}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-lg transition-colors cursor-pointer"
+                          title="Change completion or recorded date"
+                        >
+                          <Calendar size={11} />
+                          <span>Edit Date ✏️</span>
+                        </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* Inline Date Editor Modal/Block */}
+                  {isEditingDate && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 bg-card border border-amber-500/40 rounded-2xl shadow-lg space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Calendar size={14} className="text-amber-400" />
+                          <span>Edit Completion / Logged Date (تعديل تاريخ الإنجاز)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDate(false)}
+                          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted/30"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <input
+                          type="date"
+                          value={customDate}
+                          onChange={(e) => setCustomDate(e.target.value)}
+                          className="flex-1 bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveDate}
+                            disabled={isSavingDate || !customDate}
+                            className="flex-1 sm:flex-initial px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                          >
+                            {isSavingDate ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                            <span>Save Date</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingDate(false)}
+                            className="px-3 py-2 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold rounded-xl cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Fixes misdated entries. Automatically synchronizes the service completion date, job record, and expense timestamp so reports reflect the true date.
+                      </p>
+                    </motion.div>
                   )}
 
                   {/* Client Dossier Card */}
@@ -358,11 +584,26 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                         </p>
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                          <Clock size={11} /> Job Created
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <Clock size={11} /> {jobData?.completed_at ? 'Completed Date' : 'Job Date'}
+                          </span>
+                          {!isEditingDate && (
+                            <button
+                              type="button"
+                              onClick={handleOpenDateEdit}
+                              className="text-[9px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-0.5 cursor-pointer"
+                            >
+                              Edit ✏️
+                            </button>
+                          )}
+                        </div>
                         <p className="text-xs font-semibold text-foreground">
-                          {jobData?.created_at ? format(new Date(jobData.created_at), 'MMM d, yyyy') : 'N/A'}
+                          {jobData?.completed_at
+                            ? format(new Date(jobData.completed_at), 'MMM d, yyyy')
+                            : jobData?.created_at
+                            ? format(new Date(jobData.created_at), 'MMM d, yyyy')
+                            : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -649,7 +890,7 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleViewDoc(doc)}
-                                  className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                                  className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
                                   title="View document"
                                 >
                                   <ExternalLink size={13} />
@@ -657,10 +898,23 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadDoc(doc)}
-                                  className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                                  className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
                                   title="Download document"
                                 >
                                   <Download size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDoc(doc)}
+                                  disabled={deletingDocId === doc.id}
+                                  className="p-1.5 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete document"
+                                >
+                                  {deletingDocId === doc.id ? (
+                                    <Loader2 size={13} className="animate-spin text-rose-400" />
+                                  ) : (
+                                    <Trash2 size={13} />
+                                  )}
                                 </button>
                               </div>
                             )}

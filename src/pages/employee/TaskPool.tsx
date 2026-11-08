@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, Sparkles, Search, Layers, Clock, DollarSign,
   User, CheckCircle2, ChevronRight, FileText, ArrowRight,
-  Shield, AlertCircle, RefreshCw, Briefcase, Eye, Building2, UserCheck
+  Shield, AlertCircle, RefreshCw, Briefcase, Eye, Building2, UserCheck, Calendar
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { useClaimPoolTask, type PoolTask } from '../../hooks/employee/useClaimPoolTask';
 import { TaskAssignmentBriefing } from '../../components/employee/TaskAssignmentBriefing';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isToday } from 'date-fns';
 
 export default function TaskPool() {
   const { profile } = useAuth();
@@ -195,6 +195,8 @@ export default function TaskPool() {
             const timeAgo = task.pool_posted_at 
               ? formatDistanceToNow(new Date(task.pool_posted_at), { addSuffix: true })
               : 'Recently';
+            const assignedDateRaw = task.assigned_at || task.pool_posted_at || task.created_at || task.job?.created_at;
+            const assignedDate = assignedDateRaw ? new Date(assignedDateRaw) : null;
 
             return (
               <motion.div
@@ -280,6 +282,24 @@ export default function TaskPool() {
                         {(task.job?.sales_rep?.employee_code || task.job?.assigned_by_user?.employee_code) ? ` (${task.job?.sales_rep?.employee_code || task.job?.assigned_by_user?.employee_code})` : ''}
                       </span>
                     </div>
+
+                    {/* Assigned Date */}
+                    <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Calendar size={11} className="text-primary" />
+                        <span>Assigned Date:</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-mono font-bold text-foreground">
+                          {assignedDate ? format(assignedDate, 'dd MMM yyyy') : '—'}
+                        </span>
+                        {assignedDate && isToday(assignedDate) && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
+                            Today
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Steps & Scope */}
@@ -341,6 +361,7 @@ export default function TaskPool() {
           setBriefingJobId(null);
           setBriefingServiceId(null);
         }}
+        onUpdated={refetch}
       />
     </div>
   );

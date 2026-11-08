@@ -676,6 +676,15 @@ const MyTasks: React.FC = () => {
   const [doneCustomEnd, setDoneCustomEnd] = useState('');
   const [doneSearchQuery, setDoneSearchQuery] = useState('');
   const [doneViewMode, setDoneViewMode] = useState<'list' | 'cards'>('list');
+  const [doneGroupByClient, setDoneGroupByClient] = useState(true);
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
+
+  const toggleClient = (clientId: string) => {
+    setExpandedClients(prev => ({
+      ...prev,
+      [clientId]: !prev[clientId]
+    }));
+  };
 
   const handleOpenBriefing = (jobId: string, serviceId?: string) => {
     setBriefingJobId(jobId);
@@ -736,6 +745,83 @@ const MyTasks: React.FC = () => {
       return true;
     });
   }, [done, doneDatePreset, doneCustomStart, doneCustomEnd, doneSearchQuery]);
+
+  // Group Completed Tasks by Client for Clean, Uncluttered Accordion View
+  const clientGroups = useMemo(() => {
+    const groups: Record<string, {
+      clientId: string;
+      clientName: string;
+      clientPhone?: string;
+      jobCodes: string[];
+      salesReps: string[];
+      services: any[];
+      latestDate: Date | null;
+      totalProofFiles: number;
+    }> = {};
+
+    filteredDoneTasks.forEach(task => {
+      const clientId = task.job?.client_id || task.job?.client?.full_name || task.applicant_name || 'unknown';
+      const clientName = task.job?.client?.full_name || task.applicant_name || 'Client';
+      const clientPhone = task.job?.client?.phone;
+      const jobCode = task.job?.job_code;
+      const salesRep = task.assigner?.full_name || task.job?.assigned_by_profile?.full_name;
+
+      if (!groups[clientId]) {
+        groups[clientId] = {
+          clientId,
+          clientName,
+          clientPhone,
+          jobCodes: [],
+          salesReps: [],
+          services: [],
+          latestDate: null,
+          totalProofFiles: 0
+        };
+      }
+
+      if (jobCode && !groups[clientId].jobCodes.includes(jobCode)) {
+        groups[clientId].jobCodes.push(jobCode);
+      }
+      if (salesRep && !groups[clientId].salesReps.includes(salesRep)) {
+        groups[clientId].salesReps.push(salesRep);
+      }
+
+      groups[clientId].services.push(task);
+
+      const dStr = task.completed_at || task.updated_at || task.created_at;
+      if (dStr) {
+        const dt = parseISO(dStr);
+        if (!groups[clientId].latestDate || dt > groups[clientId].latestDate!) {
+          groups[clientId].latestDate = dt;
+        }
+      }
+
+      const hasReceipt = Boolean(task.gov_receipt_url);
+      const outputsCount = (task.documents || []).filter((d: any) =>
+        d.document_category === 'output' ||
+        d.document_category === 'gov_receipt' ||
+        d.notes === 'gov_receipt' ||
+        d.file_name?.toLowerCase().includes('gov_receipt')
+      ).length;
+      groups[clientId].totalProofFiles += outputsCount + (hasReceipt ? 1 : 0);
+    });
+
+    // Sort works inside each client group chronologically by date (newest first)
+    Object.values(groups).forEach(g => {
+      g.services.sort((a, b) => {
+        const dateA = a.completed_at || a.updated_at || a.created_at || '';
+        const dateB = b.completed_at || b.updated_at || b.created_at || '';
+        return dateB.localeCompare(dateA);
+      });
+    });
+
+    // Sort client groups by their latest completed service date
+    return Object.values(groups).sort((a, b) => {
+      if (!a.latestDate) return 1;
+      if (!b.latestDate) return -1;
+      return b.latestDate.getTime() - a.latestDate.getTime();
+    });
+  }, [filteredDoneTasks]);
 
   // Done KPIs
   const doneCompletedToday = useMemo(() => {
@@ -1067,6 +1153,20 @@ const MyTasks: React.FC = () => {
                 />
               </div>
 
+              {/* Group By Client Toggle */}
+              <button
+                onClick={() => setDoneGroupByClient(!doneGroupByClient)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                  doneGroupByClient
+                    ? 'bg-primary/10 text-primary border-primary/30 shadow-sm'
+                    : 'bg-card text-muted-foreground border-border/60 hover:text-foreground'
+                }`}
+                title={isRtl ? 'تجميع حسب العميل أو قائمة عادية' : 'Group by Client or Flat List'}
+              >
+                <Users size={13} />
+                <span>{isRtl ? (doneGroupByClient ? 'مجمّع حسب العميل' : 'قائمة تفصيلية') : (doneGroupByClient ? 'Grouped by Client' : 'Flat List')}</span>
+              </button>
+
               {/* View Mode Toggle: List vs Cards */}
               <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/40">
                 <button
@@ -1138,113 +1238,305 @@ const MyTasks: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {filteredDoneTasks.map(task => {
-                      const completedDateStr = task.completed_at || task.updated_at || task.created_at;
-                      const completedDate = completedDateStr ? parseISO(completedDateStr) : null;
-                      const isTaskToday = completedDate && isToday(completedDate);
-                      const outputs = (task.documents || []).filter((d: any) =>
-                        d.document_category === 'output' ||
-                        d.document_category === 'gov_receipt' ||
-                        d.notes === 'gov_receipt' ||
-                        d.file_name?.toLowerCase().includes('gov_receipt')
-                      );
-                      const hasDedicatedGovReceipt = Boolean(task.gov_receipt_url);
-                      const totalProofFiles = outputs.length + (hasDedicatedGovReceipt && !outputs.some((d: any) => d.file_path === task.gov_receipt_url) ? 1 : 0);
+                    {doneGroupByClient ? (
+                      /* GROUPED BY CLIENT ACCORDION VIEW */
+                      clientGroups.map(group => {
+                        const isExpanded = Boolean(expandedClients[group.clientId]);
+                        return (
+                          <React.Fragment key={group.clientId}>
+                            {/* Client Summary Accordion Row */}
+                            <tr
+                              onClick={() => toggleClient(group.clientId)}
+                              className={`transition-colors cursor-pointer border-t border-border/40 group ${
+                                isExpanded ? 'bg-primary/5 hover:bg-primary/10' : 'bg-muted/15 hover:bg-muted/30'
+                              }`}
+                            >
+                              <td className="py-3.5 px-5">
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-1 rounded-lg bg-muted/60 text-muted-foreground group-hover:text-primary transition-all ${isExpanded ? 'rotate-90 text-primary bg-primary/10' : ''}`}>
+                                    <ChevronRight size={14} />
+                                  </div>
+                                  <div className="w-8 h-8 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                                    {group.clientName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-foreground text-xs">{group.clientName}</span>
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                                        {group.services.length} {group.services.length === 1 ? (isRtl ? 'خدمة منجزة' : 'work') : (isRtl ? 'خدمات منجزة' : 'works')}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 font-normal">
+                                      {group.clientPhone && <span>{group.clientPhone}</span>}
+                                      {group.jobCodes.length > 0 && (
+                                        <span>• {group.jobCodes.slice(0, 3).join(', ')}{group.jobCodes.length > 3 ? ` +${group.jobCodes.length - 3}` : ''}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
 
-                      return (
-                        <tr key={task.id} className="hover:bg-muted/20 transition-colors">
-                          {/* Case & Client */}
-                          <td className="py-3.5 px-5 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
-                                <Check size={14} />
-                              </div>
-                              <div>
-                                <span className="font-bold text-foreground text-xs block">
-                                  {task.job?.client?.full_name || 'Client'}
+                              <td className="py-3.5 px-4">
+                                <div className="text-xs text-muted-foreground truncate max-w-xs">
+                                  {group.services.slice(0, 2).map((s: any) => s.service_name || s.service?.name_en).join(', ')}
+                                  {group.services.length > 2 && <span className="text-[10px] text-primary ml-1">+{group.services.length - 2} more</span>}
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-xs text-foreground font-semibold">
+                                    {group.latestDate ? format(group.latestDate, 'dd MMM yyyy') : '—'}
+                                  </span>
+                                  {group.latestDate && isToday(group.latestDate) && (
+                                    <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
+                                      Today
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {group.salesReps.join(', ') || 'Sales Rep'}
                                 </span>
-                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
-                                  <span className="font-mono text-primary font-bold">{task.job?.job_code}</span>
-                                  {task.job?.client?.phone && <span>• {task.job?.client?.phone}</span>}
+                              </td>
+
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                {group.totalProofFiles > 0 ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
+                                    {group.totalProofFiles} {group.totalProofFiles === 1 ? 'file' : 'files'}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground/60 italic">No output files</span>
+                                )}
+                              </td>
+
+                              <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleClient(group.clientId);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>{isExpanded ? (isRtl ? 'إخفاء' : 'Collapse') : (isRtl ? `عرض الأعمال (${group.services.length})` : `View Works (${group.services.length})`)}</span>
+                                  <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                              </td>
+                            </tr>
+
+                            {/* Expanded Child Services (Sorted Chronologically by Date) */}
+                            {isExpanded && group.services.map((task: any) => {
+                              const completedDateStr = task.completed_at || task.updated_at || task.created_at;
+                              const completedDate = completedDateStr ? parseISO(completedDateStr) : null;
+                              const isTaskToday = completedDate && isToday(completedDate);
+                              const outputs = (task.documents || []).filter((d: any) =>
+                                d.document_category === 'output' ||
+                                d.document_category === 'gov_receipt' ||
+                                d.notes === 'gov_receipt' ||
+                                d.file_name?.toLowerCase().includes('gov_receipt')
+                              );
+                              const hasDedicatedGovReceipt = Boolean(task.gov_receipt_url);
+                              const totalProofFiles = outputs.length + (hasDedicatedGovReceipt && !outputs.some((d: any) => d.file_path === task.gov_receipt_url) ? 1 : 0);
+
+                              return (
+                                <tr
+                                  key={task.id}
+                                  className={`border-b border-border/20 transition-colors bg-card/60 hover:bg-muted/20 ${isRtl ? 'border-r-4 border-r-primary/40 pr-2' : 'border-l-4 border-l-primary/40 pl-2'}`}
+                                >
+                                  <td className="py-3 px-5 whitespace-nowrap">
+                                    <div className="flex items-center gap-2.5 pl-5 sm:pl-7">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                                      <span className="font-mono text-primary font-bold text-[11px] bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                                        {task.job?.job_code}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td className="py-3 px-4">
+                                    <div>
+                                      <p className="font-bold text-xs text-foreground">{task.service_name || task.service?.name_en}</p>
+                                      {task.applicant_name && (
+                                        <p className="text-[10px] text-muted-foreground">For: {task.applicant_name}</p>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  <td className="py-3 px-4 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono text-xs text-foreground">
+                                        {completedDate ? format(completedDate, 'dd MMM yyyy') : '—'}
+                                      </span>
+                                      {isTaskToday && (
+                                        <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
+                                          Today
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  <td className="py-3 px-4 whitespace-nowrap">
+                                    <span className="text-xs text-muted-foreground font-medium">
+                                      {task.assigner?.full_name || task.job?.assigned_by_profile?.full_name || 'Sales Rep'}
+                                    </span>
+                                  </td>
+
+                                  <td className="py-3 px-4 whitespace-nowrap">
+                                    {totalProofFiles > 0 ? (
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
+                                          {totalProofFiles} {totalProofFiles === 1 ? 'file' : 'files'}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <a
+                                        href={`/employee/tasks?jobId=${task.job_id}`}
+                                        className="text-[10px] text-muted-foreground/60 hover:text-primary italic hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                        title="Open job folder to upload files or receipts"
+                                      >
+                                        <span>No output files</span>
+                                        <span className="text-[9px] font-bold text-primary not-italic bg-primary/10 px-1 rounded border border-primary/20">+ Add</span>
+                                      </a>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-5 text-right whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => handleOpenBriefing(task.job_id, task.id)}
+                                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition-all border border-amber-500/20 flex items-center gap-1 cursor-pointer"
+                                        title="Open Case Dossier"
+                                      >
+                                        <Sparkles size={11} />
+                                        <span className="hidden sm:inline">Dossier</span>
+                                      </button>
+                                      <button
+                                        onClick={() => window.location.href = `/employee/tasks?jobId=${task.job_id}`}
+                                        className="p-1.5 rounded-xl bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                                        title="Open Full Job Folder"
+                                      >
+                                        <ExternalLink size={13} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })
+                    ) : (
+                      /* FLAT LIST VIEW (ORIGINAL FLAT ROWS) */
+                      filteredDoneTasks.map(task => {
+                        const completedDateStr = task.completed_at || task.updated_at || task.created_at;
+                        const completedDate = completedDateStr ? parseISO(completedDateStr) : null;
+                        const isTaskToday = completedDate && isToday(completedDate);
+                        const outputs = (task.documents || []).filter((d: any) =>
+                          d.document_category === 'output' ||
+                          d.document_category === 'gov_receipt' ||
+                          d.notes === 'gov_receipt' ||
+                          d.file_name?.toLowerCase().includes('gov_receipt')
+                        );
+                        const hasDedicatedGovReceipt = Boolean(task.gov_receipt_url);
+                        const totalProofFiles = outputs.length + (hasDedicatedGovReceipt && !outputs.some((d: any) => d.file_path === task.gov_receipt_url) ? 1 : 0);
+
+                        return (
+                          <tr key={task.id} className="hover:bg-muted/20 transition-colors">
+                            {/* Case & Client */}
+                            <td className="py-3.5 px-5 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+                                  <Check size={14} />
+                                </div>
+                                <div>
+                                  <span className="font-bold text-foreground text-xs block">
+                                    {task.job?.client?.full_name || 'Client'}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                                    <span className="font-mono text-primary font-bold">{task.job?.job_code}</span>
+                                    {task.job?.client?.phone && <span>• {task.job?.client?.phone}</span>}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Completed Service */}
-                          <td className="py-3.5 px-4">
-                            <div>
-                              <p className="font-bold text-xs text-foreground">{task.service_name || task.service?.name_en}</p>
-                              {task.applicant_name && (
-                                <p className="text-[10px] text-muted-foreground">For: {task.applicant_name}</p>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Completion Date */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono text-xs text-foreground">
-                                {completedDate ? format(completedDate, 'dd MMM yyyy') : '—'}
-                              </span>
-                              {isTaskToday && (
-                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
-                                  Today
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Sales Rep */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {task.assigner?.full_name || task.job?.assigned_by_profile?.full_name || 'Sales Rep'}
-                            </span>
-                          </td>
-
-                          {/* Deliverables / Proof files */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            {totalProofFiles > 0 ? (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
-                                  {totalProofFiles} {totalProofFiles === 1 ? 'file' : 'files'}
-                                </span>
+                            {/* Completed Service */}
+                            <td className="py-3.5 px-4">
+                              <div>
+                                <p className="font-bold text-xs text-foreground">{task.service_name || task.service?.name_en}</p>
+                                {task.applicant_name && (
+                                  <p className="text-[10px] text-muted-foreground">For: {task.applicant_name}</p>
+                                )}
                               </div>
-                            ) : (
-                              <a
-                                href={`/employee/tasks?jobId=${task.job_id}`}
-                                className="text-[10px] text-muted-foreground/60 hover:text-primary italic hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                title="Open job folder to upload files or receipts"
-                              >
-                                <span>No output files</span>
-                                <span className="text-[9px] font-bold text-primary not-italic bg-primary/10 px-1 rounded border border-primary/20">+ Add</span>
-                              </a>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Actions */}
-                          <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleOpenBriefing(task.job_id, task.id)}
-                                className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition-all border border-amber-500/20 flex items-center gap-1"
-                                title="Open Case Dossier"
-                              >
-                                <Sparkles size={11} />
-                                <span className="hidden sm:inline">Dossier</span>
-                              </button>
-                              <button
-                                onClick={() => window.location.href = `/employee/tasks?jobId=${task.job_id}`}
-                                className="p-1.5 rounded-xl bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-all"
-                                title="Open Full Job Folder"
-                              >
-                                <ExternalLink size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            {/* Completion Date */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-xs text-foreground">
+                                  {completedDate ? format(completedDate, 'dd MMM yyyy') : '—'}
+                                </span>
+                                {isTaskToday && (
+                                  <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
+                                    Today
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Sales Rep */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="text-xs text-muted-foreground font-medium">
+                                {task.assigner?.full_name || task.job?.assigned_by_profile?.full_name || 'Sales Rep'}
+                              </span>
+                            </td>
+
+                            {/* Deliverables / Proof files */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {totalProofFiles > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
+                                    {totalProofFiles} {totalProofFiles === 1 ? 'file' : 'files'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <a
+                                  href={`/employee/tasks?jobId=${task.job_id}`}
+                                  className="text-[10px] text-muted-foreground/60 hover:text-primary italic hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  title="Open job folder to upload files or receipts"
+                                >
+                                  <span>No output files</span>
+                                  <span className="text-[9px] font-bold text-primary not-italic bg-primary/10 px-1 rounded border border-primary/20">+ Add</span>
+                                </a>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleOpenBriefing(task.job_id, task.id)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition-all border border-amber-500/20 flex items-center gap-1 cursor-pointer"
+                                  title="Open Case Dossier"
+                                >
+                                  <Sparkles size={11} />
+                                  <span className="hidden sm:inline">Dossier</span>
+                                </button>
+                                <button
+                                  onClick={() => window.location.href = `/employee/tasks?jobId=${task.job_id}`}
+                                  className="p-1.5 rounded-xl bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                                  title="Open Full Job Folder"
+                                >
+                                  <ExternalLink size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1274,6 +1566,7 @@ const MyTasks: React.FC = () => {
           setBriefingJobId(null);
           setBriefingServiceId(null);
         }}
+        onUpdated={refetch}
       />
 
       {/* Log Completed Historical Work Modal */}

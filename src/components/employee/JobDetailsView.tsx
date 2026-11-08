@@ -101,6 +101,7 @@ const ApplicantCard = ({
   // Registered & Expiry dates for deliverables / renewal tracking
   const [issueDate, setIssueDate] = useState(js.issue_date ? js.issue_date.split('T')[0] : '');
   const [expiryDate, setExpiryDate] = useState(js.expiry_date ? js.expiry_date.split('T')[0] : '');
+  const [completedDate, setCompletedDate] = useState(js.completed_at ? js.completed_at.split('T')[0] : '');
   const [isSavingDates, setIsSavingDates] = useState(false);
   const [isUploadingGovReceipt, setIsUploadingGovReceipt] = useState(false);
 
@@ -180,15 +181,36 @@ const ApplicantCard = ({
   const handleSaveDates = async () => {
     setIsSavingDates(true);
     try {
+      const updatePayload: any = {
+        issue_date: issueDate || null,
+        expiry_date: expiryDate || null
+      };
+      if (completedDate) {
+        updatePayload.completed_at = new Date(`${completedDate}T12:00:00Z`).toISOString();
+      } else if (js.status !== 'completed') {
+        updatePayload.completed_at = null;
+      }
+
       const { error } = await supabase
         .from('job_services')
-        .update({
-          issue_date: issueDate || null,
-          expiry_date: expiryDate || null
-        })
+        .update(updatePayload)
         .eq('id', js.id);
       if (error) throw error;
-      toast.success('Registration & Expiry dates saved');
+
+      // If job is completed or this service is completed, also sync master job's completed_at
+      if (completedDate && (job?.status === 'completed' || js.status === 'completed')) {
+        const compIso = new Date(`${completedDate}T12:00:00Z`).toISOString();
+        await supabase
+          .from('jobs')
+          .update({ completed_at: compIso, created_at: compIso })
+          .eq('id', job.id);
+        await supabase
+          .from('job_expenses')
+          .update({ created_at: compIso })
+          .eq('job_id', job.id);
+      }
+
+      toast.success('Service & Completion dates saved');
       onUpdated();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save dates');
@@ -900,11 +922,20 @@ const ApplicantCard = ({
                   <div className="p-3 bg-muted/20 border border-border/50 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        <Calendar size={11} className="text-primary" /> Registration & Expiry Dates
+                        <Calendar size={11} className="text-primary" /> Key Dates & Deliverables (تاريخ الإنجاز والتواريخ)
                       </span>
                       {getExpiryBadge()}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[8px] font-bold uppercase text-muted-foreground block mb-0.5">Completion Date (تاريخ الإنجاز)</label>
+                        <input
+                          type="date"
+                          value={completedDate}
+                          onChange={(e) => setCompletedDate(e.target.value)}
+                          className="w-full bg-background/60 border border-border/70 focus:border-primary rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none transition-all"
+                        />
+                      </div>
                       <div>
                         <label className="text-[8px] font-bold uppercase text-muted-foreground block mb-0.5">Issue / Registered Date</label>
                         <input
@@ -924,7 +955,7 @@ const ApplicantCard = ({
                         />
                       </div>
                     </div>
-                    {(issueDate !== (js.issue_date?.split('T')[0] || '') || expiryDate !== (js.expiry_date?.split('T')[0] || '')) && (
+                    {(issueDate !== (js.issue_date?.split('T')[0] || '') || expiryDate !== (js.expiry_date?.split('T')[0] || '') || completedDate !== (js.completed_at?.split('T')[0] || '')) && (
                       <div className="flex justify-end pt-1">
                         <button
                           type="button"
@@ -2428,6 +2459,53 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
     }
   };
 
+  // Master Job Date Editing
+  const [isEditingMasterDate, setIsEditingMasterDate] = useState(false);
+  const [masterDateInput, setMasterDateInput] = useState('');
+  const [isSavingMasterDate, setIsSavingMasterDate] = useState(false);
+
+  const handleSaveMasterDate = async () => {
+    if (!masterDateInput) {
+      toast.error('Please pick a date');
+      return;
+    }
+    setIsSavingMasterDate(true);
+    try {
+      const newTimestamp = new Date(`${masterDateInput}T12:00:00Z`).toISOString();
+      const jobUpdate: any = {
+        completed_at: newTimestamp
+      };
+      if (job.status === 'completed') {
+        jobUpdate.created_at = newTimestamp;
+      }
+
+      const { error } = await supabase
+        .from('jobs')
+        .update(jobUpdate)
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await supabase
+        .from('job_services')
+        .update({ completed_at: newTimestamp })
+        .eq('job_id', job.id);
+
+      await supabase
+        .from('job_expenses')
+        .update({ created_at: newTimestamp })
+        .eq('job_id', job.id);
+
+      toast.success('Date updated successfully');
+      setIsEditingMasterDate(false);
+      loadData();
+      if (onUpdated) onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update date');
+    } finally {
+      setIsSavingMasterDate(false);
+    }
+  };
+
   const unreadCount = messages ? messages.filter((m: any) => m.sender_id !== profile?.id && !m.is_read).length : 0;
   const [totalMinistryFee, setTotalMinistryFee] = useState<number>(0);
   const [jobDocuments, setJobDocuments] = useState<any[]>([]);
@@ -2923,7 +3001,86 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                   </span>
                 </div>
               </div>
+
+              {/* Job / Completion Date Info */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    {job.status === 'completed' ? 'Completed Date' : 'Job Date'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = job.completed_at || job.created_at || '';
+                      setMasterDateInput(cur ? cur.split('T')[0] : '');
+                      setIsEditingMasterDate(true);
+                    }}
+                    className="text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-0.5 cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20"
+                    title="Edit date"
+                  >
+                    <span>Edit Date</span> ✏️
+                  </button>
+                </div>
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5 py-1">
+                  <Calendar size={13} className="text-primary shrink-0" />
+                  <span>
+                    {job.completed_at
+                      ? format(new Date(job.completed_at), 'MMM d, yyyy')
+                      : job.created_at
+                      ? format(new Date(job.created_at), 'MMM d, yyyy')
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* Inline Master Date Editor */}
+            {isEditingMasterDate && (
+              <div className="p-4 bg-card border border-amber-500/40 rounded-2xl shadow-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Calendar size={14} className="text-amber-400" />
+                    <span>Edit Job / Completion Date (تعديل تاريخ المعاملة)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingMasterDate(false)}
+                    className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted/30"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <input
+                    type="date"
+                    value={masterDateInput}
+                    onChange={(e) => setMasterDateInput(e.target.value)}
+                    className="flex-1 bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveMasterDate}
+                      disabled={isSavingMasterDate || !masterDateInput}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      {isSavingMasterDate ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                      <span>Save Date</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingMasterDate(false)}
+                      className="px-3 py-2 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Fixes previously misdated jobs. Synchronizes the master job record, all underlying services, and expense timestamps.
+                </p>
+              </div>
+            )}
 
             {/* Operations Content */}
             <OperationsPanel
@@ -3128,6 +3285,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         jobId={job.id}
         isOpen={isBriefingOpen}
         onClose={() => setIsBriefingOpen(false)}
+        onUpdated={onUpdated}
       />
     </div>
   );

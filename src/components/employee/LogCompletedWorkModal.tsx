@@ -47,9 +47,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
   const [loadingRefs, setLoadingRefs] = useState(false);
 
   // Form Fields
-  const [completionDate, setCompletionDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [completionDate, setCompletionDate] = useState<string>('');
 
   // Branch Attribution (Smart date-wise attribution for transferred employees)
   const { isTransferred, resolveBranchForDate, previousBranch, currentBranch } = useBranchAttribution();
@@ -290,6 +288,7 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         receiptFiles: []
       }
     ]);
+    setCompletionDate('');
     setSelectedCatalogId('');
     setCatalogSearch('');
     setPaidByClient(false);
@@ -305,6 +304,10 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
     e.preventDefault();
 
     // 1. Validation
+    if (!completionDate || !completionDate.trim()) {
+      toast.error(isRtl ? 'يرجى تحديد تاريخ إنجاز المعاملة' : 'Please select the date the work was completed');
+      return;
+    }
     if (clientMode === 'existing' && !selectedClientId) {
       toast.error(isRtl ? 'يرجى اختيار العميل المسجل' : 'Please select an existing client');
       return;

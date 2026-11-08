@@ -17,6 +17,7 @@ export interface PoolTask {
   ops_employee_id: string | null;
   assignment_model: 'direct' | 'pool';
   pool_posted_at: string | null;
+  assigned_at?: string | null;
   status: string;
   deadline: string | null;
   work_fee: number;
@@ -75,7 +76,7 @@ export const useClaimPoolTask = (branchId?: string | null) => {
         .select(`
           id, job_id, service_id, service_name, display_order, quantity, item_number,
           applicant_name, applicant_details, ops_employee_id, assignment_model,
-          pool_posted_at, status, deadline, work_fee, total_fee, created_at,
+          pool_posted_at, assigned_at, status, deadline, work_fee, total_fee, created_at,
           job:jobs!job_services_job_id_fkey(
             id, job_code, status, branch_id, custom_name, created_at,
             client:profiles!client_id(id, full_name, phone, email, nationality, company_name),
