@@ -648,6 +648,12 @@ export interface Database {
         credit_authorized_by: string | null
         issue_date: string | null
         expiry_date: string | null
+        supplier_name: string | null
+        gov_fee_actual_paid: number | null
+        gov_payment_status: string | null
+        gov_paid_at: string | null
+        gov_paid_by: string | null
+        gov_receipt_url: string | null
         created_at: string
         updated_at: string
       }, 'id' | 'created_at' | 'updated_at', 'is_funded'>

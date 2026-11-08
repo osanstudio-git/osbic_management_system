@@ -113,6 +113,12 @@ export interface JobService {
   credit_authorized_by?: string | null;
   issue_date?: string | null;
   expiry_date?: string | null;
+  supplier_name?: string | null;
+  gov_fee_actual_paid?: number | null;
+  gov_payment_status?: string | null;
+  gov_paid_at?: string | null;
+  gov_paid_by?: string | null;
+  gov_receipt_url?: string | null;
   started_at: string | null;
   completed_at: string | null;
   deadline: string | null;
