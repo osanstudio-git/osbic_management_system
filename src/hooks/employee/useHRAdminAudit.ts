@@ -75,7 +75,7 @@ export const useHRAdminAudit = (filters?: {
           ops_rep:profiles!ops_employee_id(id, full_name, avatar_url),
           branch:branches!branch_id(id, name),
           payments:job_payments(
-            id, amount, payment_method, proof_url, receipt_url, status, created_at, payment_date
+            id, amount, payment_method, proof_url, status, created_at, payment_date
           ),
           job_services(
             id, service_name, work_fee, ministry_fee, total_fee, supplier_name,
@@ -125,9 +125,9 @@ export const useHRAdminAudit = (filters?: {
         const remainingAmount = Math.max(0, totalAmount - advanceAmount);
 
         // Check if any payment uploaded a proof/receipt slip
-        const paymentWithProof = payments.find((p: any) => Boolean(p.proof_url || p.receipt_url));
+        const paymentWithProof = payments.find((p: any) => Boolean(p.proof_url));
         const hasReceipt = Boolean(paymentWithProof);
-        const receiptUrl = paymentWithProof?.proof_url || paymentWithProof?.receipt_url || null;
+        const receiptUrl = paymentWithProof?.proof_url || null;
 
         let paymentStatus: 'paid' | 'partial' | 'unpaid' | 'pending' = 'unpaid';
         if (advanceAmount >= totalAmount && totalAmount > 0) {
@@ -273,26 +273,6 @@ export const useHRAdminAudit = (filters?: {
           workFee,
           ministryFee: govFee
         });
-
-        if (govFee > 0) {
-          govList.push({
-            id: `walkin-gov-${w.id}`,
-            jobId: w.id,
-            jobCode: `WALK-${w.id.slice(0, 5).toUpperCase()}`,
-            clientName: w.client_name || 'Walk-in Client',
-            serviceName: w.work_type || 'Walk-in Government Fee',
-            supplierName: 'Government Entity',
-            date: w.date || w.created_at,
-            estimatedGovFee: govFee,
-            actualPaidGovFee: govFee,
-            hasGovReceipt: Boolean(w.gov_fee_receipt_url),
-            govReceiptUrl: w.gov_fee_receipt_url || null,
-            opsRepName: w.employee?.full_name || 'Walk-in Staff',
-            branchName: w.branch?.name || 'Main Branch',
-            branchId: w.branch_id || null,
-            status: 'paid'
-          });
-        }
       });
 
       // Filter by Date Range if provided

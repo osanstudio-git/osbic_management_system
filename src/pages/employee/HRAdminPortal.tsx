@@ -549,9 +549,9 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
         s.jobCode,
         `"${s.clientName.replace(/"/g, '""')}"`,
         `"${s.serviceType.replace(/"/g, '""')}"`,
-        s.totalAmount.toFixed(3),
-        s.advanceAmount.toFixed(3),
-        s.remainingAmount.toFixed(3),
+        (Number(s.totalAmount) || 0).toFixed(3),
+        (Number(s.advanceAmount) || 0).toFixed(3),
+        (Number(s.remainingAmount) || 0).toFixed(3),
         s.hasReceipt ? 'YES' : 'MISSING',
         `"${s.salesRepName}"`,
         `"${s.branchName || ''}"`
@@ -572,10 +572,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
         `"${g.clientName.replace(/"/g, '""')}"`,
         `"${g.serviceName.replace(/"/g, '""')}"`,
         `"${g.supplierName}"`,
-        g.dealFee.toFixed(3),
-        g.estimatedGovFee.toFixed(3),
-        g.actualPaidGovFee.toFixed(3),
-        g.workFeeMargin.toFixed(3),
+        (Number(g.dealFee) || 0).toFixed(3),
+        (Number(g.estimatedGovFee) || 0).toFixed(3),
+        (Number(g.actualPaidGovFee) || 0).toFixed(3),
+        (Number(g.workFeeMargin) || 0).toFixed(3),
         g.hasGovReceipt ? 'YES' : 'MISSING',
         `"${g.opsRepName}"`
       ]);
@@ -1377,19 +1377,19 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                             {item.serviceType}
                           </span>
                           <span className="text-[10px] text-muted-foreground font-mono">
-                            Work: {item.workFee.toFixed(3)} • Gov: {item.ministryFee.toFixed(3)}
+                            Work: {(item.workFee ?? 0).toFixed(3)} • Gov: {(item.ministryFee ?? 0).toFixed(3)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
-                          OMR {item.totalAmount.toFixed(3)}
+                          OMR {(item.totalAmount ?? 0).toFixed(3)}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="font-mono font-bold text-emerald-400 block">
-                            OMR {item.advanceAmount.toFixed(3)}
+                            OMR {(item.advanceAmount ?? 0).toFixed(3)}
                           </span>
-                          {item.remainingAmount > 0 && (
+                          {(item.remainingAmount || 0) > 0 && (
                             <span className="text-[10px] text-rose-400 font-mono">
-                              Due: {item.remainingAmount.toFixed(3)}
+                              Due: {(item.remainingAmount ?? 0).toFixed(3)}
                             </span>
                           )}
                         </td>
@@ -1470,7 +1470,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                 <DollarSign size={16} className="text-emerald-400" />
               </div>
               <p className="text-2xl font-black font-syne text-foreground">
-                OMR {filteredGovOutflows.reduce((acc, g) => acc + g.dealFee, 0).toFixed(3)}
+                OMR {filteredGovOutflows.reduce((acc, g) => acc + (Number(g.dealFee) || 0), 0).toFixed(3)}
               </p>
               <p className="text-[11px] text-emerald-400">{isRtl ? 'قيمة مبيعات المعاملات' : 'Client contract volume'}</p>
             </div>
@@ -1605,7 +1605,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                     </tr>
                   ) : (
                     filteredGovOutflows.map(item => {
-                      const marginPercent = item.dealFee > 0 ? Math.round((item.workFeeMargin / item.dealFee) * 100) : 0;
+                      const dealFeeNum = Number(item.dealFee) || 0;
+                      const marginNum = Number(item.workFeeMargin) || 0;
+                      const actualGovNum = Number(item.actualPaidGovFee) || 0;
+                      const marginPercent = dealFeeNum > 0 ? Math.round((marginNum / dealFeeNum) * 100) : 0;
                       return (
                         <tr key={item.id} className="hover:bg-muted/15 transition-colors">
                           <td className="py-3 px-4">
@@ -1626,14 +1629,14 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                             {item.serviceName}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-semibold text-foreground">
-                            OMR {item.dealFee.toFixed(3)}
+                            OMR {dealFeeNum.toFixed(3)}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-rose-400">
-                            OMR {item.actualPaidGovFee.toFixed(3)}
+                            OMR {actualGovNum.toFixed(3)}
                           </td>
                           <td className="py-3 px-4 text-right font-mono">
                             <div className="flex flex-col items-end">
-                              <span className="font-bold text-emerald-400">OMR {item.workFeeMargin.toFixed(3)}</span>
+                              <span className="font-bold text-emerald-400">OMR {marginNum.toFixed(3)}</span>
                               <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-bold">
                                 {marginPercent}% Margin
                               </span>
