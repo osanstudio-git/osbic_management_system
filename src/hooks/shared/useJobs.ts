@@ -1162,16 +1162,11 @@ export const useUploadJobDocument = () => {
         
         const { error: uploadError } = await supabase.storage
           .from('documents')
-          .upload(storagePath, file);
+          .upload(storagePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('documents')
-          .getPublicUrl(storagePath);
-        
-        finalUrl = publicUrl;
+        finalUrl = storagePath;
       }
 
       if (!finalUrl) throw new Error('File URL or Physical File is required');

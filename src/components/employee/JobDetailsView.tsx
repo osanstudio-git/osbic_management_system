@@ -526,9 +526,21 @@ const ApplicantCard = ({
     }
   };
 
+  const extractStoragePath = (filePath: string): string => {
+    if (!filePath) return '';
+    if (!filePath.startsWith('http')) return filePath;
+    const match = filePath.match(/\/storage\/v1\/object\/(?:public|sign)\/documents\/(.+?)(?:\?.*)?$/);
+    return match ? decodeURIComponent(match[1]) : filePath;
+  };
+
   const handleDownloadDoc = async (doc: any) => {
     try {
-      const { data, error } = await supabase.storage.from('documents').download(doc.file_path);
+      const storagePath = extractStoragePath(doc.file_path);
+      if (storagePath.startsWith('http')) {
+        window.open(storagePath, '_blank');
+        return;
+      }
+      const { data, error } = await supabase.storage.from('documents').download(storagePath);
       if (error) throw error;
       const url = window.URL.createObjectURL(data);
       const link = document.createElement('a');
@@ -537,6 +549,7 @@ const ApplicantCard = ({
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       toast.error('Download failed');
     }
@@ -544,7 +557,12 @@ const ApplicantCard = ({
 
   const handleViewDoc = async (doc: any) => {
     try {
-      const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 3600);
+      const storagePath = extractStoragePath(doc.file_path);
+      if (storagePath.startsWith('http')) {
+        window.open(storagePath, '_blank');
+        return;
+      }
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(storagePath, 3600);
       if (error) throw error;
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');
@@ -1393,7 +1411,12 @@ const ServiceStatusSheet = ({
 
   const handleDownloadDoc = async (doc: any) => {
     try {
-      const { data, error } = await supabase.storage.from('documents').download(doc.file_path);
+      const storagePath = extractStoragePath(doc.file_path);
+      if (storagePath.startsWith('http')) {
+        window.open(storagePath, '_blank');
+        return;
+      }
+      const { data, error } = await supabase.storage.from('documents').download(storagePath);
       if (error) throw error;
       const url = window.URL.createObjectURL(data);
       const link = document.createElement('a');
@@ -1402,6 +1425,7 @@ const ServiceStatusSheet = ({
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       toast.error('Download failed');
     }
@@ -1409,7 +1433,12 @@ const ServiceStatusSheet = ({
 
   const handleViewDoc = async (doc: any) => {
     try {
-      const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 3600);
+      const storagePath = extractStoragePath(doc.file_path);
+      if (storagePath.startsWith('http')) {
+        window.open(storagePath, '_blank');
+        return;
+      }
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(storagePath, 3600);
       if (error) throw error;
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');

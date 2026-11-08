@@ -43,23 +43,31 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [vaultTab, setVaultTab] = useState<'clientUploads' | 'staffUploads'>('clientUploads');
 
+  const getStoragePath = (filePath: string): string => {
+    if (!filePath) return '';
+    if (!filePath.startsWith('http')) return filePath;
+    const match = filePath.match(/\/storage\/v1\/object\/(?:public|sign)\/documents\/(.+?)(?:\?.*)?$/);
+    return match ? decodeURIComponent(match[1]) : filePath;
+  };
+
   const handlePreview = async (doc: JobDocument) => {
     setIsLoadingPreview(true);
     try {
-      if (doc.file_path.startsWith('http')) {
-        setPreviewUrl(doc.file_path);
-        setPreviewDoc(doc);
-      } else {
+      const storagePath = getStoragePath(doc.file_path);
+      if (!storagePath.startsWith('http')) {
         const { data, error } = await supabase.storage
           .from('documents')
-          .createSignedUrl(doc.file_path, 3600);
+          .createSignedUrl(storagePath, 3600);
         
         if (error) throw error;
         if (data?.signedUrl) {
           setPreviewUrl(data.signedUrl);
           setPreviewDoc(doc);
+          return;
         }
       }
+      setPreviewUrl(doc.file_path);
+      setPreviewDoc(doc);
     } catch (err: any) {
       toast.error('Could not retrieve preview: ' + (err.message || 'Unknown error'));
     } finally {
@@ -69,10 +77,9 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
 
   const handleDownload = async (path: string, name: string) => {
     try {
-      if (path.startsWith('http')) {
-        window.open(path, '_blank');
-      } else {
-        const { data, error } = await supabase.storage.from('documents').download(path);
+      const storagePath = getStoragePath(path);
+      if (!storagePath.startsWith('http')) {
+        const { data, error } = await supabase.storage.from('documents').download(storagePath);
         if (error) throw error;
         
         const url = window.URL.createObjectURL(data);
@@ -83,7 +90,9 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
+        return;
       }
+      window.open(path, '_blank');
     } catch (err: any) {
       toast.error('Download failed: ' + (err.message || 'Unknown error'));
     }
@@ -118,6 +127,9 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
         setFileName('');
         setFileUrl('');
         setSelectedFile(null);
+      },
+      onError: (err: any) => {
+        toast.error('Upload failed: ' + (err.message || 'Unknown error'));
       }
     });
   };
@@ -175,17 +187,23 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
                 </div>
               </div>
 
-              <div className="flex-1 bg-[#0A0F1E]/30 p-8 flex items-center justify-center min-h-[300px] max-h-[60vh] overflow-y-auto">
-                {previewDoc?.file_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+              <div className="flex-1 bg-[#0A0F1E]/30 p-4 md:p-8 flex items-center justify-center min-h-[350px] max-h-[70vh] overflow-y-auto">
+                {previewDoc?.file_name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || previewDoc?.file_path?.match(/\.(jpg|jpeg|png|gif|webp)/i) ? (
                   <img 
                     src={previewUrl} 
                     alt={previewDoc.file_name} 
-                    className="max-h-[50vh] max-w-full object-contain rounded-2xl shadow-xl border border-border/10"
+                    className="max-h-[60vh] max-w-full object-contain rounded-2xl shadow-xl border border-border/10"
+                  />
+                ) : previewDoc?.file_name?.match(/\.pdf$/i) || previewDoc?.file_path?.match(/\.pdf/i) ? (
+                  <iframe 
+                    src={previewUrl}
+                    className="w-full h-[60vh] border-none bg-white rounded-xl shadow-inner"
+                    title={previewDoc.file_name}
                   />
                 ) : (
                   <iframe 
-                    src={previewUrl.startsWith('http') ? `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true` : ''}
-                    className="w-full h-[50vh] border-none bg-white rounded-xl"
+                    src={previewUrl.startsWith('http') ? `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true` : previewUrl}
+                    className="w-full h-[60vh] border-none bg-white rounded-xl"
                     title="Document Preview"
                   />
                 )}
@@ -313,7 +331,7 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
         const staffDocs = documents.filter(d => 
           d.is_checklist_doc 
             ? (d.document_category === 'output')
-            : (d.uploaded_by_role === 'employee' || d.uploaded_by_role === 'admin')
+            : (d.uploaded_by_role !== 'client')
         );
 
         return (
@@ -377,7 +395,9 @@ const DocumentsTab = ({ jobId, documents, isEmployee, isAdmin }: Props) => {
                                      )}
                                    </div>
                                  )}
-                                <p className="text-[10px] text-muted-foreground/60">{new Date(doc.uploaded_at).toLocaleString()}</p>
+                                <p className="text-[10px] text-muted-foreground/60">
+                                  {doc.created_at || doc.uploaded_at ? new Date(doc.created_at || doc.uploaded_at).toLocaleString() : ''}
+                                </p>
                              </div>
                            </div>
                          </div>
