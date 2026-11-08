@@ -9,7 +9,8 @@ import {
   Clock, CheckCircle2, AlertCircle, Shield, ExternalLink,
   ChevronRight, ChevronDown, X, FileText, Phone, Building2, Calendar,
   Layers, Users, Info, Upload, Download, Eye, Trash2, Paperclip, Loader2,
-  Check, Wallet, Sparkles, Search, Filter, LayoutGrid, List, MessageSquare
+  Check, Wallet, Sparkles, Search, Filter, LayoutGrid, List, MessageSquare,
+  ArrowDownWideNarrow, ArrowUpNarrowWide
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -664,6 +665,7 @@ const MyTasks: React.FC = () => {
   const { profile } = useAuth();
   const { data: tasks = [], isLoading, refetch } = useMyOpsTasks(profile?.id || null);
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [briefingJobId, setBriefingJobId] = useState<string | null>(null);
   const [briefingServiceId, setBriefingServiceId] = useState<string | null>(null);
   const [isLogCompletedModalOpen, setIsLogCompletedModalOpen] = useState(false);
@@ -872,6 +874,7 @@ const MyTasks: React.FC = () => {
       clientPhone?: string;
       assignedByName?: string;
       services: any[];
+      latestDate?: string;
     }> = {};
 
     taskList.forEach(task => {
@@ -883,10 +886,15 @@ const MyTasks: React.FC = () => {
           clientName: task.job?.client?.full_name || 'Unknown Client',
           clientPhone: task.job?.client?.phone,
           assignedByName: task.assigner?.full_name || task.job?.assigned_by_profile?.full_name,
-          services: []
+          services: [],
+          latestDate: task.created_at || task.assigned_at || task.job?.created_at || ''
         };
       }
       groups[jobId].services.push(task);
+      const tDate = task.created_at || task.assigned_at || task.job?.created_at || '';
+      if (tDate > (groups[jobId].latestDate || '')) {
+        groups[jobId].latestDate = tDate;
+      }
     });
 
     Object.values(groups).forEach(g => {
@@ -898,7 +906,18 @@ const MyTasks: React.FC = () => {
       });
     });
 
-    return Object.values(groups);
+    // Sort grouped jobs descending (default) or ascending by Job Code / Date
+    return Object.values(groups).sort((a, b) => {
+      const codeA = a.jobCode || '';
+      const codeB = b.jobCode || '';
+      const comp = codeA.localeCompare(codeB, undefined, { numeric: true });
+      if (comp !== 0) {
+        return sortOrder === 'desc' ? -comp : comp;
+      }
+      return sortOrder === 'desc'
+        ? (b.latestDate || '').localeCompare(a.latestDate || '')
+        : (a.latestDate || '').localeCompare(b.latestDate || '');
+    });
   };
 
   const FILTER_TABS: { key: FilterTab; label: string; count: number; color?: string }[] = [
@@ -958,28 +977,60 @@ const MyTasks: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Filter Tabs ───────────────────────────────────────────────────── */}
-      <div className="flex gap-1.5 bg-muted/30 p-1 rounded-2xl overflow-x-auto custom-scrollbar whitespace-nowrap border border-border/40">
-        {FILTER_TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key)}
-            className={`flex-none sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-              filter === tab.key
-                ? 'bg-card border border-border/80 text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span>{tab.label}</span>
-            {tab.count > 0 && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                filter === tab.key ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted/60'
-              } ${tab.color || ''}`}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* ─── Filter Tabs & Sort Controls ───────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex gap-1.5 bg-muted/30 p-1 rounded-2xl overflow-x-auto custom-scrollbar whitespace-nowrap border border-border/40 flex-1">
+          {FILTER_TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`flex-none sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                filter === tab.key
+                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>{tab.label}</span>
+              {tab.count > 0 && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  filter === tab.key ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted/60'
+                } ${tab.color || ''}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort Order Selector (Descending default / Ascending) */}
+        {filter !== 'completed' && (
+          <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-2xl border border-border/40 shrink-0 self-start sm:self-center">
+            <button
+              onClick={() => setSortOrder('desc')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                sortOrder === 'desc'
+                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Sort descending: newest / highest job code first"
+            >
+              <ArrowDownWideNarrow size={13} className={sortOrder === 'desc' ? 'text-primary' : ''} />
+              <span>{isRtl ? 'تنازلي (الأحدث)' : 'Descending'}</span>
+            </button>
+            <button
+              onClick={() => setSortOrder('asc')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                sortOrder === 'asc'
+                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Sort ascending: oldest / lowest job code first"
+            >
+              <ArrowUpNarrowWide size={13} className={sortOrder === 'asc' ? 'text-primary' : ''} />
+              <span>{isRtl ? 'تصاعدي (الأقدم)' : 'Ascending'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── Active Task Lists (All, Urgent, On Hold) ───────────────────────── */}
