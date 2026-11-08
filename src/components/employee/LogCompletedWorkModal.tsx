@@ -21,6 +21,7 @@ export interface LoggedServiceItem {
   workFee: string;
   govFee: string;
   govRef?: string;
+  receiptFiles?: File[];
 }
 
 interface LogCompletedWorkModalProps {
@@ -98,7 +99,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
           isCustom: true,
           workFee: '0.000',
           govFee: '0.000',
-          govRef: ''
+          govRef: '',
+          receiptFiles: []
         }
       ]);
     }
@@ -149,7 +151,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
       isCustom: false,
       workFee: svc.work_fee ? Number(svc.work_fee).toFixed(3) : '0.000',
       govFee: svc.ministry_fee ? Number(svc.ministry_fee).toFixed(3) : '0.000',
-      govRef: ''
+      govRef: '',
+      receiptFiles: []
     };
 
     // If currently there is only 1 item and it's empty, replace it
@@ -170,7 +173,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
       isCustom: true,
       workFee: '0.000',
       govFee: '0.000',
-      govRef: ''
+      govRef: '',
+      receiptFiles: []
     };
     setServiceItems(prev => [...prev, newItem]);
   };
@@ -183,6 +187,33 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
 
   const removeServiceItem = (id: string) => {
     setServiceItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Per-service government receipt attachments
+  const handleServiceReceiptsChange = (serviceId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files);
+    setServiceItems(prev =>
+      prev.map(item => {
+        if (item.id === serviceId) {
+          const current = item.receiptFiles || [];
+          return { ...item, receiptFiles: [...current, ...newFiles] };
+        }
+        return item;
+      })
+    );
+  };
+
+  const removeServiceReceipt = (serviceId: string, fileIdx: number) => {
+    setServiceItems(prev =>
+      prev.map(item => {
+        if (item.id === serviceId) {
+          const current = item.receiptFiles || [];
+          return { ...item, receiptFiles: current.filter((_, idx) => idx !== fileIdx) };
+        }
+        return item;
+      })
+    );
   };
 
   // Totals calculations
@@ -255,7 +286,8 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         isCustom: true,
         workFee: '0.000',
         govFee: '0.000',
-        govRef: ''
+        govRef: '',
+        receiptFiles: []
       }
     ]);
     setSelectedCatalogId('');
@@ -459,14 +491,91 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
 
       if (svcErr) throw svcErr;
 
-      // 6. Upload Government Fee Receipts (Multi-Upload)
+      // 6. Upload Per-Service Government Fee Receipts & Update job_services
       let firstReceiptPath: string | null = null;
+      const serviceReceiptMap: Record<string, string> = {};
+
+      if (createdJobServices && createdJobServices.length > 0) {
+        for (let idx = 0; idx < createdJobServices.length; idx++) {
+          const svc = createdJobServices[idx];
+          const item = serviceItems[idx];
+          const files = item?.receiptFiles || [];
+
+          if (files.length > 0) {
+            setSubmitStep(
+              isRtl
+                ? `رفع إيصالات رسوم ${item.name || `الخدمة ${idx + 1}`} (${files.length})...`
+                : `Uploading gov receipts for ${item.name || `Service ${idx + 1}`} (${files.length})...`
+            );
+
+            let primarySvcReceiptPath: string | null = null;
+
+            for (let fIdx = 0; fIdx < files.length; fIdx++) {
+              const file = files[fIdx];
+              const ext = file.name.split('.').pop() || 'pdf';
+              const filePath = `${job.id}/gov_receipt_${svc.id}_${Date.now()}_${fIdx}.${ext}`;
+
+              const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, file);
+              if (!uploadErr) {
+                if (!primarySvcReceiptPath) primarySvcReceiptPath = filePath;
+                if (!firstReceiptPath) firstReceiptPath = filePath;
+
+                // Insert into master documents table
+                await supabase.from('documents').insert({
+                  job_id: job.id,
+                  uploaded_by: profile?.id,
+                  file_name: file.name,
+                  file_path: filePath,
+                  file_size: file.size,
+                  file_type: file.type,
+                  document_type: 'payment_receipt',
+                  status: 'approved',
+                  is_client_visible: false
+                } as any);
+
+                // Insert into job_service_documents for full service-level audit
+                await supabase.from('job_service_documents').insert({
+                  job_id: job.id,
+                  job_service_id: svc.id,
+                  document_name: file.name,
+                  file_name: file.name,
+                  file_path: filePath,
+                  file_size: file.size,
+                  file_type: file.type,
+                  uploaded_by: profile?.id,
+                  upload_source: 'ops',
+                  document_category: 'gov_receipt',
+                  status: 'approved',
+                  is_client_visible: false
+                } as any);
+              }
+            }
+
+            if (primarySvcReceiptPath) {
+              serviceReceiptMap[svc.id] = primarySvcReceiptPath;
+
+              // Update job_services record with its dedicated receipt url and payment audit
+              await supabase
+                .from('job_services')
+                .update({
+                  gov_receipt_url: primarySvcReceiptPath,
+                  gov_fee_actual_paid: svc.ministry_fee,
+                  gov_payment_status: svc.ministry_fee > 0 ? 'paid' : 'na',
+                  gov_paid_at: completedIsoDate
+                })
+                .eq('id', svc.id);
+            }
+          }
+        }
+      }
+
+      // Also process general/batch govReceiptFiles if any were attached
       if (govReceiptFiles.length > 0) {
-        setSubmitStep(isRtl ? `رفع إيصالات الرسوم الحكومية (${govReceiptFiles.length})...` : `Uploading gov receipts (${govReceiptFiles.length})...`);
+        setSubmitStep(isRtl ? `رفع إيصالات الرسوم الإضافية (${govReceiptFiles.length})...` : `Uploading general gov receipts (${govReceiptFiles.length})...`);
         for (let idx = 0; idx < govReceiptFiles.length; idx++) {
           const file = govReceiptFiles[idx];
           const ext = file.name.split('.').pop() || 'png';
-          const filePath = `${job.id}/gov_receipt_${Date.now()}_${idx}.${ext}`;
+          const filePath = `${job.id}/gov_receipt_batch_${Date.now()}_${idx}.${ext}`;
 
           const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, file);
           if (!uploadErr) {
@@ -492,12 +601,13 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
         setSubmitStep(isRtl ? 'تسجيل المصروفات الحكومية...' : 'Recording ministry fee expenses...');
         for (const svc of createdJobServices) {
           if (svc.ministry_fee > 0) {
+            const svcReceiptUrl = serviceReceiptMap[svc.id] || firstReceiptPath || null;
             await supabase.from('job_expenses').insert({
               job_id: job.id,
               job_service_id: svc.id,
               amount: svc.ministry_fee,
               expense_type: 'ministry_fee',
-              receipt_url: firstReceiptPath || null,
+              receipt_url: svcReceiptUrl,
               notes: `Historical Ministry Fee for ${svc.service_name}${svc.government_ref ? ` [Ref: ${svc.government_ref}]` : ''}`,
               status: 'approved',
               created_by: profile?.id
@@ -1005,6 +1115,82 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* Per-Service Gov Fee Receipt Upload */}
+                    <div className="pt-2 border-t border-border/40 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                          <Paperclip size={11} className="text-emerald-400" />
+                          <span>{isRtl ? 'إيصال سداد الرسوم الحكومية لهذه الخدمة' : 'Gov Fee Receipt / Slip'}</span>
+                          {item.govFee && parseFloat(item.govFee) > 0 && !paidByClient && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-sans normal-case">
+                              {isRtl ? 'موصى به' : 'Recommended'}
+                            </span>
+                          )}
+                        </label>
+                        {item.receiptFiles && item.receiptFiles.length > 0 && (
+                          <span className="text-emerald-400 text-[10px] font-mono font-bold">
+                            {item.receiptFiles.length} {isRtl ? 'إيصال مرفق' : 'receipt(s)'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Dropzone / Upload button for this service */}
+                      {(!item.receiptFiles || item.receiptFiles.length === 0) ? (
+                        <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer transition-all text-xs font-semibold text-emerald-300 group">
+                          <Upload size={13} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                          <span>{isRtl ? 'إرفاق إيصال السداد الحكومي الخاص بهذه الخدمة' : 'Attach Gov Fee Receipt for this service'}</span>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              handleServiceReceiptsChange(item.id, e.target.files);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          {item.receiptFiles.map((file, fIdx) => (
+                            <div
+                              key={fIdx}
+                              className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[11px] text-emerald-300 font-mono"
+                            >
+                              <FileText size={12} className="text-emerald-400 shrink-0" />
+                              <span className="max-w-[140px] truncate">{file.name}</span>
+                              <span className="text-[9px] text-emerald-400/70 font-sans">
+                                ({(file.size / 1024).toFixed(0)} KB)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeServiceReceipt(item.id, fIdx)}
+                                className="text-muted-foreground hover:text-red-400 transition-colors p-0.5 ml-1"
+                                title={isRtl ? 'حذف الإيصال' : 'Remove receipt'}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ))}
+
+                          <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-dashed border-emerald-500/40 hover:border-emerald-500/70 bg-emerald-500/5 hover:bg-emerald-500/15 cursor-pointer transition-all text-[11px] font-medium text-emerald-300">
+                            <Plus size={11} />
+                            <span>{isRtl ? 'إضافة إيصال آخر' : '+ Add More'}</span>
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                handleServiceReceiptsChange(item.id, e.target.files);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1060,16 +1246,21 @@ export const LogCompletedWorkModal: React.FC<LogCompletedWorkModalProps> = ({
               </div>
             </div>
 
-            {/* Section 4: Multi-File Uploads: Gov Receipts */}
+            {/* Section 4: Multi-File Uploads: Additional/General Gov Receipts */}
             <div className="p-4 rounded-2xl bg-muted/15 border border-border/40 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-2">
-                  <Paperclip size={15} className="text-emerald-400" />
-                  {isRtl ? 'إيصالات السداد الحكومي (تحميل متعدد)' : 'Government Payment Receipts (Multi-File)'}
-                </span>
+                <div>
+                  <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                    <Paperclip size={15} className="text-emerald-400" />
+                    {isRtl ? 'إيصالات السداد الحكومي العامة / المجمعة (اختياري)' : 'Additional / General Government Receipts (Optional)'}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground pt-0.5">
+                    {isRtl ? 'يمكنك إرفاق الإيصال لكل خدمة بالأعلى مباشرة، أو إرفاق إيصالات مجمعة هنا.' : 'You can attach receipts per service above, or upload general/batch receipts here.'}
+                  </p>
+                </div>
                 {govReceiptFiles.length > 0 && (
                   <span className="text-emerald-400 text-[10px] font-bold">
-                    {govReceiptFiles.length} {isRtl ? 'إيصال محدد' : 'file(s) selected'}
+                    {govReceiptFiles.length} {isRtl ? 'إيصال عام' : 'general file(s)'}
                   </span>
                 )}
               </div>
