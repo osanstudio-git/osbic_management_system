@@ -20,6 +20,8 @@ export interface Job {
   assigned_by_role?: 'admin' | 'manager' | 'employee' | 'client';
   status: 'active' | 'on_hold' | 'completed' | 'cancelled' | 'pending' | string;
   started_date: string;
+  created_at?: string;
+  started_at?: string;
   expected_completion: string;
   days_active: number;
   total_steps: number;
@@ -162,6 +164,8 @@ export const useAdminJobs = (branchIdFilter?: string | null, enabled: boolean = 
           employee_avatar: j.employee?.avatar_url,
           status: j.status || 'pending',
           started_date: j.started_at || j.created_at,
+          created_at: j.created_at,
+          started_at: j.started_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -314,6 +318,8 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
           assigned_by_role: resolvedAssignedByRole,
           status: j.status,
           started_date: j.started_at ?? j.created_at,
+          created_at: j.created_at,
+          started_at: j.started_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -377,6 +383,8 @@ export const useClientJobs = (clientId: string) => {
           employee_name: j.employee?.full_name ?? 'Unassigned',
           status: j.status,
           started_date: j.started_at ?? j.created_at,
+          created_at: j.created_at,
+          started_at: j.started_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -468,6 +476,8 @@ export const useJobDetail = (jobId: string) => {
         employee_name: j.employee?.full_name ?? 'Unassigned',
         status: j.status,
         started_date: j.started_at ?? j.created_at,
+        created_at: j.created_at,
+        started_at: j.started_at,
         expected_completion: j.created_at,
         days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
         total_steps: stepsData?.length ?? 0,

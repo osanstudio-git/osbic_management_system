@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
 
@@ -51,6 +52,31 @@ export const useHRAdminAudit = (filters?: {
   startDate?: string;
   endDate?: string;
 }) => {
+  const queryClient = useQueryClient();
+
+  // ── Live Realtime Sync: Instant refresh when sales/ops record payments, jobs, or walk-ins ──
+  useEffect(() => {
+    const channel = supabase
+      .channel('hr-admin-audit-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_payments' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'walkin_sales' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_services' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['hr_admin_audit', filters],
     queryFn: async () => {
@@ -61,21 +87,27 @@ export const useHRAdminAudit = (filters?: {
           id,
           job_code,
           created_at,
-          total_price,
+          total_fee,
           work_fee,
           ministry_fee,
+          advance_amount,
+          remaining_amount,
+          advance_paid,
+          remaining_paid,
+          advance_receipt_url,
+          remaining_receipt_url,
           status,
           branch_id,
           sales_employee_id,
           ops_employee_id,
-          service_name,
           custom_name,
+          service:services!service_id(name_en),
           client:profiles!client_id(id, full_name, phone, company_name),
           sales_rep:profiles!sales_employee_id(id, full_name, avatar_url),
           ops_rep:profiles!ops_employee_id(id, full_name, avatar_url),
           branch:branches!branch_id(id, name),
           payments:job_payments(
-            id, amount, payment_method, proof_url, status, created_at, payment_date
+            id, amount, payment_method, proof_url, status, created_at, reference_number, notes
           ),
           job_services(
             id, service_name, work_fee, ministry_fee, total_fee, supplier_name,
@@ -120,14 +152,35 @@ export const useHRAdminAudit = (filters?: {
       (jobsData || []).forEach((j: any) => {
         const payments = j.payments || [];
         const verifiedPayments = payments.filter((p: any) => p.status === 'verified');
-        const advanceAmount = payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        const totalAmount = Number(j.total_price) || (Number(j.work_fee || 0) + Number(j.ministry_fee || 0));
+        const paymentsTotal = payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        const totalAmount = Number(j.total_fee) || (Number(j.work_fee || 0) + Number(j.ministry_fee || 0));
+
+        // Advance collected from job_payments or fallback to advance_amount / advance_paid on job
+        const advanceAmount = paymentsTotal > 0
+          ? paymentsTotal
+          : (Number(j.advance_amount) || (j.advance_paid ? totalAmount : 0));
         const remainingAmount = Math.max(0, totalAmount - advanceAmount);
 
-        // Check if any payment uploaded a proof/receipt slip
-        const paymentWithProof = payments.find((p: any) => Boolean(p.proof_url));
-        const hasReceipt = Boolean(paymentWithProof);
-        const receiptUrl = paymentWithProof?.proof_url || null;
+        // Find proof receipt from job_payments, notes [RECEIPT:...], or job receipt fields
+        let receiptUrl: string | null = null;
+        for (const p of payments) {
+          if (p.proof_url) {
+            receiptUrl = p.proof_url;
+            break;
+          }
+          if (p.notes) {
+            const match = p.notes.match(/\[RECEIPT:(.*?)\|/);
+            if (match && match[1]) {
+              receiptUrl = match[1];
+              break;
+            }
+          }
+        }
+        if (!receiptUrl) {
+          receiptUrl = j.advance_receipt_url || j.remaining_receipt_url || null;
+        }
+
+        const hasReceipt = Boolean(receiptUrl);
 
         let paymentStatus: 'paid' | 'partial' | 'unpaid' | 'pending' = 'unpaid';
         if (advanceAmount >= totalAmount && totalAmount > 0) {
@@ -136,7 +189,8 @@ export const useHRAdminAudit = (filters?: {
           paymentStatus = 'partial';
         }
 
-        const dateStr = payments[0]?.payment_date || payments[0]?.created_at || j.created_at;
+        const dateStr = payments[0]?.created_at || j.created_at;
+        const serviceName = j.custom_name || j.service?.name_en || 'Standard Service';
 
         salesList.push({
           id: j.id,
@@ -144,7 +198,7 @@ export const useHRAdminAudit = (filters?: {
           clientName: j.client?.full_name || 'Direct Client',
           clientPhone: j.client?.phone || null,
           companyName: j.client?.company_name || null,
-          serviceType: j.service_name || j.custom_name || 'General Consulting Service',
+          serviceType: serviceName,
           date: dateStr,
           salesRepName: j.sales_rep?.full_name || 'Unassigned / Direct',
           salesRepAvatar: j.sales_rep?.avatar_url || null,
@@ -157,7 +211,7 @@ export const useHRAdminAudit = (filters?: {
           hasReceipt,
           receiptUrl,
           receiptSource: 'job_payment',
-          verifiedStatus: verifiedPayments.length > 0 ? 'verified' : (payments.length > 0 ? 'pending' : 'unverified'),
+          verifiedStatus: verifiedPayments.length > 0 ? 'verified' : (payments.length > 0 || advanceAmount > 0 ? 'pending' : 'unverified'),
           workFee: Number(j.work_fee) || 0,
           ministryFee: Number(j.ministry_fee) || 0
         });
@@ -220,6 +274,43 @@ export const useHRAdminAudit = (filters?: {
             });
           }
         });
+
+        // Fallback: If no job_services rows exist but the parent job has a ministry_fee
+        if ((!j.job_services || j.job_services.length === 0) && Number(j.ministry_fee) > 0) {
+          const estimatedFee = Number(j.ministry_fee) || 0;
+          let supplier = 'Official Ministry / Portal';
+          const nameLower = (j.custom_name || j.service_name || '').toLowerCase();
+          if (nameLower.includes('visa') || nameLower.includes('rop') || nameLower.includes('police')) {
+            supplier = 'Royal Oman Police (ROP)';
+          } else if (nameLower.includes('labor') || nameLower.includes('labour') || nameLower.includes('sanad')) {
+            supplier = 'Ministry of Labour (MOL)';
+          } else if (nameLower.includes('cr') || nameLower.includes('company') || nameLower.includes('moci') || nameLower.includes('investor')) {
+            supplier = 'MOCIIP (Invest in Oman)';
+          } else if (nameLower.includes('chamber') || nameLower.includes('occi')) {
+            supplier = 'Oman Chamber (OCCI)';
+          }
+
+          const dealFee = (Number(j.work_fee) || 0) + estimatedFee;
+          govList.push({
+            id: `job-gov-${j.id}`,
+            jobId: j.id,
+            jobCode: j.job_code || 'JOB-N/A',
+            clientName: j.client?.full_name || 'Client',
+            serviceName: j.custom_name || j.service_name || 'Ministry Service',
+            supplierName: supplier,
+            date: j.created_at,
+            dealFee,
+            estimatedGovFee: estimatedFee,
+            actualPaidGovFee: estimatedFee,
+            workFeeMargin: Math.max(0, dealFee - estimatedFee),
+            hasGovReceipt: false,
+            govReceiptUrl: null,
+            opsRepName: j.ops_rep?.full_name || 'Operations Team',
+            branchName: j.branch?.name || 'Main Branch',
+            branchId: j.branch_id || null,
+            status: 'pending'
+          });
+        }
       });
 
       // Process Walkin Sales

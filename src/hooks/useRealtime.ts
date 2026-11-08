@@ -66,6 +66,7 @@ export const useRealtime = (userId: string | undefined) => {
           queryClient.invalidateQueries({ queryKey: ['employee', 'jobs'] });
           queryClient.invalidateQueries({ queryKey: ['client', 'jobs'] });
           queryClient.invalidateQueries({ queryKey: ['accounts_overview'] });
+          queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
           queryClient.invalidateQueries({ queryKey: ['admin'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'job_services' }, () => {
@@ -74,6 +75,7 @@ export const useRealtime = (userId: string | undefined) => {
           queryClient.invalidateQueries({ queryKey: ['employee', 'jobs'] });
           queryClient.invalidateQueries({ queryKey: ['client', 'jobs'] });
           queryClient.invalidateQueries({ queryKey: ['accounts_overview'] });
+          queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
           queryClient.invalidateQueries({ queryKey: ['admin'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
@@ -106,6 +108,7 @@ export const useRealtime = (userId: string | undefined) => {
           queryClient.invalidateQueries({ queryKey: ['pending_payments'] });
           queryClient.invalidateQueries({ queryKey: ['history_payments'] });
           queryClient.invalidateQueries({ queryKey: ['accounts_overview'] });
+          queryClient.invalidateQueries({ queryKey: ['hr_admin_audit'] });
           queryClient.invalidateQueries({ queryKey: ['job'] });
           queryClient.invalidateQueries({ queryKey: ['admin'] });
       })

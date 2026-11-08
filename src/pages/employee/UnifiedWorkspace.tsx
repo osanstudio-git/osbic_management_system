@@ -8,7 +8,7 @@ import { JobDetailsView } from '../../components/employee/JobDetailsView';
 import { ClientDetailsView } from '../../components/employee/ClientDetailsView';
 import { ClientListView } from '../../components/employee/ClientListView';
 import { TaskListView } from '../../components/employee/TaskListView';
-import { Filter, Search, Plus, Clock, AlertCircle, CheckCircle2, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase, ChevronDown, Calendar } from 'lucide-react';
+import { Search, Plus, Clock, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase, ChevronDown, Calendar } from 'lucide-react';
 import { JobBuilder } from '../../components/employee/JobBuilder';
 import CreateClientSlideOver from '../../components/shared/clients/CreateClientSlideOver';
 import WalkInModal from '../../components/employee/WalkInModal';
@@ -776,8 +776,6 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                   </div>
                 ))}
               </div>
-            )}
-              </>
             )}
           </div>
         </div>

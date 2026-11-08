@@ -5,6 +5,7 @@ import { useUpdateEmployee } from '../../hooks/admin/useAdminEmployees';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useBranch } from '../../contexts/BranchContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { recordBranchTransfer } from '../../hooks/shared/useBranchAttribution';
 
 interface Props {
@@ -47,6 +48,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { branches } = useBranch();
+  const { profile } = useAuth();
+  const isMainAdmin = profile?.role === 'admin';
   const { mutate: updateEmployee, isPending } = useUpdateEmployee();
 
   useEffect(() => {
@@ -474,6 +477,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                     </div>
                   </div>
 
+                  {isMainAdmin && (
                   <div className="space-y-4 pt-4 border-t border-border">
                     <h4 className="text-sm font-bold text-foreground">Permissions & Roles</h4>
                     
@@ -647,6 +651,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                       </button>
                     </div>
                   </div>
+                  )}
                </div>
             </div>
 

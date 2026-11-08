@@ -123,6 +123,32 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
   // Modals state
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
   const [previewReceiptTitle, setPreviewReceiptTitle] = useState<string>('');
+
+  const handleOpenReceiptPreview = async (rawPath: string, title: string) => {
+    if (!rawPath) return;
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+      setPreviewReceiptUrl(rawPath);
+      setPreviewReceiptTitle(title);
+      return;
+    }
+
+    try {
+      const cleanPath = rawPath.startsWith('documents/') ? rawPath.slice('documents/'.length) : rawPath;
+      const { data } = await supabase.storage.from('documents').createSignedUrl(cleanPath, 3600);
+      if (data?.signedUrl) {
+        setPreviewReceiptUrl(data.signedUrl);
+      } else {
+        const { data: pubData } = supabase.storage.from('documents').getPublicUrl(cleanPath);
+        setPreviewReceiptUrl(pubData.publicUrl);
+      }
+      setPreviewReceiptTitle(title);
+    } catch (err) {
+      console.error('Error creating signed URL for receipt:', err);
+      setPreviewReceiptUrl(rawPath);
+      setPreviewReceiptTitle(title);
+    }
+  };
+
   const [editingEmployee, setEditingEmployee] = useState<any | null>(null);
   const [isSubmitLeaveOpen, setIsSubmitLeaveOpen] = useState(false);
   const [isLogAttendanceOpen, setIsLogAttendanceOpen] = useState(false);
@@ -671,33 +697,6 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
           )}
 
-          {/* Quick Leave Request Modal Button */}
-          <button
-            onClick={() => setIsSubmitLeaveOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-card border border-border/80 hover:bg-muted text-xs font-bold text-foreground flex items-center gap-1.5 transition-all shadow-sm"
-          >
-            <Plus size={14} className="text-primary" />
-            <span>{isRtl ? 'طلب إجازة' : 'Request Leave'}</span>
-          </button>
-
-          {/* Quick Attendance Check-in Button */}
-          <button
-            onClick={() => setIsLogAttendanceOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-card border border-border/80 hover:bg-muted text-xs font-bold text-foreground flex items-center gap-1.5 transition-all shadow-sm"
-          >
-            <Clock size={14} className="text-blue-400" />
-            <span>{isRtl ? 'تسجيل الحضور' : 'Log Attendance'}</span>
-          </button>
-
-          {/* Print / PDF Board Review */}
-          <button
-            onClick={handlePrintBoardReview}
-            className="px-3.5 py-2 rounded-xl bg-card border border-border/80 hover:bg-muted text-xs font-bold text-foreground flex items-center gap-1.5 transition-all shadow-sm"
-            title="Print or Save as PDF for Board / Audit Review"
-          >
-            <Printer size={14} className="text-amber-400" />
-            <span>{isRtl ? 'تقرير الإدارة / PDF' : 'Board Review / PDF'}</span>
-          </button>
 
           {/* Export Report */}
           <button
@@ -1418,10 +1417,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                         <td className="py-3 px-4 text-right">
                           {item.hasReceipt && item.receiptUrl ? (
                             <button
-                              onClick={() => {
-                                setPreviewReceiptUrl(item.receiptUrl!);
-                                setPreviewReceiptTitle(`Receipt: ${item.jobCode} - ${item.clientName}`);
-                              }}
+                              onClick={() => handleOpenReceiptPreview(item.receiptUrl!, `Receipt: ${item.jobCode} - ${item.clientName}`)}
                               className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[11px] border border-primary/20 transition-all inline-flex items-center gap-1"
                             >
                               <Eye size={12} />
@@ -1659,10 +1655,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                           <td className="py-3 px-4 text-right">
                             {item.hasGovReceipt && item.govReceiptUrl ? (
                               <button
-                                onClick={() => {
-                                  setPreviewReceiptUrl(item.govReceiptUrl!);
-                                  setPreviewReceiptTitle(`Gov Receipt: ${item.jobCode} - ${item.supplierName}`);
-                                }}
+                                onClick={() => handleOpenReceiptPreview(item.govReceiptUrl!, `Gov Receipt: ${item.jobCode} - ${item.supplierName}`)}
                                 className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-[11px] border border-blue-500/20 transition-all inline-flex items-center gap-1"
                               >
                                 <Eye size={12} />
