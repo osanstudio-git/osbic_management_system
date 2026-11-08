@@ -201,9 +201,9 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
           if (storageError) throw storageError;
           
           // Also add it to documents table so it shows up in job documents if needed
-          await supabase.from('documents').insert({
+          await (supabase.from('documents') as any).insert({
             job_id: job.id,
-            uploaded_by: profile?.id,
+            uploaded_by: profile?.id || '',
             file_name: file.name,
             file_path: filePath,
             file_size: file.size,
@@ -226,6 +226,8 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
 
       const dateTag = newPayment.date ? `[PAYMENT_DATE:${newPayment.date}]` : '';
       const notesWithDate = dateTag ? (finalNotes ? `${dateTag}\n${finalNotes}` : dateTag) : finalNotes;
+
+      const firstProofUrl = uploadedReceipts.length > 0 ? uploadedReceipts[0].path : null;
 
       const insertPayload: any = {
         job_id: job.id,
@@ -257,7 +259,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
     if (data) {
       const updatedPayments = [...payments, data];
       setPayments(updatedPayments);
-      setNewPayment({ amount: '', method: 'bank_transfer', reference: '', notes: '' });
+      setNewPayment({ amount: '', method: 'bank_transfer', reference: '', notes: '', date: format(new Date(), 'yyyy-MM-dd') });
       setReceiptFiles([]);
       setIsAddingPayment(false);
       setAllocatingPayment(data); // Trigger allocation modal
