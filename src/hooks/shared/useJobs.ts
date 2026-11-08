@@ -17,7 +17,7 @@ export interface Job {
   employee_name: string;
   employee_avatar?: string;
   assigned_by?: string | null;
-  assigned_by_role?: 'admin' | 'employee' | 'client';
+  assigned_by_role?: 'admin' | 'manager' | 'employee' | 'client';
   status: 'active' | 'on_hold' | 'completed' | 'cancelled' | 'pending' | string;
   started_date: string;
   expected_completion: string;

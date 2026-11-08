@@ -263,7 +263,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
     </>
   );
 
-  if (filterType === 'clients') {
+  if (filterType === 'clients' && clientViewMode === 'list') {
     if (selectedClientId && selectedClient) {
       return (
         <>
