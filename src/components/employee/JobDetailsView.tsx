@@ -18,6 +18,8 @@ import { useQuery } from '@tanstack/react-query';
 import MessagesTab from '../jobs/MessagesTab';
 import DocumentsTab from '../jobs/DocumentsTab';
 import { TaskAssignmentBriefing } from './TaskAssignmentBriefing';
+import { EditTaskModal } from './EditTaskModal';
+import { CancelTaskModal } from './CancelTaskModal';
 import {
   useJobServices,
   useUpdateJobServiceStep,
@@ -2515,6 +2517,8 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   const [existingInvoice, setExistingInvoice] = useState<{ id: string; status: string } | null>(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedPayMode, setSelectedPayMode] = useState<'cash' | 'bank_transfer' | 'pos' | 'online'>('bank_transfer');
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [isCancelTaskModalOpen, setIsCancelTaskModalOpen] = useState(false);
 
   const fetchCombinedDocuments = async (jobId: string) => {
     const { data: docsData } = await supabase
@@ -3032,6 +3036,31 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                   </span>
                 </div>
               </div>
+
+              {/* Edit & Cancel Task Actions */}
+              <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-5 flex flex-col justify-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Management</span>
+                <div className="flex items-center gap-2 py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditTaskModalOpen(true)}
+                    className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Edit task fees, dates, and client attribution"
+                  >
+                    <Pencil size={13} />
+                    <span>Edit Task</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelTaskModalOpen(true)}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Cancel or void this task"
+                  >
+                    <Trash2 size={13} />
+                    <span>Cancel</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Inline Master Date Editor */}
@@ -3287,6 +3316,32 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
         onClose={() => setIsBriefingOpen(false)}
         onUpdated={onUpdated}
       />
+
+      {/* Edit Task Details & Financials Modal */}
+      {isEditTaskModalOpen && (
+        <EditTaskModal
+          isOpen={isEditTaskModalOpen}
+          job={job}
+          onClose={() => setIsEditTaskModalOpen(false)}
+          onUpdated={() => {
+            loadData();
+            if (onUpdated) onUpdated();
+          }}
+        />
+      )}
+
+      {/* Cancel / Void Task Modal */}
+      {isCancelTaskModalOpen && (
+        <CancelTaskModal
+          isOpen={isCancelTaskModalOpen}
+          job={job}
+          onClose={() => setIsCancelTaskModalOpen(false)}
+          onUpdated={() => {
+            loadData();
+            if (onUpdated) onUpdated();
+          }}
+        />
+      )}
     </div>
   );
 };

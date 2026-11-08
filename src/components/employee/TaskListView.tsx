@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { TaskDashboard } from './TaskDashboard';
-import { ChevronRight, LayoutGrid, List as ListIcon, Clock, CheckCircle2, Briefcase, Plus, Zap, Search, Filter, X, ArrowUpDown, RotateCcw, Users } from 'lucide-react';
+import { 
+  ChevronRight, LayoutGrid, List as ListIcon, Clock, CheckCircle2, 
+  Briefcase, Plus, Zap, Search, Filter, X, ArrowUpDown, RotateCcw, 
+  Users, Pencil, Trash2
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
+import { EditTaskModal } from './EditTaskModal';
+import { CancelTaskModal } from './CancelTaskModal';
 
 interface TaskListViewProps {
   jobs: any[];
@@ -19,6 +25,7 @@ interface TaskListViewProps {
   onWalkIn: () => void;
   jobTypeFilter: 'standard' | 'quick';
   onJobTypeChange: (type: 'standard' | 'quick') => void;
+  onTaskUpdated?: () => void;
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({ 
@@ -32,11 +39,15 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   onNewTask,
   onWalkIn,
   jobTypeFilter,
-  onJobTypeChange
+  onJobTypeChange,
+  onTaskUpdated
 }) => {
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
+
+  const [taskToEdit, setTaskToEdit] = useState<any | null>(null);
+  const [taskToCancel, setTaskToCancel] = useState<any | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'awaiting_govt' | 'completed' | 'on_hold'>('all');
@@ -208,7 +219,31 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
       <td className="py-4 px-6 text-right">
-        <ChevronRight size={18} className={`text-muted-foreground group-hover:text-primary transition-colors ml-auto ${isRtl ? 'rotate-180' : ''}`} />
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTaskToEdit(job);
+            }}
+            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+            title={isRtl ? 'تعديل المعاملة والأتعاب' : 'Edit Task & Financials'}
+          >
+            <Pencil size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTaskToCancel(job);
+            }}
+            className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+            title={isRtl ? 'إلغاء أو حذف المعاملة' : 'Cancel / Void Task'}
+          >
+            <Trash2 size={15} />
+          </button>
+          <ChevronRight size={18} className={`text-muted-foreground group-hover:text-primary transition-colors ${isRtl ? 'rotate-180' : ''}`} />
+        </div>
       </td>
     </tr>
   );
@@ -428,6 +463,32 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Task & Financials Modal */}
+      {taskToEdit && (
+        <EditTaskModal
+          isOpen={Boolean(taskToEdit)}
+          job={taskToEdit}
+          onClose={() => setTaskToEdit(null)}
+          onUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+            if (onTaskUpdated) onTaskUpdated();
+          }}
+        />
+      )}
+
+      {/* Cancel / Void Task Modal */}
+      {taskToCancel && (
+        <CancelTaskModal
+          isOpen={Boolean(taskToCancel)}
+          job={taskToCancel}
+          onClose={() => setTaskToCancel(null)}
+          onUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+            if (onTaskUpdated) onTaskUpdated();
+          }}
+        />
+      )}
     </div>
   );
 };

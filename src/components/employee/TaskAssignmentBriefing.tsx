@@ -37,6 +37,7 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [customDate, setCustomDate] = useState('');
   const [isSavingDate, setIsSavingDate] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const handleOpenDateEdit = () => {
     const currentSvc = services.find(s => s.id === currentServiceId) || services[0];
@@ -230,8 +231,6 @@ export const TaskAssignmentBriefing: React.FC<BriefingProps> = ({
       toast.error('Download failed');
     }
   };
-
-  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const handleViewDoc = async (doc: any) => {
     try {

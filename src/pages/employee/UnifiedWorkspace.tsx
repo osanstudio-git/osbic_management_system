@@ -345,6 +345,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
           onJobTypeChange={setJobTypeFilter}
           onNewTask={() => setIsBuildingJob(true)}
           onWalkIn={() => setIsWalkInOpen(true)}
+          onTaskUpdated={refetch}
         />
       </div>
       </>
