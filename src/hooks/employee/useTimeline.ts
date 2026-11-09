@@ -40,6 +40,7 @@ export interface StatusUpdatePayload {
   notes?: string;
   issueDate?: string | null;
   expiryDate?: string | null;
+  completedDate?: string | null;
 }
 
 // ─── Fetch timeline for a job_service ────────────────────────────────────────
@@ -98,18 +99,50 @@ export function useUpdateServiceStatus() {
     mutationFn: async (payload: StatusUpdatePayload) => {
       const now = new Date().toISOString();
 
-      // 1. Calculate days_in_previous_stage
-      const { data: currentService } = await (supabase
-        .from('job_services')
-        .select('status, started_at, updated_at, created_at')
-        .eq('id', payload.jobServiceId)
-        .single() as any);
+      // Resolve job_id defensively if missing
+      let resolvedJobId = payload.jobId;
+      if (!resolvedJobId) {
+        try {
+          const { data: svc } = await (supabase
+            .from('job_services')
+            .select('job_id')
+            .eq('id', payload.jobServiceId)
+            .single() as any);
+          resolvedJobId = svc?.job_id;
+        } catch {
+          // fallback to whatever was in payload
+        }
+      }
 
+      // Format completion date if provided
+      let completionTimestamp: string | null = null;
+      if (payload.toStatus === 'completed') {
+        if (payload.completedDate) {
+          const todayDateStr = new Date().toISOString().slice(0, 10);
+          completionTimestamp = payload.completedDate === todayDateStr 
+            ? now 
+            : new Date(`${payload.completedDate}T12:00:00Z`).toISOString();
+        } else {
+          completionTimestamp = now;
+        }
+      }
+
+      // 1. Calculate days_in_previous_stage
       let daysInPrevStage: number | null = null;
-      const prevTimestamp = currentService?.updated_at || currentService?.created_at;
-      if (prevTimestamp) {
-        const diff = (Date.now() - new Date(prevTimestamp).getTime()) / (1000 * 60 * 60 * 24);
-        daysInPrevStage = Math.round(diff * 10) / 10;
+      try {
+        const { data: currentService } = await (supabase
+          .from('job_services')
+          .select('status, started_at, updated_at, created_at')
+          .eq('id', payload.jobServiceId)
+          .single() as any);
+
+        const prevTimestamp = currentService?.updated_at || currentService?.created_at;
+        if (prevTimestamp) {
+          const diff = (Date.now() - new Date(prevTimestamp).getTime()) / (1000 * 60 * 60 * 24);
+          daysInPrevStage = Math.round(diff * 10) / 10;
+        }
+      } catch {
+        // non-blocking
       }
 
       // 2. Determine changer role
@@ -142,12 +175,14 @@ export function useUpdateServiceStatus() {
         serviceUpdate.delay_updated_by = profile?.id;
       }
       if (payload.rejectionReason) serviceUpdate.rejection_reason = payload.rejectionReason;
-      if (payload.toStatus === 'in_progress' && !currentService?.started_at) {
+      if (payload.toStatus === 'in_progress') {
         serviceUpdate.started_at = now;
       }
       if (payload.toStatus === 'completed') {
-        serviceUpdate.completed_at = now;
+        serviceUpdate.completed_at = completionTimestamp;
         serviceUpdate.is_delayed = false;
+      } else if (payload.fromStatus === 'completed' && payload.toStatus !== 'completed') {
+        serviceUpdate.completed_at = null;
       }
       if (payload.toStatus === 'gov_approved') {
         serviceUpdate.government_approved_at = now;
@@ -167,39 +202,79 @@ export function useUpdateServiceStatus() {
         .eq('id', payload.jobServiceId) as any);
       if (updateError) throw updateError;
 
-      // 5. Write timeline entry
-      const timelineRow: any = {
-        job_service_id: payload.jobServiceId,
-        job_id: payload.jobId,
-        from_status: payload.fromStatus,
-        to_status: payload.toStatus,
-        changed_by: profile?.id || null,
-        changed_by_name: profile?.full_name || null,
-        changed_by_role: changerRole,
-        days_in_previous_stage: daysInPrevStage,
-        changed_at: now,
-        reason: payload.reason || payload.holdReason || payload.rejectionReason || null,
-        government_ref: payload.governmentRef || null,
-        is_delay_event: payload.isDelayEvent || payload.toStatus === 'on_hold' || false,
-        is_client_caused: payload.isClientCaused || false,
-      };
-      // Include service_name snapshot if passed
-      if (payload.serviceName) {
-        timelineRow.service_name = payload.serviceName;
+      // 4b. If marked completed and resolvedJobId exists, auto-sync parent job if all tasks done
+      if (payload.toStatus === 'completed' && resolvedJobId) {
+        try {
+          const { data: siblingServices } = await (supabase
+            .from('job_services')
+            .select('id, status')
+            .eq('job_id', resolvedJobId) as any);
+
+          const allCompleted = siblingServices && siblingServices.length > 0 && siblingServices.every(
+            (s: any) => s.id === payload.jobServiceId || s.status === 'completed' || s.status === 'cancelled'
+          );
+
+          if (allCompleted) {
+            await (supabase
+              .from('jobs')
+              .update({
+                status: 'completed',
+                completed_at: completionTimestamp,
+                updated_at: now
+              })
+              .eq('id', resolvedJobId) as any);
+          }
+        } catch (jobSyncErr) {
+          console.warn('Could not auto-sync parent job status:', jobSyncErr);
+        }
       }
-      const { error: timelineError } = await (supabase
-        .from('job_service_timeline')
-        .insert(timelineRow) as any);
-      if (timelineError) throw timelineError;
+
+      // 5. Write timeline entry (non-fatal if audit fails)
+      try {
+        const timelineRow: any = {
+          job_service_id: payload.jobServiceId,
+          job_id: resolvedJobId || payload.jobId,
+          from_status: payload.fromStatus,
+          to_status: payload.toStatus,
+          changed_by: profile?.id || null,
+          changed_by_name: profile?.full_name || null,
+          changed_by_role: changerRole,
+          days_in_previous_stage: daysInPrevStage,
+          changed_at: completionTimestamp || now,
+          reason: payload.reason || payload.holdReason || payload.rejectionReason || null,
+          government_ref: payload.governmentRef || null,
+          is_delay_event: payload.isDelayEvent || payload.toStatus === 'on_hold' || false,
+          is_client_caused: payload.isClientCaused || false,
+        };
+        if (payload.serviceName) {
+          timelineRow.service_name = payload.serviceName;
+        }
+        const { error: timelineError } = await (supabase
+          .from('job_service_timeline')
+          .insert(timelineRow) as any);
+        if (timelineError) {
+          console.warn('Could not insert timeline row:', timelineError);
+        }
+      } catch (timelineCatchErr) {
+        console.warn('Timeline write error:', timelineCatchErr);
+      }
 
       return { success: true };
     },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['job_services', variables.jobId] });
-      qc.invalidateQueries({ queryKey: ['job_service_timeline', variables.jobServiceId] });
-      qc.invalidateQueries({ queryKey: ['job_timeline', variables.jobId] });
+      qc.invalidateQueries({ queryKey: ['job_services'] });
+      qc.invalidateQueries({ queryKey: ['job_service_timeline'] });
+      qc.invalidateQueries({ queryKey: ['job_timeline'] });
       qc.invalidateQueries({ queryKey: ['ops_my_tasks'] });
       qc.invalidateQueries({ queryKey: ['pro_queue'] });
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      if (variables.jobId) {
+        qc.invalidateQueries({ queryKey: ['job_services', variables.jobId] });
+        qc.invalidateQueries({ queryKey: ['job_timeline', variables.jobId] });
+      }
+      if (variables.jobServiceId) {
+        qc.invalidateQueries({ queryKey: ['job_service_timeline', variables.jobServiceId] });
+      }
     },
   });
 }
@@ -207,7 +282,7 @@ export function useUpdateServiceStatus() {
 // ─── Fetch ops employee's assigned tasks (My Tasks queue) ─────────────────────
 
 export function useMyOpsTasks(employeeId: string | null) {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: ['ops_my_tasks', employeeId],
     queryFn: async () => {
       if (!employeeId) return [];
@@ -229,7 +304,7 @@ export function useMyOpsTasks(employeeId: string | null) {
         .eq('ops_employee_id', employeeId)
         .order('target_completion_date', { ascending: true, nullsFirst: false }) as any);
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!employeeId,
     refetchInterval: 30000, // refresh every 30s

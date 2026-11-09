@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useMyOpsTasks, useUpdateServiceStatus } from '../../hooks/employee/useTimeline';
 import { useUploadMultipleServiceDocuments } from '../../hooks/employee/useJobServices';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Search, X, Check, Loader2, Upload, ArrowLeft, Lock } from 'lucide-react';
+import { Zap, Search, X, Check, Loader2, Upload, ArrowLeft, Lock, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,7 @@ export const QuickUpdateWidget = () => {
   const [reason, setReason] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [completedDate, setCompletedDate] = useState(new Date().toISOString().slice(0, 10));
   const [actualFee, setActualFee] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paidByClient, setPaidByClient] = useState(false);
@@ -115,6 +116,11 @@ export const QuickUpdateWidget = () => {
       setActualFee('');
       setReceiptFile(null);
       setPaidByClient(selectedTask.notes?.includes('[PAID BY CLIENT CARD]') || false);
+      if (selectedTask.completed_at) {
+        setCompletedDate(selectedTask.completed_at.slice(0, 10));
+      } else {
+        setCompletedDate(new Date().toISOString().slice(0, 10));
+      }
     }
   }, [selectedTask]);
 
@@ -228,6 +234,7 @@ export const QuickUpdateWidget = () => {
         rejectionReason: newStatus === 'gov_rejected' ? reason : undefined,
         proId: newStatus === 'assigned_to_pro' ? proId : undefined,
         proNotes: newStatus === 'assigned_to_pro' ? proNotes : undefined,
+        completedDate: newStatus === 'completed' ? completedDate : undefined,
       });
 
       toast.success(isRtl ? 'تم حفظ التحديث بنجاح!' : 'Update saved successfully!');
@@ -388,6 +395,22 @@ export const QuickUpdateWidget = () => {
                       ))}
                     </select>
                   </div>
+
+                  {/* Completion Date */}
+                  {newStatus === 'completed' && (
+                    <div className="space-y-1 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <label className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar size={11} />
+                        {isRtl ? 'تاريخ الإنجاز' : 'Completion Date'}
+                      </label>
+                      <input
+                        type="date"
+                        value={completedDate}
+                        onChange={(e) => setCompletedDate(e.target.value)}
+                        className="w-full bg-card border border-emerald-500/30 rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-emerald-500 cursor-pointer font-medium"
+                      />
+                    </div>
+                  )}
 
                   {/* Conditional Gov Reference Code */}
                   {needsGovRef && (

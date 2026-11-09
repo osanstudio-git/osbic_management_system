@@ -96,6 +96,16 @@ const StatusUpdateSheet = ({
 
   const [issueDate, setIssueDate] = useState(task.issue_date || '');
   const [expiryDate, setExpiryDate] = useState(task.expiry_date || '');
+  const [completedDate, setCompletedDate] = useState<string>(() => {
+    if (task.completed_at) {
+      try {
+        return format(parseISO(task.completed_at), 'yyyy-MM-dd');
+      } catch {
+        return format(new Date(), 'yyyy-MM-dd');
+      }
+    }
+    return format(new Date(), 'yyyy-MM-dd');
+  });
 
   useEffect(() => {
     supabase
@@ -112,7 +122,7 @@ const StatusUpdateSheet = ({
       let receiptUrl: string | null = null;
       if (receiptFile) {
         const fileExt = receiptFile.name.split('.').pop() || 'pdf';
-        const filePath = `${task.job_id}/receipt_${Date.now()}.${fileExt}`;
+        const filePath = `${task.job_id || task.job?.id}/receipt_${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, receiptFile);
@@ -123,7 +133,7 @@ const StatusUpdateSheet = ({
 
       await updateStatus({
         jobServiceId: task.id,
-        jobId: task.job_id,
+        jobId: task.job_id || task.job?.id,
         fromStatus: task.status,
         toStatus: newStatus,
         serviceName: task.service_name || task.service?.name_en,
@@ -135,6 +145,7 @@ const StatusUpdateSheet = ({
         proNotes: newStatus === 'assigned_to_pro' ? proNotes : undefined,
         issueDate: issueDate || undefined,
         expiryDate: expiryDate || undefined,
+        completedDate: newStatus === 'completed' ? completedDate : undefined,
       });
 
       if (actualFee && Number(actualFee) > 0 && profile) {
@@ -207,6 +218,83 @@ const StatusUpdateSheet = ({
               ))}
             </select>
           </div>
+
+          {newStatus === 'completed' && (
+            <div className="space-y-1.5 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+              <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
+                <Calendar size={13} className="text-emerald-500" />
+                {isRtl ? 'تاريخ إنجاز المهمة' : 'Date of Completion'}
+              </label>
+              <input
+                type="date"
+                value={completedDate}
+                onChange={e => setCompletedDate(e.target.value)}
+                className="w-full bg-card border border-emerald-500/30 rounded-xl px-3.5 py-2 text-xs text-foreground outline-none focus:border-emerald-500 cursor-pointer font-medium"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {isRtl ? 'حدد التاريخ الفعلي لإنجاز المهمة (الافتراضي هو اليوم)' : 'Set the date when this task was actually finished (defaults to today)'}
+              </p>
+            </div>
+          )}
+
+          {newStatus === 'assigned_to_pro' && (
+            <div className="space-y-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">
+                  {isRtl ? 'اختر المندوب (PRO)' : 'Select PRO Agent'}
+                </label>
+                <select
+                  value={proId}
+                  onChange={e => setProId(e.target.value)}
+                  className="w-full bg-card border border-amber-500/30 rounded-xl px-3.5 py-2 text-xs text-foreground outline-none focus:border-amber-500 cursor-pointer font-medium"
+                >
+                  <option value="">{isRtl ? '-- اختر المندوب --' : '-- Choose a PRO --'}</option>
+                  {pros.map(p => (
+                    <option key={p.id} value={p.id}>{p.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'تعليمات للمندوب' : 'Instructions for PRO'}
+                </label>
+                <input
+                  type="text"
+                  value={proNotes}
+                  onChange={e => setProNotes(e.target.value)}
+                  placeholder="e.g. Visit ministry counter, submit stamped form"
+                  className="w-full bg-card border border-border rounded-xl px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+          )}
+
+          {(newStatus === 'gov_approved' || newStatus === 'completed') && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'تاريخ الإصدار (اختياري)' : 'Issue Date (Optional)'}
+                </label>
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={e => setIssueDate(e.target.value)}
+                  className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary cursor-pointer"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'تاريخ الانتهاء (اختياري)' : 'Expiry Date (Optional)'}
+                </label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={e => setExpiryDate(e.target.value)}
+                  className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
@@ -694,17 +782,17 @@ const MyTasks: React.FC = () => {
   };
 
   const now = new Date();
-  const acceptedTasks = tasks;
+  const acceptedTasks: any[] = tasks;
 
-  const urgent = acceptedTasks.filter(t => {
-    if (!t.target_completion_date) return false;
-    const days = differenceInDays(parseISO(t.target_completion_date), now);
-    return days <= 2 && t.status !== 'completed' && t.status !== 'cancelled';
+  const urgent = acceptedTasks.filter((task: any) => {
+    if (!task.target_completion_date) return false;
+    const days = differenceInDays(parseISO(task.target_completion_date), now);
+    return days <= 2 && task.status !== 'completed' && task.status !== 'cancelled';
   });
 
-  const onHold = acceptedTasks.filter(t => t.status === 'on_hold');
-  const done = acceptedTasks.filter(t => t.status === 'completed' || t.status === 'cancelled');
-  const active = acceptedTasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+  const onHold = acceptedTasks.filter((task: any) => task.status === 'on_hold');
+  const done = acceptedTasks.filter((task: any) => task.status === 'completed' || task.status === 'cancelled');
+  const active = acceptedTasks.filter((task: any) => task.status !== 'completed' && task.status !== 'cancelled');
 
   // Filter Done Tasks by Date and Search
   const filteredDoneTasks = useMemo(() => {
@@ -827,15 +915,15 @@ const MyTasks: React.FC = () => {
 
   // Done KPIs
   const doneCompletedToday = useMemo(() => {
-    return done.filter(t => {
-      const d = t.completed_at || t.updated_at;
+    return done.filter((task: any) => {
+      const d = task.completed_at || task.updated_at;
       return d && isToday(parseISO(d));
     }).length;
   }, [done]);
 
   const doneCompletedThisMonth = useMemo(() => {
-    return done.filter(t => {
-      const d = t.completed_at || t.updated_at;
+    return done.filter((task: any) => {
+      const d = task.completed_at || task.updated_at;
       return d && isWithinInterval(parseISO(d), { start: startOfMonth(now), end: endOfMonth(now) });
     }).length;
   }, [done]);
@@ -852,18 +940,18 @@ const MyTasks: React.FC = () => {
   const displayTasks = getDisplayTasks();
 
   // Group active tasks by deadline urgency
-  const overdue = active.filter(t => {
-    if (!t.target_completion_date) return false;
-    return differenceInDays(parseISO(t.target_completion_date), now) < 0;
+  const overdue = active.filter((task: any) => {
+    if (!task.target_completion_date) return false;
+    return differenceInDays(parseISO(task.target_completion_date), now) < 0;
   });
-  const soonDue = active.filter(t => {
-    if (!t.target_completion_date) return false;
-    const days = differenceInDays(parseISO(t.target_completion_date), now);
+  const soonDue = active.filter((task: any) => {
+    if (!task.target_completion_date) return false;
+    const days = differenceInDays(parseISO(task.target_completion_date), now);
     return days >= 0 && days <= 2;
   });
-  const onTrack = active.filter(t => {
-    if (!t.target_completion_date) return true;
-    return differenceInDays(parseISO(t.target_completion_date), now) > 2;
+  const onTrack = active.filter((task: any) => {
+    if (!task.target_completion_date) return true;
+    return differenceInDays(parseISO(task.target_completion_date), now) > 2;
   });
 
   const groupTasksByJob = (taskList: any[]) => {
@@ -984,17 +1072,15 @@ const MyTasks: React.FC = () => {
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
-              className={`flex-none sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                filter === tab.key
-                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex-none sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${filter === tab.key
+                ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               <span>{tab.label}</span>
               {tab.count > 0 && (
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  filter === tab.key ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted/60'
-                } ${tab.color || ''}`}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${filter === tab.key ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted/60'
+                  } ${tab.color || ''}`}>
                   {tab.count}
                 </span>
               )}
@@ -1007,11 +1093,10 @@ const MyTasks: React.FC = () => {
           <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-2xl border border-border/40 shrink-0 self-start sm:self-center">
             <button
               onClick={() => setSortOrder('desc')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                sortOrder === 'desc'
-                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${sortOrder === 'desc'
+                ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+                }`}
               title="Sort descending: newest / highest job code first"
             >
               <ArrowDownWideNarrow size={13} className={sortOrder === 'desc' ? 'text-primary' : ''} />
@@ -1019,11 +1104,10 @@ const MyTasks: React.FC = () => {
             </button>
             <button
               onClick={() => setSortOrder('asc')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                sortOrder === 'asc'
-                  ? 'bg-card border border-border/80 text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${sortOrder === 'asc'
+                ? 'bg-card border border-border/80 text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+                }`}
               title="Sort ascending: oldest / lowest job code first"
             >
               <ArrowUpNarrowWide size={13} className={sortOrder === 'asc' ? 'text-primary' : ''} />
@@ -1174,11 +1258,10 @@ const MyTasks: React.FC = () => {
                 <button
                   key={p}
                   onClick={() => setDoneDatePreset(p)}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs ${
-                    doneDatePreset === p
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs ${doneDatePreset === p
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
                 >
                   {p === 'all' && (isRtl ? 'كل الوقت' : 'All Time')}
                   {p === 'today' && (isRtl ? 'اليوم' : 'Today')}
@@ -1207,11 +1290,10 @@ const MyTasks: React.FC = () => {
               {/* Group By Client Toggle */}
               <button
                 onClick={() => setDoneGroupByClient(!doneGroupByClient)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                  doneGroupByClient
-                    ? 'bg-primary/10 text-primary border-primary/30 shadow-sm'
-                    : 'bg-card text-muted-foreground border-border/60 hover:text-foreground'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${doneGroupByClient
+                  ? 'bg-primary/10 text-primary border-primary/30 shadow-sm'
+                  : 'bg-card text-muted-foreground border-border/60 hover:text-foreground'
+                  }`}
                 title={isRtl ? 'تجميع حسب العميل أو قائمة عادية' : 'Group by Client or Flat List'}
               >
                 <Users size={13} />
@@ -1298,9 +1380,8 @@ const MyTasks: React.FC = () => {
                             {/* Client Summary Accordion Row */}
                             <tr
                               onClick={() => toggleClient(group.clientId)}
-                              className={`transition-colors cursor-pointer border-t border-border/40 group ${
-                                isExpanded ? 'bg-primary/5 hover:bg-primary/10' : 'bg-muted/15 hover:bg-muted/30'
-                              }`}
+                              className={`transition-colors cursor-pointer border-t border-border/40 group ${isExpanded ? 'bg-primary/5 hover:bg-primary/10' : 'bg-muted/15 hover:bg-muted/30'
+                                }`}
                             >
                               <td className="py-3.5 px-5">
                                 <div className="flex items-center gap-3">
