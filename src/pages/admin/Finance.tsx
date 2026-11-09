@@ -17,12 +17,18 @@ import toast from 'react-hot-toast';
 type TimePreset = 'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'all' | 'custom';
 type TabType = 'daily' | 'sales_reps' | 'govt_fees' | 'services' | 'all_deals';
 
-export default function Finance() {
+export interface FinanceProps {
+  hideHeader?: boolean;
+  branchId?: string | null;
+}
+
+export default function Finance({ hideHeader = false, branchId }: FinanceProps = {}) {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
 
   const { selectedBranchId, branches } = useBranch();
-  const { data: metrics, isLoading, refetch, isRefetching } = useFinanceMetrics(selectedBranchId);
+  const effectiveBranchId = branchId !== undefined ? branchId : selectedBranchId;
+  const { data: metrics, isLoading, refetch, isRefetching } = useFinanceMetrics(effectiveBranchId);
 
   // Filters State
   const [activeTab, setActiveTab] = useState<TabType>('daily');
@@ -373,41 +379,43 @@ export default function Finance() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* ─── Page Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground">
-              {isRtl ? 'المركز المالي والمبيعات' : 'Financial & Sales Hub'}
-            </h1>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
-              Live Ledger
-            </span>
+      {!hideHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground">
+                {isRtl ? 'المركز المالي والمبيعات' : 'Financial & Sales Hub'}
+              </h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
+                Live Ledger
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isRtl
+                ? 'متابعة حية للمبيعات اليومية، إيرادات صفقات الموظفين، وسجل الرسوم الحكومية المباشر'
+                : 'Live tracking of daily sales, sales rep won deals, and exact government fee allocations'}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isRtl
-              ? 'متابعة حية للمبيعات اليومية، إيرادات صفقات الموظفين، وسجل الرسوم الحكومية المباشر'
-              : 'Live tracking of daily sales, sales rep won deals, and exact government fee allocations'}
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2.5 rounded-xl bg-card border border-border/80 hover:bg-muted text-foreground transition-all shadow-sm"
-            title={isRtl ? 'تحديث البيانات' : 'Refresh Data'}
-          >
-            <RefreshCw size={16} className={isRefetching ? 'animate-spin text-primary' : ''} />
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all shrink-0"
-          >
-            <Download size={14} />
-            <span>{isRtl ? 'تصدير التقرير (.CSV)' : 'Export Report (.CSV)'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="p-2.5 rounded-xl bg-card border border-border/80 hover:bg-muted text-foreground transition-all shadow-sm"
+              title={isRtl ? 'تحديث البيانات' : 'Refresh Data'}
+            >
+              <RefreshCw size={16} className={isRefetching ? 'animate-spin text-primary' : ''} />
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all shrink-0"
+            >
+              <Download size={14} />
+              <span>{isRtl ? 'تصدير التقرير (.CSV)' : 'Export Report (.CSV)'}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── Control Bar: Date Range, Employee Filter, & Search ────────────── */}
       <div className="bg-card border border-border/70 rounded-3xl p-4 shadow-sm space-y-3.5">
@@ -439,10 +447,31 @@ export default function Finance() {
             ))}
           </div>
 
-          {/* Quick Indicator of current filter count */}
-          <div className="text-[11px] text-muted-foreground whitespace-nowrap">
-            <span>{isRtl ? 'المعاملات المطابقة:' : 'Matching Deals:'} </span>
-            <strong className="text-primary font-mono">{filteredDeals.length}</strong>
+          {/* Quick Indicator of current filter count & embedded actions */}
+          <div className="flex items-center gap-3">
+            <div className="text-[11px] text-muted-foreground whitespace-nowrap">
+              <span>{isRtl ? 'المعاملات المطابقة:' : 'Matching Deals:'} </span>
+              <strong className="text-primary font-mono">{filteredDeals.length}</strong>
+            </div>
+            {hideHeader && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => refetch()}
+                  disabled={isRefetching}
+                  className="p-1.5 rounded-xl bg-muted/50 border border-border/80 hover:bg-muted text-foreground transition-all shadow-sm"
+                  title={isRtl ? 'تحديث البيانات' : 'Refresh Data'}
+                >
+                  <RefreshCw size={13} className={isRefetching ? 'animate-spin text-primary' : ''} />
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-sm shadow-primary/20 hover:bg-primary/90 transition-all shrink-0"
+                >
+                  <Download size={13} />
+                  <span>{isRtl ? 'تصدير CSV' : 'Export CSV'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

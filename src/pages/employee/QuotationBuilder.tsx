@@ -5,7 +5,7 @@ import {
   CheckCircle2, CreditCard, CheckSquare, Square, Calendar,
   Camera, Layers, Settings2, Sliders, UserCheck, User,
   Building2, Building, Check, Loader2, RotateCcw, WifiOff, CloudCheck, AlertCircle,
-  GripVertical
+  GripVertical, Landmark, DollarSign, ChevronDown, ChevronUp, ShieldAlert, Sparkles, TrendingUp
 } from 'lucide-react';
 import {
   DndContext,
@@ -339,6 +339,7 @@ const QuotationBuilder = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const [isAcceptWizardOpen, setIsAcceptWizardOpen] = useState(false);
   const [quotationMode, setQuotationMode] = useState<'detailed' | 'simple'>('detailed');
+  const [showStaffBreakdown, setShowStaffBreakdown] = useState<boolean>(true);
 
   // Interactive Checklist states
   const [timelineTab, setTimelineTab] = useState<'checklist' | 'raw'>('checklist');
@@ -410,6 +411,72 @@ const QuotationBuilder = () => {
   const currentRate = ratesData?.rates?.[activeCurrency] ?? formData.exchange_rate_to_omr ?? 1;
   // Helper: format a raw amount (assumed already in the selected currency) for display
   const fmtAmt = (v: number) => `${currencySymbol} ${Math.abs(v).toFixed(currencyCfg.decimals)}`;
+
+  // ── Financial Profit & Gov Cost Calculation (Internal Staff Ledger) ───────
+  const financialSummary = React.useMemo(() => {
+    const items = formData.items || [];
+    let totalGovFee = 0;
+    let totalServiceFee = 0;
+    let totalGross = 0;
+
+    const breakdown = items.map((item: any, idx: number) => {
+      const qty = Math.max(1, parseInt(String(item.quantity), 10) || 1);
+      const matched = allServices?.find(
+        s => s.name_en.toLowerCase() === item.description?.toLowerCase() ||
+          s.name_ar === item.description
+      );
+      const dbMin = matched?.ministry_fee ?? 0;
+      const gov = item.ministry_fee !== undefined && item.ministry_fee !== null ? (Number(item.ministry_fee) || 0) : dbMin;
+
+      let srv = 0;
+      if (item.service_fee !== undefined && item.service_fee !== null) {
+        srv = Number(item.service_fee) || 0;
+      } else if (item.unit_price !== undefined && item.unit_price !== null) {
+        srv = Math.max(0, (Number(item.unit_price) || 0) - gov);
+      }
+
+      const unitTotal = gov + srv;
+      const lineTotal = item.total !== undefined ? Number(item.total) : (unitTotal * qty);
+      const lineGov = gov * qty;
+      const lineSrv = srv * qty;
+
+      totalGovFee += lineGov;
+      totalServiceFee += lineSrv;
+      totalGross += lineTotal;
+
+      return {
+        id: item.id || `item-${idx}`,
+        description: item.description || `Item #${idx + 1}`,
+        quantity: qty,
+        unitGov: gov,
+        totalGov: lineGov,
+        unitSrv: srv,
+        totalSrv: lineSrv,
+        unitPrice: unitTotal,
+        lineTotal: lineTotal
+      };
+    });
+
+    const discount = Number(formData.discount_amount) || 0;
+    const tax = Number(formData.tax_amount) || 0;
+    const finalTotal = Number(formData.total_amount) || (totalGross - discount + tax);
+    const netOfficeProfit = totalServiceFee - discount;
+    const profitMargin = totalGross > 0 ? (totalServiceFee / totalGross) * 100 : 0;
+    const isLoss = discount > totalServiceFee;
+
+    return {
+      totalGovFee,
+      totalServiceFee,
+      totalGross,
+      discount,
+      tax,
+      finalTotal,
+      netOfficeProfit,
+      profitMargin,
+      isLoss,
+      breakdown
+    };
+  }, [formData.items, formData.discount_amount, formData.tax_amount, formData.total_amount, allServices]);
 
   // Track network connectivity
   useEffect(() => {
@@ -1974,6 +2041,64 @@ const QuotationBuilder = () => {
                 </DndContext>
               </div>
 
+              {/* ─── LIVE COST & PROFIT ESTIMATE CARD (Internal Staff) ─────── */}
+              <div className="p-4 bg-muted/20 border border-primary/20 rounded-2xl space-y-3 print:hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
+                      <Sparkles size={13} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-foreground font-syne uppercase tracking-wider block leading-tight">
+                        Internal Profit & Gov Cost Estimate
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">
+                        Live breakdown based on your entered fees
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
+                    Staff Only
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-card border border-border/70 shadow-sm">
+                    <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider block mb-0.5 flex items-center justify-center gap-1">
+                      <Landmark size={11} /> Gov Outflow
+                    </span>
+                    <span className="text-xs font-black font-mono text-blue-400">
+                      {fmtAmt(financialSummary.totalGovFee)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-card border border-border/70 shadow-sm">
+                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block mb-0.5 flex items-center justify-center gap-1">
+                      <DollarSign size={11} /> Service Profit
+                    </span>
+                    <span className="text-xs font-black font-mono text-emerald-400">
+                      {fmtAmt(financialSummary.netOfficeProfit)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-card border border-border/70 shadow-sm">
+                    <span className="text-[9px] font-bold text-primary uppercase tracking-wider block mb-0.5 flex items-center justify-center gap-1">
+                      <TrendingUp size={11} /> Margin
+                    </span>
+                    <span className="text-xs font-black font-mono text-primary">
+                      {financialSummary.profitMargin.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+
+                {financialSummary.isLoss && (
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[11px] font-semibold flex items-center gap-2">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>Warning: Discount ({fmtAmt(financialSummary.discount)}) exceeds company service profit ({fmtAmt(financialSummary.totalServiceFee)})!</span>
+                  </div>
+                )}
+              </div>
+
               {/* Discount & Tax */}
               <div className="space-y-4 border-t border-border pt-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -2636,6 +2761,173 @@ const QuotationBuilder = () => {
                   Simple Summary
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ─── STAFF-ONLY INTERNAL FINANCIAL & PROFIT SUMMARY (Hidden in Print & Client PDF) ─── */}
+          <div className="w-full mb-6 print:hidden">
+            <div className="bg-card border-2 border-primary/25 rounded-2xl shadow-xl overflow-hidden transition-all">
+              {/* Card Header */}
+              <div className="px-5 py-3.5 bg-primary/5 border-b border-primary/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                    <ShieldAlert size={15} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-foreground tracking-wide uppercase font-syne">
+                        Staff Internal Cost & Profit Ledger
+                      </h3>
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        Staff Only • Hidden from Client
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Government pass-through outflows vs OSBIC office service profit
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowStaffBreakdown(!showStaffBreakdown)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border text-xs font-bold text-foreground hover:bg-muted transition-colors shadow-sm"
+                >
+                  <span>{showStaffBreakdown ? 'Hide Service Breakdown' : 'View Service Breakdown'}</span>
+                  {showStaffBreakdown ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              </div>
+
+              {/* KPI Summary Strip */}
+              <div className="p-4 sm:p-5 grid grid-cols-2 md:grid-cols-4 gap-3 bg-card">
+                {/* 1. Total Deal Value */}
+                <div className="p-3.5 rounded-xl bg-muted/20 border border-border/60 space-y-1">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
+                    Client Total Quote
+                  </span>
+                  <p className="text-lg font-bold font-mono text-foreground">
+                    {fmtAmt(financialSummary.finalTotal)}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    Final package billed to client
+                  </span>
+                </div>
+
+                {/* 2. Total Gov Fee Outflow */}
+                <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-1">
+                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                    <Landmark size={12} />
+                    Total Gov Outflow
+                  </span>
+                  <p className="text-lg font-bold font-mono text-blue-400">
+                    {fmtAmt(financialSummary.totalGovFee)}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    Estimated ministry pass-through
+                  </span>
+                </div>
+
+                {/* 3. Company Work Fee / Profit */}
+                <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1">
+                  <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                    <Sparkles size={12} />
+                    Company Service Profit
+                  </span>
+                  <p className="text-lg font-bold font-mono text-emerald-400">
+                    {fmtAmt(financialSummary.netOfficeProfit)}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    Net work fee retained by OSBIC
+                  </span>
+                </div>
+
+                {/* 4. Profit Margin */}
+                <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1">
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest flex items-center gap-1">
+                    <TrendingUp size={12} />
+                    Profit Margin
+                  </span>
+                  <p className="text-lg font-bold font-mono text-primary">
+                    {financialSummary.profitMargin.toFixed(1)}%
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {financialSummary.discount > 0 ? `Discount: -${fmtAmt(financialSummary.discount)}` : 'Full margin retained'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Loss / Low Margin Warning */}
+              {financialSummary.isLoss && (
+                <div className="mx-4 sm:mx-5 mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-xs text-rose-400 font-semibold">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>Warning: Discount ({fmtAmt(financialSummary.discount)}) is higher than service profit ({fmtAmt(financialSummary.totalServiceFee)})! This deal operates at a net loss.</span>
+                </div>
+              )}
+
+              {/* Expandable Service-by-Service Table */}
+              {showStaffBreakdown && (
+                <div className="border-t border-border/60 bg-muted/10 p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Itemized Profit & Gov Fee Breakdown ({financialSummary.breakdown.length} Services)
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      Currency: <strong className="text-foreground">{activeCurrency}</strong>
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-muted/40 border-b border-border text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <th className="py-2.5 px-3.5">#</th>
+                          <th className="py-2.5 px-3.5">Service Description</th>
+                          <th className="py-2.5 px-3.5 text-center">Qty</th>
+                          <th className="py-2.5 px-3.5 text-right text-blue-400">Gov Fee</th>
+                          <th className="py-2.5 px-3.5 text-right text-emerald-400">Service Fee (Profit)</th>
+                          <th className="py-2.5 px-3.5 text-right text-foreground font-black">Client Line Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40 font-mono">
+                        {financialSummary.breakdown.map((row, i) => (
+                          <tr key={row.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="py-2.5 px-3.5 text-[11px] text-muted-foreground font-sans">{i + 1}</td>
+                            <td className="py-2.5 px-3.5 text-xs text-foreground font-sans font-medium">{row.description}</td>
+                            <td className="py-2.5 px-3.5 text-xs text-center text-muted-foreground font-sans">{row.quantity}</td>
+                            <td className="py-2.5 px-3.5 text-xs text-right text-blue-400">
+                              {fmtAmt(row.totalGov)}
+                              {row.quantity > 1 && <span className="text-[9px] text-muted-foreground block font-sans">({fmtAmt(row.unitGov)}/ea)</span>}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-xs text-right text-emerald-400 font-bold">
+                              {fmtAmt(row.totalSrv)}
+                              {row.quantity > 1 && <span className="text-[9px] text-muted-foreground block font-sans">({fmtAmt(row.unitSrv)}/ea)</span>}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-xs text-right text-foreground font-bold font-sans">
+                              {fmtAmt(row.lineTotal)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-muted/50 border-t border-border font-bold text-xs">
+                          <td colSpan={3} className="py-3 px-3.5 text-foreground font-sans">
+                            Total Package Breakdown
+                          </td>
+                          <td className="py-3 px-3.5 text-right text-blue-400 font-mono">
+                            {fmtAmt(financialSummary.totalGovFee)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right text-emerald-400 font-mono font-black">
+                            {fmtAmt(financialSummary.totalServiceFee)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right text-primary font-mono font-black text-sm">
+                            {fmtAmt(financialSummary.totalGross)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
