@@ -6,6 +6,8 @@ import {
   Send, XCircle, Clock, Landmark, Briefcase
 } from 'lucide-react';
 import { useInvoices, useDeleteInvoice } from '../../hooks/employee/useInvoices';
+import { useAdminServices } from '../../hooks/admin/useAdminServices';
+import { useAdminPackages } from '../../hooks/admin/useAdminPackages';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import Skeleton from '../../components/ui/Skeleton';
@@ -17,6 +19,8 @@ const EmployeeInvoices = () => {
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const { data: invoices, isLoading } = useInvoices();
+  const { data: allServices } = useAdminServices();
+  const { data: allPackages } = useAdminPackages();
   const { mutateAsync: deleteInvoice } = useDeleteInvoice();
   const [filter, setFilter] = useState<'all' | 'invoices' | 'quotations' | 'unpaid' | 'paid'>('all');
   const { t, i18n } = useTranslation();
@@ -118,6 +122,126 @@ const EmployeeInvoices = () => {
         <FileClock size={11} /> {isRtl ? 'غير مدفوعة' : 'Unpaid'}
       </span>
     );
+  };
+
+  const getDocumentFinancials = (inv: any) => {
+    const totalAmount = Number(inv.total_amount) || 0;
+    const discount = Number(inv.discount_amount) || 0;
+
+    // 1. Direct explicit values in metadata (highest fidelity)
+    if (inv.metadata?.total_ministry_fee !== undefined && inv.metadata?.total_ministry_fee !== null && Number(inv.metadata.total_ministry_fee) > 0) {
+      const govFee = Number(inv.metadata.total_ministry_fee) || 0;
+      const rawProfit = inv.metadata?.total_service_fee !== undefined && inv.metadata?.total_service_fee !== null
+        ? Number(inv.metadata.total_service_fee)
+        : Math.max(0, totalAmount - govFee);
+      return {
+        govFee,
+        profit: Math.max(0, rawProfit - discount)
+      };
+    }
+
+    // 2. Saved items detail in metadata
+    if (Array.isArray(inv.metadata?.items_detail) && inv.metadata.items_detail.length > 0) {
+      const govFee = inv.metadata.items_detail.reduce((sum: number, it: any) => sum + (Number(it.ministry_fee) || 0) * (Number(it.quantity) || 1), 0);
+      const srvFee = inv.metadata.items_detail.reduce((sum: number, it: any) => sum + (Number(it.service_fee) || 0) * (Number(it.quantity) || 1), 0);
+      if (govFee > 0 || srvFee > 0) {
+        return {
+          govFee,
+          profit: Math.max(0, (srvFee > 0 ? srvFee : Math.max(0, totalAmount - govFee)) - discount)
+        };
+      }
+    }
+
+    // 3. Match each item from invoice_items against allServices
+    if (inv.items && inv.items.length > 0 && allServices && allServices.length > 0) {
+      let matchedGov = 0;
+      let matchedSrv = 0;
+
+      for (const it of inv.items) {
+        const qty = Math.max(1, Number(it.quantity) || 1);
+        const unitPrice = Number(it.unit_price) || 0;
+        const desc = (it.description || '').trim().toLowerCase();
+
+        // Check if item itself already has ministry_fee
+        if (it.ministry_fee !== undefined && it.ministry_fee !== null && Number(it.ministry_fee) > 0) {
+          const mFee = Number(it.ministry_fee);
+          matchedGov += mFee * qty;
+          const sFee = it.service_fee !== undefined && it.service_fee !== null ? Number(it.service_fee) : Math.max(0, unitPrice - mFee);
+          matchedSrv += sFee * qty;
+          continue;
+        }
+
+        // Match against allServices
+        const matched = allServices.find((s: any) => {
+          const sEn = (s.name_en || '').trim().toLowerCase();
+          const sAr = (s.name_ar || '').trim();
+          if (sEn && (desc === sEn || desc.includes(sEn) || sEn.includes(desc))) return true;
+          if (sAr && desc === sAr) return true;
+          return false;
+        });
+
+        if (matched) {
+          const mFee = Number(matched.ministry_fee) || 0;
+          const sFee = matched.work_fee !== undefined ? Number(matched.work_fee) : Math.max(0, unitPrice - mFee);
+          matchedGov += mFee * qty;
+          matchedSrv += sFee * qty;
+        }
+      }
+
+      if (matchedGov > 0) {
+        const govFee = Math.min(matchedGov, totalAmount * 0.95);
+        return {
+          govFee,
+          profit: Math.max(0, (matchedSrv > 0 ? matchedSrv : Math.max(0, totalAmount - govFee)) - discount)
+        };
+      }
+    }
+
+    // 4. Check if linked to job with ministry_fee / work_fee
+    if (inv.job && (Number(inv.job.ministry_fee) > 0 || Number(inv.job.work_fee) > 0)) {
+      const govFee = Number(inv.job.ministry_fee) || 0;
+      const srvFee = Number(inv.job.work_fee) || Math.max(0, totalAmount - govFee);
+      return {
+        govFee,
+        profit: Math.max(0, srvFee - discount)
+      };
+    }
+
+    // 5. Check if linked job's service has ministry_fee
+    if (inv.job?.service && (Number(inv.job.service.ministry_fee) > 0 || Number(inv.job.service.work_fee) > 0)) {
+      const govFee = Number(inv.job.service.ministry_fee) || 0;
+      const srvFee = Number(inv.job.service.work_fee) || Math.max(0, totalAmount - govFee);
+      return {
+        govFee,
+        profit: Math.max(0, srvFee - discount)
+      };
+    }
+
+    // 6. Check if any package matches description or proposal title
+    if (allPackages && allPackages.length > 0) {
+      const fullText = `${inv.metadata?.proposal_title || ''} ${inv.items?.map((i: any) => i.description).join(' ') || ''}`.toLowerCase();
+      const matchedPkg = allPackages.find((p: any) => {
+        const pEn = (p.name_en || '').toLowerCase();
+        return pEn && (fullText.includes(pEn) || pEn.includes(fullText.trim()));
+      });
+
+      if (matchedPkg && matchedPkg.services && matchedPkg.services.length > 0) {
+        const pkgGov = matchedPkg.services.reduce((s: number, ps: any) => s + (Number(ps.service?.ministry_fee) || 0) * (Number(ps.default_quantity) || 1), 0);
+        if (pkgGov > 0) {
+          const govFee = Math.min(pkgGov, totalAmount * 0.85);
+          return {
+            govFee,
+            profit: Math.max(0, totalAmount - govFee - discount)
+          };
+        }
+      }
+    }
+
+    // Default fallback
+    return {
+      govFee: 0,
+      profit: Math.max(0, totalAmount - discount)
+    };
   };
 
   return (
@@ -222,16 +346,8 @@ const EmployeeInvoices = () => {
 
               const serviceOrQuoteName = proposalTitle || itemsSummary || (inv.type === 'quotation' ? (isRtl ? 'عرض سعر خدمات' : 'Services Quotation') : (isRtl ? 'فاتورة خدمات' : 'Services Invoice'));
 
-              // Quotation Gov Fee vs Service Fee / Profit Calculation
-              const totalGovFee = (inv.items || []).reduce((sum: number, it: any) => sum + (Number(it.ministry_fee) || 0) * (Number(it.quantity) || 1), 0);
-              const rawServiceFee = (inv.items || []).reduce((sum: number, it: any) => {
-                const sf = it.service_fee !== undefined && it.service_fee !== null 
-                  ? Number(it.service_fee) 
-                  : Math.max(0, (Number(it.unit_price) || 0) - (Number(it.ministry_fee) || 0));
-                return sum + sf * (Number(it.quantity) || 1);
-              }, 0);
-              const discount = Number(inv.discount_amount) || 0;
-              const netProfit = Math.max(0, rawServiceFee - discount);
+              // Quotation & Invoice Gov Fee vs Service Fee / Profit Calculation
+              const { govFee: totalGovFee, profit: netProfit } = getDocumentFinancials(inv);
 
               const docUrl = `/employee/${inv.type === 'quotation' ? 'quotations' : 'invoices'}/${inv.id!}`;
 
@@ -306,25 +422,23 @@ const EmployeeInvoices = () => {
                         {inv.total_amount.toFixed(3)} <span className="text-xs font-bold text-muted-foreground">{isRtl ? 'ر.ع.' : 'OMR'}</span>
                       </p>
 
-                      {/* Gov Fee & Profit Badges for Quotations */}
-                      {inv.type === 'quotation' && (
-                        <div className="flex items-center gap-1.5 sm:justify-end flex-wrap pt-0.5">
-                          <span 
-                            title={isRtl ? 'رسوم الدوائر الحكومية المتوقعة' : 'Estimated Government pass-through fees'}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap"
-                          >
-                            <Landmark size={10} />
-                            <span>{isRtl ? 'حكومي:' : 'Gov:'} {totalGovFee.toFixed(3)}</span>
-                          </span>
-                          <span 
-                            title={isRtl ? 'رسوم الخدمة / ربح المكتب' : 'Service Fee / OSBIC Profit'}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap"
-                          >
-                            <Briefcase size={10} />
-                            <span>{isRtl ? 'الربح:' : 'Profit:'} {netProfit.toFixed(3)}</span>
-                          </span>
-                        </div>
-                      )}
+                      {/* Gov Fee & Profit Badges for BOTH Quotations & Invoices */}
+                      <div className="flex items-center gap-1.5 sm:justify-end flex-wrap pt-0.5">
+                        <span 
+                          title={isRtl ? 'رسوم الدوائر الحكومية (ROP, MOCIIP, Labour)' : 'Estimated Government pass-through fees'}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap"
+                        >
+                          <Landmark size={10} />
+                          <span>{isRtl ? 'حكومي:' : 'Gov:'} {totalGovFee.toFixed(3)}</span>
+                        </span>
+                        <span 
+                          title={isRtl ? 'رسوم الخدمة / ربح المكتب' : 'Service Fee / OSBIC Profit'}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap"
+                        >
+                          <Briefcase size={10} />
+                          <span>{isRtl ? 'الربح:' : 'Profit:'} {netProfit.toFixed(3)}</span>
+                        </span>
+                      </div>
 
                       <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
                         {format(new Date(inv.issue_date || new Date()), isRtl ? 'yyyy/MM/dd' : 'dd MMM yyyy')}

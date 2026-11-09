@@ -85,7 +85,7 @@ export const useInvoices = (clientId?: string) => {
           *,
           client:profiles!client_id(id, full_name, company_name, email, phone),
           lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
-          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, service:services!service_id(name_en, name_ar)),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, ministry_fee, work_fee, total_fee, client_pays_ministry_fee, service:services!service_id(name_en, name_ar, ministry_fee, work_fee)),
           items:invoice_items(*)
         `)
         .order('created_at', { ascending: false });
@@ -165,7 +165,7 @@ export const useInvoice = (id?: string) => {
           *,
           client:profiles!client_id(id, full_name, company_name, email, phone),
           lead:leads!lead_id(id, contact_name, company_name, contact_phone, lead_code),
-          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, service:services!service_id(name_en, name_ar)),
+          job:jobs!job_id(id, job_code, employee_id, assigned_by, service_id, ministry_fee, work_fee, total_fee, client_pays_ministry_fee, service:services!service_id(name_en, name_ar, ministry_fee, work_fee)),
           items:invoice_items(*)
         `)
         .eq('id', id!)
@@ -183,6 +183,29 @@ export const useSaveInvoice = () => {
   return useMutation({
     mutationFn: async (invoice: Invoice) => {
       const { items, client, lead, job, employee, ...invoiceData } = invoice;
+
+      // Automatically compute and preserve total_ministry_fee and items_detail in metadata
+      const computedGovFee = (items || []).reduce((sum, it) => sum + (Number(it.ministry_fee) || 0) * (Number(it.quantity) || 1), 0);
+      const computedSrvFee = (items || []).reduce((sum, it) => {
+        const sf = it.service_fee !== undefined && it.service_fee !== null 
+          ? Number(it.service_fee) 
+          : Math.max(0, (Number(it.unit_price) || 0) - (Number(it.ministry_fee) || 0));
+        return sum + sf * (Number(it.quantity) || 1);
+      }, 0);
+
+      invoiceData.metadata = {
+        ...(invoiceData.metadata || {}),
+        total_ministry_fee: invoiceData.metadata?.total_ministry_fee ?? computedGovFee,
+        total_service_fee: invoiceData.metadata?.total_service_fee ?? computedSrvFee,
+        items_detail: (items || []).map(it => ({
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          ministry_fee: it.ministry_fee,
+          service_fee: it.service_fee,
+          total: it.total
+        }))
+      };
 
       invoiceData.employee_id = profile?.id;
 
