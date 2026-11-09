@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, FileText, CheckCircle2, FileClock, Eye, Edit, Trash2 } from 'lucide-react';
+import { 
+  Plus, Search, FileText, CheckCircle2, FileClock, Eye, Edit, Trash2,
+  Send, XCircle, Clock, Landmark, Briefcase
+} from 'lucide-react';
 import { useInvoices, useDeleteInvoice } from '../../hooks/employee/useInvoices';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
@@ -53,24 +56,68 @@ const EmployeeInvoices = () => {
     if (filter === 'unpaid' && (inv.type === 'quotation' || inv.status === 'paid')) return false;
     if (filter === 'paid' && (inv.type === 'quotation' || inv.status !== 'paid')) return false;
     
-    // Search filter
+    // Search filter: ID, client, company, proposal title, service items
     if (search) {
       const q = search.toLowerCase();
       const matchNumber = inv.invoice_number?.toLowerCase()?.includes(q);
-      const matchClient = (inv.metadata?.custom_client_name || inv.client?.full_name || inv.lead?.contact_name || '')?.toLowerCase()?.includes(q);
-      if (!matchNumber && !matchClient) return false;
+      const matchClient = (inv.metadata?.custom_client_name || inv.client?.full_name || inv.client?.company_name || inv.lead?.contact_name || inv.lead?.company_name || '')?.toLowerCase()?.includes(q);
+      const matchProposal = (inv.metadata?.proposal_title || inv.metadata?.quote_name || inv.notes || '')?.toLowerCase()?.includes(q);
+      const matchItems = inv.items?.some(it => it.description?.toLowerCase()?.includes(q));
+      if (!matchNumber && !matchClient && !matchProposal && !matchItems) return false;
     }
     return true;
   });
 
-  const getStatusDisplay = (type: string, status: string) => {
-    if (type === 'quotation') {
-      return <span className="bg-blue-500/10 text-blue-500 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-widest border border-blue-500/20">{isRtl ? 'عرض سعر' : 'Quotation'}</span>;
+  const getStatusDisplay = (inv: any) => {
+    if (inv.type === 'quotation') {
+      const isAccepted = inv.status === 'accepted' || Boolean(inv.job_id || inv.job);
+      if (isAccepted) {
+        return (
+          <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-emerald-500/20 whitespace-nowrap">
+            <CheckCircle2 size={11} /> {isRtl ? 'مقبول' : 'Accepted'}
+          </span>
+        );
+      }
+      if (inv.status === 'sent' || inv.status === 'viewed') {
+        return (
+          <span className="inline-flex items-center gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-sky-500/20 whitespace-nowrap">
+            <Send size={11} /> {isRtl ? 'مرسل' : 'Sent'}
+          </span>
+        );
+      }
+      if (inv.status === 'rejected') {
+        return (
+          <span className="inline-flex items-center gap-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-rose-500/20 whitespace-nowrap">
+            <XCircle size={11} /> {isRtl ? 'مرفوض' : 'Rejected'}
+          </span>
+        );
+      }
+      if (inv.status === 'expired') {
+        return (
+          <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
+            <Clock size={11} /> {isRtl ? 'منتهي' : 'Expired'}
+          </span>
+        );
+      }
+      return (
+        <span className="inline-flex items-center gap-1 bg-muted text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-border whitespace-nowrap">
+          <FileClock size={11} /> {isRtl ? 'مسودة' : 'Draft'}
+        </span>
+      );
     }
-    if (status === 'paid') {
-      return <span className="bg-emerald-500/10 text-emerald-500 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-widest border border-emerald-500/20 flex items-center gap-1"><CheckCircle2 size={12}/> {isRtl ? 'مدفوعة' : 'Paid'}</span>;
+
+    if (inv.status === 'paid') {
+      return (
+        <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-emerald-500/20 whitespace-nowrap">
+          <CheckCircle2 size={11} /> {isRtl ? 'مدفوعة' : 'Paid'}
+        </span>
+      );
     }
-    return <span className="bg-amber-500/10 text-amber-500 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-widest border border-amber-500/20 flex items-center gap-1"><FileClock size={12}/> {isRtl ? 'غير مدفوعة' : 'Unpaid'}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border border-amber-500/20 whitespace-nowrap">
+        <FileClock size={11} /> {isRtl ? 'غير مدفوعة' : 'Unpaid'}
+      </span>
+    );
   };
 
   return (
@@ -149,68 +196,168 @@ const EmployeeInvoices = () => {
            </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {filteredInvoices?.map(inv => (
-              <motion.div
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                key={inv.id}
-                className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:border-primary/30 hover:bg-muted/10 transition-all group shadow-sm gap-4"
-              >
-                <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shrink-0">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-sm font-bold text-foreground">{inv.invoice_number || (isRtl ? 'مسودة' : 'DRAFT')}</h3>
-                      {getStatusDisplay(inv.type, inv.status)}
+            {filteredInvoices?.map(inv => {
+              const clientDisplayName = 
+                inv.metadata?.custom_client_name || 
+                inv.client?.company_name || 
+                inv.client?.full_name || 
+                inv.lead?.company_name || 
+                inv.lead?.contact_name || 
+                (inv.metadata?.is_custom_client ? (isRtl ? 'عميل مخصص' : 'Custom Client') : (isRtl ? 'عميل عام' : 'Client'));
+
+              const secondaryClientInfo = 
+                (inv.client?.company_name && inv.client?.company_name !== clientDisplayName ? inv.client.company_name : null) ||
+                (inv.lead?.company_name && inv.lead?.company_name !== clientDisplayName ? inv.lead.company_name : null) ||
+                (inv.metadata?.custom_company_name && inv.metadata?.custom_company_name !== clientDisplayName ? inv.metadata.custom_company_name : null);
+
+              const proposalTitle = 
+                inv.metadata?.proposal_title || 
+                inv.metadata?.quote_name || 
+                inv.notes || 
+                '';
+
+              const itemsSummary = (inv.items && inv.items.length > 0)
+                ? inv.items.map((it: any) => it.description).filter(Boolean).slice(0, 2).join(' • ') + (inv.items.length > 2 ? ` (+${inv.items.length - 2})` : '')
+                : '';
+
+              const serviceOrQuoteName = proposalTitle || itemsSummary || (inv.type === 'quotation' ? (isRtl ? 'عرض سعر خدمات' : 'Services Quotation') : (isRtl ? 'فاتورة خدمات' : 'Services Invoice'));
+
+              // Quotation Gov Fee vs Service Fee / Profit Calculation
+              const totalGovFee = (inv.items || []).reduce((sum: number, it: any) => sum + (Number(it.ministry_fee) || 0) * (Number(it.quantity) || 1), 0);
+              const rawServiceFee = (inv.items || []).reduce((sum: number, it: any) => {
+                const sf = it.service_fee !== undefined && it.service_fee !== null 
+                  ? Number(it.service_fee) 
+                  : Math.max(0, (Number(it.unit_price) || 0) - (Number(it.ministry_fee) || 0));
+                return sum + sf * (Number(it.quantity) || 1);
+              }, 0);
+              const discount = Number(inv.discount_amount) || 0;
+              const netProfit = Math.max(0, rawServiceFee - discount);
+
+              const docUrl = `/employee/${inv.type === 'quotation' ? 'quotations' : 'invoices'}/${inv.id!}`;
+
+              return (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  key={inv.id}
+                  className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:border-primary/40 hover:shadow-md transition-all group shadow-sm gap-4"
+                >
+                  <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                    <div 
+                      onClick={() => navigate(docUrl)}
+                      className="w-12 h-12 rounded-xl bg-muted/60 border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:bg-primary/5 transition-colors shrink-0 cursor-pointer"
+                    >
+                      <FileText size={22} />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {inv.type === 'quotation' ? (isRtl ? 'المستلم: ' : 'Recipient: ') : (isRtl ? 'العميل: ' : 'Client: ')}
-                      <span className="font-medium text-foreground">
-                        {inv.metadata?.custom_client_name || inv.client?.full_name || inv.lead?.contact_name || (inv.metadata?.is_custom_client ? 'Custom Client' : 'N/A')}
-                      </span>
-                      {inv.job && ` • ${isRtl ? 'الوظيفة' : 'Job'}: ${inv.job?.job_code}`}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full">
-                  <div className="text-left sm:text-right">
-                    <p className="text-lg font-black text-foreground">{inv.total_amount.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
-                      {format(new Date(inv.issue_date || new Date()), isRtl ? 'yyyy/MM/dd' : 'dd MMM yyyy')}
-                    </p>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      {/* Top Row: Client Name (Main title) + Quote ID (small) + Status */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => navigate(docUrl)}
+                          className="text-base font-bold text-foreground hover:text-primary transition-colors text-left truncate max-w-xs sm:max-w-md font-sans"
+                        >
+                          {clientDisplayName}
+                        </button>
+
+                        {secondaryClientInfo && (
+                          <span className="text-xs text-muted-foreground font-medium hidden sm:inline truncate max-w-[200px]">
+                            • {secondaryClientInfo}
+                          </span>
+                        )}
+
+                        {/* Quote ID - Compact & Subtle */}
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted/80 border border-border text-muted-foreground tracking-tight whitespace-nowrap">
+                          {inv.invoice_number || (isRtl ? 'مسودة' : 'DRAFT')}
+                        </span>
+
+                        {/* Status Badge */}
+                        {getStatusDisplay(inv)}
+                      </div>
+
+                      {/* Second Row: Service / Quote Name + Job Info */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                        <span className="text-foreground/80 font-medium truncate max-w-sm">
+                          {serviceOrQuoteName}
+                        </span>
+
+                        {inv.job && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
+                            {isRtl ? 'مشروع:' : 'Job:'} {inv.job?.job_code}
+                          </span>
+                        )}
+
+                        {inv.items && inv.items.length > 0 && (
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
+                            • {inv.items.length} {inv.items.length === 1 ? (isRtl ? 'بند' : 'item') : (isRtl ? 'بنود' : 'items')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => navigate(`/employee/${inv.type === 'quotation' ? 'quotations' : 'invoices'}/${inv.id!}?view=true`)}
-                      className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground transition-all shadow-sm"
-                      title={isRtl ? 'عرض المستند' : 'View Document'}
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button 
-                      onClick={() => navigate(`/employee/${inv.type === 'quotation' ? 'quotations' : 'invoices'}/${inv.id!}`)}
-                      className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-amber-500 hover:border-amber-500 hover:text-white transition-all shadow-sm"
-                      title={isRtl ? 'تعديل المستند' : 'Edit Document'}
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button 
-                      onClick={() => setDeleteConfirmId(inv.id!)}
-                      className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-destructive hover:border-destructive hover:text-destructive-foreground transition-all shadow-sm"
-                      title={isRtl ? 'حذف المستند' : 'Delete Document'}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  {/* Financial Breakdown & Actions */}
+                  <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full border-t sm:border-t-0 pt-3 sm:pt-0 border-border/50">
+                    <div className="text-left sm:text-right space-y-1">
+                      <p className="text-lg font-black text-foreground tracking-tight leading-none">
+                        {inv.total_amount.toFixed(3)} <span className="text-xs font-bold text-muted-foreground">{isRtl ? 'ر.ع.' : 'OMR'}</span>
+                      </p>
+
+                      {/* Gov Fee & Profit Badges for Quotations */}
+                      {inv.type === 'quotation' && (
+                        <div className="flex items-center gap-1.5 sm:justify-end flex-wrap pt-0.5">
+                          <span 
+                            title={isRtl ? 'رسوم الدوائر الحكومية المتوقعة' : 'Estimated Government pass-through fees'}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap"
+                          >
+                            <Landmark size={10} />
+                            <span>{isRtl ? 'حكومي:' : 'Gov:'} {totalGovFee.toFixed(3)}</span>
+                          </span>
+                          <span 
+                            title={isRtl ? 'رسوم الخدمة / ربح المكتب' : 'Service Fee / OSBIC Profit'}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 whitespace-nowrap"
+                          >
+                            <Briefcase size={10} />
+                            <span>{isRtl ? 'الربح:' : 'Profit:'} {netProfit.toFixed(3)}</span>
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
+                        {format(new Date(inv.issue_date || new Date()), isRtl ? 'yyyy/MM/dd' : 'dd MMM yyyy')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        onClick={() => navigate(`/employee/${inv.type === 'quotation' ? 'quotations' : 'invoices'}/${inv.id!}?view=true`)}
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground transition-all shadow-sm"
+                        title={isRtl ? 'عرض المستند' : 'View Document'}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button 
+                        onClick={() => navigate(docUrl)}
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-amber-500 hover:border-amber-500 hover:text-white transition-all shadow-sm"
+                        title={isRtl ? 'تعديل المستند' : 'Edit Document'}
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirmId(inv.id!)}
+                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-destructive hover:border-destructive hover:text-destructive-foreground transition-all shadow-sm"
+                        title={isRtl ? 'حذف المستند' : 'Delete Document'}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         )}
       </div>
