@@ -24,11 +24,12 @@ export const useExpenses = (jobServiceId?: string) => {
     enabled: !!jobServiceId,
   });
 
-  // Fetch all pending expenses for Accounts Dashboard
+  // Fetch all pending expenses for Accounts Dashboard / HR Admin
+  const canAccessAccounts = Boolean(profile?.can_do_accounts || profile?.department === 'hr' || profile?.is_manager || profile?.role === 'admin');
   const { data: pendingExpenses, isLoading: loadingPending } = useQuery({
     queryKey: ['pending_expenses'],
     queryFn: async () => {
-      if (!profile?.can_do_accounts) return [];
+      if (!canAccessAccounts) return [];
       const { data, error } = await supabase
         .from('job_expenses')
         .select(`
@@ -43,7 +44,7 @@ export const useExpenses = (jobServiceId?: string) => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!profile?.can_do_accounts,
+    enabled: canAccessAccounts,
   });
 
   const logExpense = useMutation({

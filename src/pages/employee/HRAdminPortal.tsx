@@ -7,7 +7,7 @@ import {
   ChevronRight, ArrowUpRight, Plus, RefreshCw, X, AlertCircle,
   FileCheck, ShieldAlert, UserCheck, Phone, Check, ArrowRight,
   Printer, UploadCloud, TrendingUp, Paperclip, BarChart3, PieChart as PieChartIcon,
-  CheckSquare, Wallet
+  CheckSquare, Wallet, CreditCard
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -30,12 +30,13 @@ import { useLeaveRequests, useReviewLeaveRequest, useSubmitLeaveRequest, useAtte
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import EditEmployeeSlideOver from '../../components/admin/EditEmployeeSlideOver';
 import Finance from '../admin/Finance';
+import AccountsDashboard from './AccountsDashboard';
 import { format, parseISO, isToday, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-type MasterTab = 'dashboard' | 'finance' | 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
+type MasterTab = 'dashboard' | 'finance' | 'accounts' | 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
 type TimeframePreset = 'today' | 'week' | 'month' | 'all';
 
 interface HRAdminPortalProps {
@@ -80,6 +81,12 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           badge: isRtl ? 'المركز المالي الشامل' : 'Finance & Revenue Hub',
           title: isRtl ? 'المركز المالي وتحليلات الأرباح' : 'Financial & Sales Ledger',
           subtitle: isRtl ? 'المبيعات اليومية، إيرادات الموظفين، الرسوم الحكومية، وتفاصيل أرباح المعاملات' : 'Daily sales register, sales rep deals, government fees breakdown, and net profit ledger'
+        };
+      case 'accounts':
+        return {
+          badge: isRtl ? 'الحسابات والذمم والسجلات' : 'Accounts & Ledger Hub',
+          title: isRtl ? 'مركز الحسابات والذمم والمصروفات' : 'Accounts, Receivables & Expense Ledger',
+          subtitle: isRtl ? 'متابعة الذمم المدينة للعملاء، اعتماد سندات التحويل البنكي، مصروفات المكتب وسجلات الحسابات' : 'Client receivables aging, incoming bank slip verification, office expenses, and financial ledger'
         };
       case 'sales':
         return {
@@ -745,6 +752,18 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </button>
 
             <button
+              onClick={() => setActiveTab('accounts')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'accounts'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <CreditCard size={15} />
+              <span>{isRtl ? 'الحسابات والذمم والمصروفات' : 'Accounts & Ledger'}</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('sales')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
                 activeTab === 'sales'
@@ -1254,6 +1273,18 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           className="space-y-6 pt-1"
         >
           <Finance hideHeader branchId={selectedBranchId} />
+        </motion.div>
+      )}
+
+      {/* ─── TAB: ACCOUNTS & LEDGER (EMBEDDED) ────────────────────────────── */}
+      {activeTab === 'accounts' && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="space-y-6 pt-1"
+        >
+          <AccountsDashboard hideHeader />
         </motion.div>
       )}
 

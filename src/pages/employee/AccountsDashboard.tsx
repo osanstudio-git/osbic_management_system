@@ -11,12 +11,23 @@ import { useAccountsOverview } from '../../hooks/employee/useAccountsOverview';
 import { useNavigate } from 'react-router-dom';
 import { downloadInvoice, downloadReceipt } from '../../utils/invoiceGenerator';
 
-export default function AccountsDashboard() {
+interface AccountsDashboardProps {
+  hideHeader?: boolean;
+}
+
+export default function AccountsDashboard({ hideHeader = false }: AccountsDashboardProps = {}) {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  if (!profile?.can_do_accounts) {
+  const isAuthorized = Boolean(
+    profile?.can_do_accounts ||
+    profile?.department === 'hr' ||
+    profile?.is_manager ||
+    profile?.role === 'admin'
+  );
+
+  if (!isAuthorized) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh]">
         <Lock className="w-16 h-16 text-muted-foreground/30 mb-4" />
@@ -346,16 +357,18 @@ export default function AccountsDashboard() {
   const totalOutstanding = accountsData?.reduce((sum, job) => sum + Math.max(0, job.remaining_amount || 0), 0) || 0;
 
   return (
-    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
+    <div className={hideHeader ? "space-y-8" : "p-6 md:p-10 max-w-[1600px] mx-auto space-y-8"}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-syne font-bold text-foreground flex items-center gap-3">
-            <BarChart4 className="w-8 h-8 text-primary" /> Accounts Portal
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Master Financial Ledger & Verification Center</p>
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-syne font-bold text-foreground flex items-center gap-3">
+              <BarChart4 className="w-8 h-8 text-primary" /> Accounts Portal
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">Master Financial Ledger & Verification Center</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -543,6 +543,7 @@ function App() {
               <Route path="finance-portal" element={<HRAdminPortal pageMode="finance" />} />
               <Route path="hr-admin" element={<HRAdminPortal />} />
               <Route path="hr" element={<HRAdminPortal />} />
+              <Route path="hr-accounts" element={<HRAdminPortal pageMode="accounts" />} />
               <Route path="sales-audit" element={<HRAdminPortal pageMode="sales" />} />
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
