@@ -13,6 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 8000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,mp3}'],
         runtimeCaching: [

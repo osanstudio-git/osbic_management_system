@@ -15,7 +15,28 @@
   <meta name="apple-mobile-web-app-title" content="OSBIC Connect" />
   <link rel="apple-touch-icon" href="/logo-192.png" />
 
+  <!-- Cache Prevention for Deployment Updates -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
   <title>OSBIC Connect - Management System</title>
+
+  <script>
+    // Auto-reload on new Vite build deployment to prevent stale chunk MIME / 404 errors
+    window.addEventListener('vite:preloadError', function () {
+      window.location.reload();
+    });
+    window.addEventListener('error', function (e) {
+      var msg = e && e.message ? String(e.message) : '';
+      if (msg.indexOf('MIME type') !== -1 || msg.indexOf('Loading chunk') !== -1 || msg.indexOf('dynamically imported module') !== -1) {
+        if (!sessionStorage.getItem('__osbic_chunk_reload')) {
+          sessionStorage.setItem('__osbic_chunk_reload', '1');
+          window.location.reload();
+        }
+      }
+    });
+  </script>
 </head>
 
 <body>
