@@ -239,7 +239,7 @@ export function useMyOpsTasks(employeeId: string | null) {
 // ─── Fetch PRO agent's assigned items ─────────────────────────────────────────
 
 export function useProQueue(proId: string | null) {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: ['pro_queue', proId],
     queryFn: async () => {
       if (!proId) return [];
@@ -258,7 +258,7 @@ export function useProQueue(proId: string | null) {
         .eq('pro_id', proId)
         .order('pro_shared_at', { ascending: false }) as any);
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!proId,
     refetchInterval: 30000,

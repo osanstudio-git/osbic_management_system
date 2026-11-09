@@ -22,6 +22,8 @@ export interface Job {
   started_date: string;
   created_at?: string;
   started_at?: string;
+  completed_at?: string;
+  updated_at?: string;
   expected_completion: string;
   days_active: number;
   total_steps: number;
@@ -166,6 +168,8 @@ export const useAdminJobs = (branchIdFilter?: string | null, enabled: boolean = 
           started_date: j.started_at || j.created_at,
           created_at: j.created_at,
           started_at: j.started_at,
+          completed_at: j.completed_at,
+          updated_at: j.updated_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -320,6 +324,8 @@ export const useEmployeeJobs = (employeeId: string, enabled: boolean = true) => 
           started_date: j.started_at ?? j.created_at,
           created_at: j.created_at,
           started_at: j.started_at,
+          completed_at: j.completed_at,
+          updated_at: j.updated_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -385,6 +391,8 @@ export const useClientJobs = (clientId: string) => {
           started_date: j.started_at ?? j.created_at,
           created_at: j.created_at,
           started_at: j.started_at,
+          completed_at: j.completed_at,
+          updated_at: j.updated_at,
           expected_completion: j.created_at,
           days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
           total_steps: totalSteps,
@@ -478,6 +486,8 @@ export const useJobDetail = (jobId: string) => {
         started_date: j.started_at ?? j.created_at,
         created_at: j.created_at,
         started_at: j.started_at,
+        completed_at: j.completed_at,
+        updated_at: j.updated_at,
         expected_completion: j.created_at,
         days_active: Math.ceil((Date.now() - new Date(j.started_at ?? j.created_at).getTime()) / 86400000),
         total_steps: stepsData?.length ?? 0,

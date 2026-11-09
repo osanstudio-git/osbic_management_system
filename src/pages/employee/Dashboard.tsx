@@ -5,13 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { 
   Briefcase, CheckCircle2, 
   ArrowUpRight, Bell,
-  ChevronRight, Activity, Zap, AlertCircle, Building2, User
+  ChevronRight, Activity, Zap, AlertCircle, Building2, User,
+  ShoppingBag, DollarSign
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { useEmployeeJobs } from '../../hooks/shared/useJobs';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProQueue } from '../../hooks/employee/useTimeline';
 import Skeleton from '../../components/ui/Skeleton';
 import { useNotifications } from '../../hooks/shared/useNotifications';
+import { useWalkinSales } from '../../hooks/employee/useWalkinSales';
 import { Clock } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import BranchOverviewDashboard from '../../components/employee/BranchOverviewDashboard';
@@ -93,8 +96,9 @@ const EmployeeDashboard = () => {
   const activeJobs = jobs?.filter(j => j.status !== 'completed' && j.status !== 'cancelled') || [];
   const completedToday = jobs?.filter(j => {
     if (j.status !== 'completed') return false;
-    const completedDate = new Date(j.expected_completion).toDateString();
-    return completedDate === new Date().toDateString();
+    const dateStr = j.completed_at || j.updated_at || j.expected_completion;
+    if (!dateStr) return false;
+    return new Date(dateStr).toDateString() === new Date().toDateString();
   }).length || 0;
 
   // Ops Mode Stats
@@ -102,24 +106,34 @@ const EmployeeDashboard = () => {
   const opsActiveJobs = opsJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
   const opsCompletedToday = opsJobs.filter(j => {
     if (j.status !== 'completed') return false;
-    const completedDate = new Date(j.expected_completion || j.updated_at).toDateString();
-    return completedDate === new Date().toDateString();
-  }).length;
-  const opsNeedsAttention = opsActiveJobs.filter(j => {
-    if (!j.deadline) return false;
-    return new Date(j.deadline).getTime() < new Date().getTime();
+    const dateStr = j.completed_at || j.updated_at || j.expected_completion;
+    if (!dateStr) return false;
+    return new Date(dateStr).toDateString() === new Date().toDateString();
   }).length;
 
+
+  // Walk-in Sales Stats for Ops mode
+  const { sales: walkinSales } = useWalkinSales();
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const myTodayWalkins = (walkinSales || []).filter(s => {
+    const isToday = s.date === todayStr;
+    const isMine = !profile?.is_manager || s.employee_id === profile?.id;
+    return isToday && isMine && s.status !== 'cancelled';
+  });
+  const todayWalkinsCount = myTodayWalkins.length;
+  const todayWalkinsRevenue = myTodayWalkins.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
+  const todayWalkinsProfit = myTodayWalkins.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
+
   // PRO Mode Stats
-  const activeProTasks = (proTasks || []).filter(t => 
+  const activeProTasks = (proTasks || []).filter((t: any) => 
     t.acceptance_status === 'accepted' && 
     t.status !== 'completed' && 
     t.status !== 'cancelled'
   );
-  const completedProTasks = (proTasks || []).filter(t => 
+  const completedProTasks = (proTasks || []).filter((t: any) => 
     t.status === 'completed' || t.status === 'gov_approved'
   );
-  const completedTodayPro = completedProTasks.filter(t => {
+  const completedTodayPro = completedProTasks.filter((t: any) => {
     const dateStr = t.completed_at || t.government_approved_at;
     if (!dateStr) return false;
     return new Date(dateStr).toDateString() === new Date().toDateString();
@@ -127,7 +141,7 @@ const EmployeeDashboard = () => {
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const proChartData = days.map((day, idx) => {
-    const count = completedProTasks.filter(t => {
+    const count = completedProTasks.filter((t: any) => {
       const dateStr = t.completed_at || t.government_approved_at;
       if (!dateStr) return false;
       return new Date(dateStr).getDay() === idx;
@@ -307,34 +321,88 @@ const EmployeeDashboard = () => {
            </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-           <div className="bg-transparent border border-border/60 rounded-xl p-5 flex flex-col justify-between group hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-4">
-                 <Briefcase size={16} className="text-muted-foreground" />
-                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{isRtl ? 'مهام العمليات النشطة' : 'Active Ops Tasks'}</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+           {/* Card 1: Active Ops Tasks */}
+           <div 
+             onClick={() => navigate('/employee/my-tasks')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-primary/30 transition-all cursor-pointer"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <Briefcase size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'مهام العمليات النشطة' : 'Active Ops Tasks'}
+                 </p>
               </div>
-              <div className="flex items-baseline gap-2">
-                 <p className="text-4xl font-bold text-foreground tracking-tighter">{opsActiveJobs.length}</p>
+              <div>
+                 <p className="text-3xl sm:text-4xl font-bold text-foreground tracking-tighter">{opsActiveJobs.length}</p>
+                 <p className="text-[10px] text-muted-foreground mt-1">
+                   {isRtl ? 'قيد التنفيذ' : 'In progress now'}
+                 </p>
               </div>
            </div>
 
-           <div className="bg-transparent border border-border/60 rounded-xl p-5 flex flex-col justify-between group hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-4">
-                 <AlertCircle size={16} className="text-rose-500/70" />
-                 <p className="text-[10px] text-rose-500/70 font-bold uppercase tracking-widest">{isRtl ? 'تحتاج إلى اهتمام' : 'Needs Attention'}</p>
+           {/* Card 2: Completed Today */}
+           <div 
+             onClick={() => navigate('/employee/tasks')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-emerald-500/30 transition-all cursor-pointer"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <CheckCircle2 size={16} className="text-muted-foreground group-hover:text-emerald-400 transition-colors" />
+                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'اكتملت اليوم' : 'Completed Today'}
+                 </p>
               </div>
-              <div className="flex items-baseline gap-2">
-                 <p className="text-4xl font-bold text-foreground tracking-tighter">{opsNeedsAttention}</p>
+              <div>
+                 <p className="text-3xl sm:text-4xl font-bold text-foreground tracking-tighter">{opsCompletedToday}</p>
+                 <p className="text-[10px] text-muted-foreground mt-1">
+                   {isRtl ? 'مهام منجزة' : 'Finished tasks'}
+                 </p>
               </div>
            </div>
 
-           <div className="bg-transparent border border-border/60 rounded-xl p-5 flex flex-col justify-between group hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-4">
-                 <CheckCircle2 size={16} className="text-muted-foreground" />
-                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{isRtl ? 'اكتملت اليوم' : 'Completed Today'}</p>
+           {/* Card 3: Today's Walk-in Sales Count */}
+           <div 
+             onClick={() => navigate('/employee/daily-sales')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-cyan-500/40 transition-all cursor-pointer relative overflow-hidden"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <ShoppingBag size={16} className="text-cyan-400" />
+                 <p className="text-[10px] text-cyan-400/90 font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'مبيعات الكاونتر اليوم' : "Today's Walk-in Sales"}
+                 </p>
               </div>
-              <div className="flex items-baseline gap-2">
-                 <p className="text-4xl font-bold text-foreground tracking-tighter">{opsCompletedToday}</p>
+              <div>
+                 <div className="flex items-baseline gap-1.5">
+                   <p className="text-3xl sm:text-4xl font-bold text-foreground tracking-tighter">{todayWalkinsCount}</p>
+                   <span className="text-xs text-muted-foreground font-semibold">{isRtl ? 'معاملة' : 'deals'}</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1">
+                   {isRtl ? 'معاملات مسجلة' : 'Counter transactions'}
+                 </p>
+              </div>
+           </div>
+
+           {/* Card 4: Today's Collected Sales (Revenue) */}
+           <div 
+             onClick={() => navigate('/employee/daily-sales')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-emerald-500/40 transition-all cursor-pointer relative overflow-hidden"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <DollarSign size={16} className="text-emerald-400" />
+                 <p className="text-[10px] text-emerald-400/90 font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'إجمالي المبيعات المحصلة' : "Today's Total Sales"}
+                 </p>
+              </div>
+              <div>
+                 <div className="flex items-baseline gap-1">
+                   <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">{todayWalkinsRevenue.toFixed(3)}</p>
+                   <span className="text-[11px] text-muted-foreground font-bold">OMR</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                   {todayWalkinsProfit > 0
+                     ? (isRtl ? `الأرباح: ${todayWalkinsProfit.toFixed(3)} ر.ع.` : `Profit: ${todayWalkinsProfit.toFixed(3)} OMR`)
+                     : (isRtl ? 'محصلة اليوم' : 'Collected today')}
+                 </p>
               </div>
            </div>
         </div>
@@ -451,7 +519,7 @@ const EmployeeDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeProTasks.map((task) => (
+                  {activeProTasks.map((task: any) => (
                     <tr 
                       key={task.id} 
                       onClick={() => navigate(`/employee/pro-queue`)}
@@ -487,7 +555,7 @@ const EmployeeDashboard = () => {
             </h2>
           </div>
 
-          {jobs?.filter(j => j.ops_employee_id === profile?.id).length > 0 ? (
+          {opsJobs.length > 0 ? (
             <div className="overflow-x-auto bg-card border border-border rounded-2xl w-full">
               <table className="w-full text-left border-collapse whitespace-nowrap" dir={isRtl ? 'rtl' : 'ltr'}>
                 <thead>
@@ -499,9 +567,7 @@ const EmployeeDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {jobs
-                    .filter(j => j.ops_employee_id === profile?.id)
-                    .map((job) => (
+                  {opsJobs.map((job) => (
                       <tr 
                         key={job.id} 
                         onClick={() => navigate(`/employee/tasks?jobId=${job.id}`)}
