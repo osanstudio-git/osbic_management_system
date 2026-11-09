@@ -53,6 +53,28 @@ export interface RepPerformanceData {
   assignedJobs: any[];
 }
 
+export interface BranchTransactionItem {
+  id: string;
+  source: 'walkin' | 'lead' | 'invoice';
+  clientName: string;
+  clientPhone?: string | null;
+  workTypeOrService: string;
+  amount: number;
+  govtFee: number;
+  profit: number;
+  date: string;
+  createdAt: string;
+  status: string;
+  paymentMode?: string | null;
+  receiptUrl?: string | null;
+  employeeId: string;
+  employeeName: string;
+  employeeCode?: string | null;
+  employeeAvatar?: string | null;
+  employeeDepartment?: string | null;
+  isOpsCounterSale?: boolean;
+}
+
 export interface SalesTeamSummary {
   totalReps: number;
   totalLeads: number;
@@ -74,6 +96,10 @@ export interface SalesTeamSummary {
   totalAssignedJobsFee: number;
   topPerformerByRevenue: RepPerformanceData | null;
   topPerformerByConversion: RepPerformanceData | null;
+  consultantRevenue?: number;
+  opsWalkinRevenue?: number;
+  opsWalkinCount?: number;
+  totalTransactionsCount?: number;
 }
 
 export function getDateRange(timeframe: TimeframePreset, customStart?: string, customEnd?: string): { startIso: string | null; endIso: string | null; label: string } {
@@ -130,8 +156,8 @@ export const useSalesTeamReports = (
 
   return useQuery({
     queryKey: ['sales-team-reports', timeframe, customStart, customEnd, branchIdFilter, profile?.branch_id],
-    queryFn: async (): Promise<{ reps: RepPerformanceData[]; summary: SalesTeamSummary; dateLabel: string }> => {
-      // 1. Fetch Sales Employees (reps, heads, managers)
+    queryFn: async (): Promise<{ reps: RepPerformanceData[]; summary: SalesTeamSummary; branchTransactions: BranchTransactionItem[]; dateLabel: string }> => {
+      // 1. Fetch Branch Employees (both sales and all branch staff)
       let empQuery = supabase
         .from('profiles')
         .select('id, full_name, employee_code, email, phone, avatar_url, role, department, can_do_sales, is_sales_head, can_assign_leads, is_manager, is_active, branch_id, branches:branch_id(name)')
@@ -147,6 +173,8 @@ export const useSalesTeamReports = (
       const { data: rawEmployees, error: empError } = await empQuery;
       if (empError) throw empError;
 
+      const allBranchEmpIds = (rawEmployees || []).map(e => e.id);
+
       // Filter employees who have sales duties or are sales heads
       const salesEmployees = (rawEmployees || []).filter(
         e => e.can_do_sales || e.department === 'sales' || e.is_sales_head || e.is_manager
@@ -154,73 +182,50 @@ export const useSalesTeamReports = (
 
       const salesEmpIds = salesEmployees.map(e => e.id);
 
-      // If no sales employees exist, return empty
-      if (salesEmpIds.length === 0) {
-        return {
-          reps: [],
-          summary: {
-            totalReps: 0,
-            totalLeads: 0,
-            totalAssignedLeads: 0,
-            totalUnassignedLeads: 0,
-            salesHeadAssignedCount: 0,
-            totalNewLeads: 0,
-            totalQuotedLeads: 0,
-            totalWonLeads: 0,
-            totalLostLeads: 0,
-            overallConversionRate: 0,
-            totalQuotesCount: 0,
-            totalQuotedAmount: 0,
-            totalWonRevenue: 0,
-            totalGovtFees: 0,
-            totalNetProfit: 0,
-            overallProfitMargin: 0,
-            totalAssignedJobs: 0,
-            totalAssignedJobsFee: 0,
-            topPerformerByRevenue: null,
-            topPerformerByConversion: null,
-          },
-          dateLabel: dateRange.label,
-        };
-      }
-
-      // 2. Query Leads for these employees
-      let leadsQuery = supabase
+      // 2. Query Leads for these sales employees
+      let leadsQuery = salesEmpIds.length > 0 ? supabase
         .from('leads')
         .select(`
           id, lead_code, contact_name, contact_phone, company_name,
           assigned_to, assigned_by, status, quoted_amount, expected_govt_fee, expected_profit,
           total_amount, govt_fee, profit, conversion_date, created_at,
           lead_sources:source_id(name), call_status
-        `);
+        `) : Promise.resolve({ data: [] as any[] });
 
-      if (dateRange.startIso && dateRange.endIso) {
-        leadsQuery = leadsQuery
+      if (salesEmpIds.length > 0 && dateRange.startIso && dateRange.endIso) {
+        leadsQuery = (leadsQuery as any)
           .gte('created_at', dateRange.startIso)
           .lte('created_at', dateRange.endIso);
       }
 
       // 3. Query Invoices/Quotations
-      let quotesQuery = supabase
+      let quotesQuery = salesEmpIds.length > 0 ? supabase
         .from('invoices')
         .select(`
           id, invoice_number, employee_id, type, status, total_amount, subtotal,
           created_at, issue_date, client:profiles!client_id(full_name, company_name),
           lead:leads!lead_id(contact_name, lead_code)
         `)
-        .in('employee_id', salesEmpIds);
+        .in('employee_id', salesEmpIds) : Promise.resolve({ data: [] as any[] });
 
-      if (dateRange.startIso && dateRange.endIso) {
-        quotesQuery = quotesQuery
+      if (salesEmpIds.length > 0 && dateRange.startIso && dateRange.endIso) {
+        quotesQuery = (quotesQuery as any)
           .gte('created_at', dateRange.startIso)
           .lte('created_at', dateRange.endIso);
       }
 
-      // 4. Query Walk-in Sales (if applicable)
+      // 4. Query Walk-in Sales for the entire branch (including Operations front-desk staff like Summayya)
       let walkinQuery = supabase
         .from('walkin_sales')
-        .select('id, client_name, client_phone, work_type, total_amount, government_fee, profit, status, date, employee_id, created_at')
-        .in('employee_id', salesEmpIds);
+        .select(`
+          id, client_name, client_phone, work_type, work_description, total_amount, government_fee, profit,
+          payment_mode, status, date, employee_id, created_at, client_receipt_url, gov_fee_receipt_url,
+          employee:profiles!walkin_sales_employee_id_fkey(id, full_name, employee_code, avatar_url, department)
+        `);
+
+      if (allBranchEmpIds.length > 0) {
+        walkinQuery = walkinQuery.in('employee_id', allBranchEmpIds);
+      }
 
       if (dateRange.startIso && dateRange.endIso) {
         const startDay = dateRange.startIso.split('T')[0];
@@ -229,7 +234,7 @@ export const useSalesTeamReports = (
       }
 
       // 5. Query Jobs created/assigned by these sales employees to Operations
-      let assignedJobsQuery = supabase
+      let assignedJobsQuery = salesEmpIds.length > 0 ? supabase
         .from('jobs')
         .select(`
           id, job_code, custom_name, client_id, service_id, status, total_fee, work_fee, ministry_fee,
@@ -239,10 +244,10 @@ export const useSalesTeamReports = (
           ops_specialist:profiles!jobs_ops_employee_id_fkey(full_name, employee_code, email),
           services:job_services(id, service_name, ops_employee_id, status)
         `)
-        .or(`sales_employee_id.in.(${salesEmpIds.join(',')}),assigned_by.in.(${salesEmpIds.join(',')})`);
+        .or(`sales_employee_id.in.(${salesEmpIds.join(',')}),assigned_by.in.(${salesEmpIds.join(',')})`) : Promise.resolve({ data: [] as any[] });
 
-      if (dateRange.startIso && dateRange.endIso) {
-        assignedJobsQuery = assignedJobsQuery
+      if (salesEmpIds.length > 0 && dateRange.startIso && dateRange.endIso) {
+        assignedJobsQuery = (assignedJobsQuery as any)
           .gte('created_at', dateRange.startIso)
           .lte('created_at', dateRange.endIso);
       }
@@ -486,9 +491,26 @@ export const useSalesTeamReports = (
       const overallConversionRate = totalLeads > 0 ? Number(((totalWonLeads / totalLeads) * 100).toFixed(1)) : 0;
       const totalQuotesCount = reps.reduce((sum, r) => sum + r.quotesCount, 0);
       const totalQuotedAmount = Number(reps.reduce((sum, r) => sum + r.totalQuotedAmount, 0).toFixed(3));
-      const totalWonRevenue = Number(reps.reduce((sum, r) => sum + r.wonRevenue, 0).toFixed(3));
-      const totalGovtFees = Number(reps.reduce((sum, r) => sum + r.govtFeesTotal, 0).toFixed(3));
-      const totalNetProfit = Number(reps.reduce((sum, r) => sum + r.netProfit, 0).toFixed(3));
+      
+      // Calculate Ops staff walk-in sales (front-desk counter sales not performed by sales consultants)
+      const opsWalkinData = walkinData.filter(ws => !salesEmpIds.includes(ws.employee_id) && ws.status !== 'cancelled');
+      const opsWalkinRevenue = opsWalkinData.reduce((sum, ws) => sum + (Number(ws.total_amount) || 0), 0);
+      const opsWalkinGovt = opsWalkinData.reduce((sum, ws) => sum + (Number(ws.government_fee) || 0), 0);
+      const opsWalkinProfit = opsWalkinData.reduce((sum, ws) => {
+        const tot = Number(ws.total_amount) || 0;
+        const gf = Number(ws.government_fee) || 0;
+        return sum + (ws.profit != null ? Number(ws.profit) : tot - gf);
+      }, 0);
+
+      // Consultant deals revenue
+      const consultantRevenue = Number(reps.reduce((sum, r) => sum + r.wonRevenue, 0).toFixed(3));
+      const consultantGovt = Number(reps.reduce((sum, r) => sum + r.govtFeesTotal, 0).toFixed(3));
+      const consultantProfit = Number(reps.reduce((sum, r) => sum + r.netProfit, 0).toFixed(3));
+
+      // TRUE Branch totals (combining both Consultant Pipeline Won Deals AND Front-Desk Walk-in Sales)
+      const totalWonRevenue = Number((consultantRevenue + opsWalkinRevenue).toFixed(3));
+      const totalGovtFees = Number((consultantGovt + opsWalkinGovt).toFixed(3));
+      const totalNetProfit = Number((consultantProfit + opsWalkinProfit).toFixed(3));
       const overallProfitMargin = totalWonRevenue > 0 ? Number(((totalNetProfit / totalWonRevenue) * 100).toFixed(1)) : 0;
       const totalAssignedJobs = reps.reduce((sum, r) => sum + r.assignedJobsCount, 0);
       const totalAssignedJobsFee = Number(reps.reduce((sum, r) => sum + r.assignedJobsTotalFee, 0).toFixed(3));
@@ -498,6 +520,63 @@ export const useSalesTeamReports = (
       const topPerformerByConversion = repsWithLeads.length > 0
         ? [...repsWithLeads].sort((a, b) => b.conversionRate - a.conversionRate)[0]
         : null;
+
+      // 7. Assemble Unified Branch Transactions (Walk-in counter sales + Won Lead deals)
+      const branchTransactions: BranchTransactionItem[] = [
+        ...walkinData.filter(ws => ws.status !== 'cancelled').map(ws => {
+          const empInfo = (ws as any).employee || rawEmployees?.find(e => e.id === ws.employee_id);
+          const tot = Number(ws.total_amount) || 0;
+          const gf = Number(ws.government_fee) || 0;
+          const pf = ws.profit != null ? Number(ws.profit) : tot - gf;
+          return {
+            id: ws.id,
+            source: 'walkin' as const,
+            clientName: ws.client_name,
+            clientPhone: ws.client_phone,
+            workTypeOrService: ws.work_type + (ws.work_description ? ` (${ws.work_description})` : ''),
+            amount: tot,
+            govtFee: gf,
+            profit: pf,
+            date: ws.date || ws.created_at,
+            createdAt: ws.created_at,
+            status: ws.status,
+            paymentMode: ws.payment_mode,
+            receiptUrl: ws.client_receipt_url || ws.gov_fee_receipt_url || null,
+            employeeId: ws.employee_id,
+            employeeName: empInfo?.full_name || 'Branch Staff',
+            employeeCode: empInfo?.employee_code || null,
+            employeeAvatar: empInfo?.avatar_url || null,
+            employeeDepartment: empInfo?.department || (salesEmpIds.includes(ws.employee_id) ? 'sales' : 'operations'),
+            isOpsCounterSale: !salesEmpIds.includes(ws.employee_id),
+          };
+        }),
+        ...reps.flatMap(r =>
+          r.sales.filter(s => s.source === 'lead').map(s => ({
+            id: s.id,
+            source: 'lead' as const,
+            clientName: s.clientName || 'Lead Client',
+            clientPhone: null,
+            workTypeOrService: s.companyName ? `B2B Deal - ${s.companyName}` : 'B2B Deal',
+            amount: s.amount,
+            govtFee: s.govtFee,
+            profit: s.profit,
+            date: s.date,
+            createdAt: s.createdAt,
+            status: s.status,
+            paymentMode: null,
+            receiptUrl: null,
+            employeeId: r.employeeId,
+            employeeName: r.fullName,
+            employeeCode: r.employeeCode,
+            employeeAvatar: r.avatarUrl,
+            employeeDepartment: 'sales',
+            isOpsCounterSale: false,
+          }))
+        ),
+      ];
+
+      // Sort newest first
+      branchTransactions.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
 
       return {
         reps,
@@ -522,7 +601,12 @@ export const useSalesTeamReports = (
           totalAssignedJobsFee,
           topPerformerByRevenue,
           topPerformerByConversion,
+          consultantRevenue,
+          opsWalkinRevenue: Number(opsWalkinRevenue.toFixed(3)),
+          opsWalkinCount: opsWalkinData.length,
+          totalTransactionsCount: branchTransactions.length,
         },
+        branchTransactions,
         dateLabel: dateRange.label,
       };
     },

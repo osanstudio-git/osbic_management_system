@@ -172,8 +172,8 @@ const EmployeeLayout: React.FC = () => {
     ...(profile?.can_do_ops ? [{ key: 'task_pool', label: isRtl ? 'سوق المهام المتاح' : 'Task Marketplace', icon: Sparkles, path: '/employee/task-pool' }] : []),
     // Ops queue — shown if employee can do ops work
     ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
-    // Daily Sales — shown for ops employees
-    ...(profile?.can_do_ops ? [{ key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
+    // Daily Sales — shown for ops employees, branch managers, and admins
+    ...(profile?.can_do_ops || isManagerOrAdmin ? [{ key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
     // Invoices & Quotes
     { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
     // PRO queue — shown for PRO agents

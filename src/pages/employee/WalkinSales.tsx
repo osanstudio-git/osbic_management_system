@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, Download, TrendingUp, DollarSign, Receipt,
@@ -619,12 +619,25 @@ const StatCard: React.FC<{ label: string; value: string; sub?: string; icon: Rea
 
 const WalkinSales: React.FC = () => {
   const { profile } = useAuth();
+  const isManagerOrAdmin = Boolean(profile?.is_manager || profile?.role === 'admin');
   const { sales, isLoading, deleteSale, getReceiptUrl } = useWalkinSales();
   const { enquiries, isLoading: loadingEnquiries, deleteEnquiry, updateEnquiryStatus } = useWalkinEnquiries();
 
   const [activeTab, setActiveTab] = useState<'sales' | 'enquiries' | 'active' | 'reports'>('sales');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WalkinStatus | 'all'>('all');
+  const [staffFilter, setStaffFilter] = useState<string>('all');
+
+  // Unique staff for manager filter
+  const uniqueStaff = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    sales.forEach(s => {
+      if (s.employee_id && !map.has(s.employee_id)) {
+        map.set(s.employee_id, { id: s.employee_id, name: s.employee?.full_name || 'Staff' });
+      }
+    });
+    return Array.from(map.values());
+  }, [sales]);
 
   // Enquiry specific filters
   const [enquirySearch, setEnquirySearch] = useState('');
@@ -645,10 +658,14 @@ const WalkinSales: React.FC = () => {
   // ── Filtering Sales ─────────────────────────────────────────────────────────
 
   const filtered = sales.filter(s => {
+    if (isManagerOrAdmin && staffFilter !== 'all' && s.employee_id !== staffFilter) {
+      return false;
+    }
     const matchSearch =
       s.client_name.toLowerCase().includes(search.toLowerCase()) ||
       (s.client_phone || '').includes(search) ||
-      s.work_type.toLowerCase().includes(search.toLowerCase());
+      s.work_type.toLowerCase().includes(search.toLowerCase()) ||
+      (s.employee?.full_name || '').toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -822,7 +839,7 @@ const WalkinSales: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-xl border border-border w-fit overflow-x-auto hide-scrollbar">
         {[
-          { key: 'sales', label: 'My Sales', icon: Receipt, count: sales.length },
+          { key: 'sales', label: isManagerOrAdmin ? 'Branch Counter Sales' : 'My Sales', icon: Receipt, count: sales.length },
           { key: 'enquiries', label: 'Walk-in Enquiries', icon: MessageSquare, count: enquiries.length, badge: newEnquiriesCount },
           { key: 'active', label: `Active Works (${activeSales.length})`, icon: RefreshCw },
           { key: 'reports', label: 'Reports', icon: BarChart3 },
@@ -847,9 +864,27 @@ const WalkinSales: React.FC = () => {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 bg-muted/30 border border-border px-4 py-2 rounded-xl flex-1 min-w-[220px]">
               <Search size={16} className="text-muted-foreground" />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client, work type..."
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client, work type, or staff..."
                 className="bg-transparent border-none outline-none text-sm text-foreground w-full placeholder:text-muted-foreground" />
             </div>
+
+            {/* Manager Staff Filter */}
+            {isManagerOrAdmin && uniqueStaff.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-muted/30 border border-border px-3 py-1.5 rounded-xl">
+                <Users size={14} className="text-muted-foreground" />
+                <select
+                  value={staffFilter}
+                  onChange={e => setStaffFilter(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs font-semibold text-foreground cursor-pointer"
+                >
+                  <option value="all">All Staff Members ({uniqueStaff.length})</option>
+                  {uniqueStaff.map((st: { id: string; name: string }) => (
+                    <option key={st.id} value={st.id}>{st.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 flex-wrap">
               {(['all', ...Object.keys(STATUS_CONFIG)] as (WalkinStatus | 'all')[]).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
@@ -877,7 +912,11 @@ const WalkinSales: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      {['Date', 'Client', 'Work Type', 'Payment', 'Amount', 'Gov. Fee', 'Profit', 'Status', 'Receipts', 'Actions'].map(h => (
+                      <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-4 py-3 whitespace-nowrap">Date</th>
+                      {isManagerOrAdmin && (
+                        <th className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-4 py-3 whitespace-nowrap">Staff</th>
+                      )}
+                      {['Client', 'Work Type', 'Payment', 'Amount', 'Gov. Fee', 'Profit', 'Status', 'Receipts', 'Actions'].map(h => (
                         <th key={h} className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wider px-4 py-3 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -894,6 +933,25 @@ const WalkinSales: React.FC = () => {
                           <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap font-medium">
                             {format(parseISO(sale.date), 'dd MMM yyyy')}
                           </td>
+                          {isManagerOrAdmin && (
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                {sale.employee?.avatar_url ? (
+                                  <img src={sale.employee.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-border" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                                    {(sale.employee?.full_name || 'Staff').slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-xs font-bold text-foreground leading-tight">{sale.employee?.full_name || 'Staff'}</p>
+                                  {sale.employee?.employee_code && (
+                                    <p className="text-[10px] text-muted-foreground">{sale.employee.employee_code}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          )}
                           <td className="px-4 py-3">
                             <p className="text-sm font-semibold text-foreground">{sale.client_name}</p>
                             {sale.client_phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={10} />{sale.client_phone}</p>}

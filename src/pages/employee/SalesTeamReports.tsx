@@ -5,13 +5,15 @@ import {
   Calendar, Search, Download, Printer, RefreshCw, X, ArrowUpRight,
   Shield, Award, Send, Phone, Mail, ExternalLink, Filter, Sparkles,
   ChevronRight, ArrowRight, Building2, HelpCircle, AlertCircle, Crown,
-  Briefcase, Clock, Layers, Target
+  Briefcase, Clock, Layers, Target, ShoppingBag, CreditCard, Banknote, Eye, Receipt
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   useSalesTeamReports,
   type TimeframePreset,
-  type RepPerformanceData
+  type RepPerformanceData,
+  type BranchTransactionItem
 } from '../../hooks/employee/useSalesTeamReports';
 import { useReactToPrint } from 'react-to-print';
 import {
@@ -68,6 +70,48 @@ export default function SalesTeamReports() {
       r.email.toLowerCase().includes(q)
     );
   }, [reps, searchQuery]);
+
+  // View tab switcher: Sales Consultants vs All Branch Transactions
+  const [mainReportView, setMainReportView] = useState<'consultants' | 'branch_sales'>('consultants');
+  const [txnStaffFilter, setTxnStaffFilter] = useState<string>('all');
+  const [txnChannelFilter, setTxnChannelFilter] = useState<'all' | 'walkin' | 'lead'>('all');
+  const [txnSearchQuery, setTxnSearchQuery] = useState<string>('');
+
+  const branchTransactions: BranchTransactionItem[] = data?.branchTransactions || [];
+
+  // Unique staff members across transactions
+  const uniqueStaffInTransactions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; dept?: string | null }>();
+    branchTransactions.forEach(t => {
+      if (t.employeeId && !map.has(t.employeeId)) {
+        map.set(t.employeeId, { id: t.employeeId, name: t.employeeName, dept: t.employeeDepartment });
+      }
+    });
+    return Array.from(map.values());
+  }, [branchTransactions]);
+
+  // Filtered branch transactions
+  const filteredBranchTransactions = useMemo(() => {
+    return branchTransactions.filter(t => {
+      if (txnStaffFilter !== 'all' && t.employeeId !== txnStaffFilter) return false;
+      if (txnChannelFilter !== 'all' && t.source !== txnChannelFilter) return false;
+      if (txnSearchQuery.trim()) {
+        const q = txnSearchQuery.toLowerCase();
+        const matchClient = t.clientName.toLowerCase().includes(q);
+        const matchWork = t.workTypeOrService.toLowerCase().includes(q);
+        const matchStaff = t.employeeName.toLowerCase().includes(q);
+        const matchPhone = t.clientPhone ? t.clientPhone.includes(q) : false;
+        if (!matchClient && !matchWork && !matchStaff && !matchPhone) return false;
+      }
+      return true;
+    });
+  }, [branchTransactions, txnStaffFilter, txnChannelFilter, txnSearchQuery]);
+
+  const getReceiptUrl = (path: string | null): string | null => {
+    if (!path) return null;
+    const { data } = supabase.storage.from('documents').getPublicUrl(path);
+    return data?.publicUrl ?? null;
+  };
 
   // Keep selected rep synced with latest reps data
   const currentSelectedRep = useMemo(() => {
@@ -434,9 +478,14 @@ export default function SalesTeamReports() {
               {isLoading ? '...' : `${(summary?.totalWonRevenue || 0).toFixed(3)}`}
               <span className="text-xs font-semibold text-muted-foreground ml-1">OMR</span>
             </div>
-            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
               <span>Gov fees:</span>
               <span className="font-semibold text-foreground">{(summary?.totalGovtFees || 0).toFixed(3)} OMR</span>
+              {summary?.opsWalkinRevenue && summary.opsWalkinRevenue > 0 ? (
+                <span className="text-[10px] bg-cyan-500/10 text-cyan-400 font-bold px-1.5 py-0.5 rounded border border-cyan-500/20">
+                  +{summary.opsWalkinRevenue.toFixed(3)} OMR counter
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -483,7 +532,42 @@ export default function SalesTeamReports() {
         </div>
       </div>
 
-      {/* ── 4. TEAM LEADERBOARD & COMPARATIVE MATRIX ──────────────────────── */}
+      {/* ── 4. VIEW SELECTOR: SALES CONSULTANTS MATRIX vs ALL BRANCH TRANSACTIONS ── */}
+      <div className="flex items-center gap-2 p-1.5 bg-muted/40 rounded-2xl border border-border w-fit flex-wrap">
+        <button
+          type="button"
+          onClick={() => setMainReportView('consultants')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            mainReportView === 'consultants'
+              ? 'bg-card text-foreground shadow-sm border border-border'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Users size={15} />
+          <span>Sales Consultants Matrix</span>
+          <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold">
+            {filteredReps.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainReportView('branch_sales')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            mainReportView === 'branch_sales'
+              ? 'bg-card text-foreground shadow-sm border border-border'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <ShoppingBag size={15} />
+          <span>All Branch Sales & Counter Log</span>
+          <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-extrabold border border-cyan-500/30">
+            {branchTransactions.length} records
+          </span>
+        </button>
+      </div>
+
+      {mainReportView === 'consultants' ? (
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="p-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
           <div>
@@ -709,6 +793,267 @@ export default function SalesTeamReports() {
           </table>
         </div>
       </div>
+      ) : (
+        /* ── 5. VIEW B: ALL BRANCH TRANSACTIONS & COUNTER SALES LOG ────────────────── */
+        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm space-y-0">
+          <div className="p-5 border-b border-border bg-muted/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                <span>All Branch Transactions & Counter Sales</span>
+                <span className="text-xs font-normal text-muted-foreground">({dateLabel})</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Every sale recorded across all branch staff (Operations front-desk walk-ins, Sanad & CR transactions, and Sales deals).
+              </p>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Search */}
+              <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1.5 rounded-xl min-w-[200px]">
+                <Search size={14} className="text-muted-foreground" />
+                <input
+                  type="text"
+                  value={txnSearchQuery}
+                  onChange={e => setTxnSearchQuery(e.target.value)}
+                  placeholder="Search client, service, staff..."
+                  className="bg-transparent border-none outline-none text-xs text-foreground placeholder:text-muted-foreground w-full"
+                />
+              </div>
+
+              {/* Staff Member Filter */}
+              {uniqueStaffInTransactions.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-muted/40 border border-border px-3 py-1.5 rounded-xl">
+                  <Users size={14} className="text-muted-foreground" />
+                  <select
+                    value={txnStaffFilter}
+                    onChange={e => setTxnStaffFilter(e.target.value)}
+                    className="bg-transparent border-none outline-none text-xs font-semibold text-foreground cursor-pointer"
+                  >
+                    <option value="all">All Staff Members ({uniqueStaffInTransactions.length})</option>
+                    {uniqueStaffInTransactions.map(st => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} {st.dept ? `(${st.dept.toUpperCase()})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Channel Filter */}
+              <div className="flex items-center gap-1 bg-muted/40 border border-border p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setTxnChannelFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    txnChannelFilter === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTxnChannelFilter('walkin')}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    txnChannelFilter === 'walkin' ? 'bg-cyan-500/20 text-cyan-400 shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  Counter / Walk-in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTxnChannelFilter('lead')}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    txnChannelFilter === 'lead' ? 'bg-primary/20 text-primary shadow-sm' : 'text-muted-foreground'
+                  }`}
+                >
+                  B2B Deals
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Transactions Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider font-bold text-[10px] border-b border-border">
+                <tr>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Staff Member</th>
+                  <th className="py-3 px-4">Client & Details</th>
+                  <th className="py-3 px-4">Work / Service Type</th>
+                  <th className="py-3 px-4">Channel & Payment</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4 text-right">Gov Fee</th>
+                  <th className="py-3 px-4 text-right">Profit</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-center">Receipt</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                      <RefreshCw size={24} className="animate-spin text-primary mx-auto mb-2" />
+                      <span>Loading branch sales transactions...</span>
+                    </td>
+                  </tr>
+                ) : filteredBranchTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                      <ShoppingBag size={36} className="mx-auto mb-2 opacity-30 text-muted-foreground" />
+                      <p className="font-semibold text-foreground">No transactions found</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Try adjusting the staff filter or timeframe.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBranchTransactions.map(txn => {
+                    const receiptFullUrl = getReceiptUrl(txn.receiptUrl || null);
+                    return (
+                      <tr key={`${txn.source}_${txn.id}`} className="hover:bg-muted/30 transition-colors">
+                        {/* Date */}
+                        <td className="py-3 px-4 whitespace-nowrap font-medium text-foreground">
+                          {format(parseISO(txn.date), 'dd MMM yyyy')}
+                        </td>
+
+                        {/* Staff */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {txn.employeeAvatar ? (
+                              <img
+                                src={txn.employeeAvatar}
+                                alt=""
+                                className="w-7 h-7 rounded-full object-cover border border-border"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                                {txn.employeeName.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-foreground flex items-center gap-1.5">
+                                <span>{txn.employeeName}</span>
+                                {txn.isOpsCounterSale ? (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                                    Ops Counter
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-primary/15 text-primary border border-primary/30">
+                                    Sales
+                                  </span>
+                                )}
+                              </div>
+                              {txn.employeeCode && (
+                                <p className="text-[10px] text-muted-foreground">{txn.employeeCode}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Client */}
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-foreground text-xs">{txn.clientName}</p>
+                          {txn.clientPhone && (
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Phone size={10} />
+                              {txn.clientPhone}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Work Type */}
+                        <td className="py-3 px-4">
+                          <span className="inline-block px-2 py-0.5 rounded-lg bg-muted/60 border border-border text-[11px] font-medium text-foreground max-w-[220px] truncate">
+                            {txn.workTypeOrService}
+                          </span>
+                        </td>
+
+                        {/* Channel & Payment */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            {txn.source === 'walkin' ? (
+                              <span className="text-[10px] font-semibold text-cyan-400 flex items-center gap-1">
+                                <ShoppingBag size={11} /> Front-Desk Walk-in
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
+                                <FileText size={11} /> B2B Won Deal
+                              </span>
+                            )}
+                            {txn.paymentMode && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                {txn.paymentMode === 'card' ? (
+                                  <><CreditCard size={10} /> Card</>
+                                ) : txn.paymentMode === 'cash' ? (
+                                  <><Banknote size={10} /> Cash</>
+                                ) : (
+                                  <><DollarSign size={10} /> {txn.paymentMode}</>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-foreground text-sm">
+                          {txn.amount.toFixed(3)}{' '}
+                          <span className="text-[10px] font-normal text-muted-foreground">OMR</span>
+                        </td>
+
+                        {/* Gov Fee */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap text-muted-foreground font-medium">
+                          {txn.govtFee.toFixed(3)}{' '}
+                          <span className="text-[10px]">OMR</span>
+                        </td>
+
+                        {/* Profit */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <span className={`font-bold ${txn.profit > 0 ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                            {txn.profit.toFixed(3)}{' '}
+                            <span className="text-[10px] font-normal text-muted-foreground">OMR</span>
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${
+                              txn.status === 'completed' || txn.status === 'converted' || txn.status === 'paid'
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : txn.status === 'in_progress'
+                                ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                : 'bg-muted/60 text-muted-foreground border border-border'
+                            }`}
+                          >
+                            {txn.status}
+                          </span>
+                        </td>
+
+                        {/* Receipt */}
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {receiptFullUrl ? (
+                            <a
+                              href={receiptFullUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              title="View uploaded payment receipt"
+                            >
+                              <Receipt size={14} />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground/40 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── 5. REVENUE CONTRIBUTION & VISUAL COMPARISON ────────────────────── */}
       {filteredReps.length > 0 && summary && summary.totalWonRevenue > 0 && (
