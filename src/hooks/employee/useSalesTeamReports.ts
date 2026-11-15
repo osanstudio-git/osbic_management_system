@@ -238,12 +238,15 @@ export const useSalesTeamReports = (
         .from('jobs')
         .select(`
           id, job_code, custom_name, client_id, service_id, status, total_fee, work_fee, ministry_fee,
+          advance_amount, remaining_amount, advance_paid, remaining_paid, notes,
           sales_employee_id, assigned_by, ops_employee_id, employee_id, created_at,
           client:profiles!client_id(full_name, company_name, phone),
           service:services!service_id(name_en, name_ar),
           ops_specialist:profiles!jobs_ops_employee_id_fkey(full_name, employee_code, email),
-          services:job_services(id, service_name, ops_employee_id, status)
+          services:job_services(id, service_name, ops_employee_id, status),
+          payments:job_payments(amount, payment_method, status)
         `)
+        .neq('status', 'cancelled')
         .or(`sales_employee_id.in.(${salesEmpIds.join(',')}),assigned_by.in.(${salesEmpIds.join(',')})`) : Promise.resolve({ data: [] as any[] });
 
       if (salesEmpIds.length > 0 && dateRange.startIso && dateRange.endIso) {
@@ -356,11 +359,15 @@ export const useSalesTeamReports = (
           ...empLeads.filter(l => l.status === 'converted' || Number(l.total_amount) > 0).map(l => ({
             id: l.id,
             source: 'lead',
-            clientName: l.contact_name,
+            clientName: l.contact_name || l.company_name || 'Client',
             companyName: l.company_name,
+            serviceName: l.service_interest || 'Consultation & Services',
             amount: Number(l.total_amount) || 0,
             govtFee: Number(l.govt_fee) || 0,
             profit: Number(l.profit) || 0,
+            balance: 0,
+            modeOfPayment: 'bank_transfer',
+            remarks: l.lead_code ? `Lead: ${l.lead_code}` : '',
             date: l.conversion_date || l.created_at,
             createdAt: l.created_at,
             status: l.status,
@@ -369,10 +376,14 @@ export const useSalesTeamReports = (
             id: ws.id,
             source: 'walkin',
             clientName: ws.client_name,
-            workType: ws.work_type,
+            companyName: null,
+            serviceName: ws.work_type || 'Direct Walk-in',
             amount: Number(ws.total_amount) || 0,
             govtFee: Number(ws.government_fee) || 0,
             profit: Number(ws.profit) || 0,
+            balance: 0,
+            modeOfPayment: ws.payment_mode || 'cash',
+            remarks: ws.notes || 'Walk-in Sale',
             date: ws.date || ws.created_at,
             createdAt: ws.created_at,
             status: ws.status,
@@ -400,6 +411,14 @@ export const useSalesTeamReports = (
           const isAllCompleted = j.status === 'completed' || (svcList.length > 0 && svcList.every(s => s.status === 'completed'));
           const isInProgress = !isAllCompleted && (svcList.some(s => !!s.ops_employee_id) || !!j.ops_employee_id);
 
+          const paymentsList = ((j as any).payments as any[]) || [];
+          const activePayments = paymentsList.filter((p: any) => p.status !== 'cancelled' && p.status !== 'refunded');
+          const latestPayment = activePayments[activePayments.length - 1];
+          const paymentMode = latestPayment?.payment_method || 'bank_transfer';
+          const totalFee = Number(j.total_fee) || 0;
+          const totalPaid = activePayments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0) || Number(j.advance_amount || 0);
+          const balance = j.remaining_paid ? 0 : (j.remaining_amount !== null && j.remaining_amount !== undefined ? Number(j.remaining_amount) : Math.max(0, totalFee - totalPaid));
+
           return {
             id: j.id,
             jobCode: j.job_code || 'JOB',
@@ -407,9 +426,12 @@ export const useSalesTeamReports = (
             companyName: (j.client as any)?.company_name || null,
             serviceName: (j.service as any)?.name_en || j.custom_name || 'Standard Service',
             status: j.status,
-            totalFee: Number(j.total_fee) || 0,
+            totalFee,
             workFee: Number(j.work_fee) || 0,
             ministryFee: Number(j.ministry_fee) || 0,
+            balance,
+            paymentMode,
+            notes: j.notes || '',
             createdAt: j.created_at,
             opsSpecialistName: (j.ops_specialist as any)?.full_name || null,
             opsSpecialistCode: (j.ops_specialist as any)?.employee_code || null,

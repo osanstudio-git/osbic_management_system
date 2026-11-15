@@ -31,6 +31,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
 import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
+import { SalesEmployeeReportModal } from '../../components/employee/SalesEmployeeReportModal';
 
 export default function SalesTeamReports() {
   const { profile, role } = useAuth();
@@ -47,6 +48,8 @@ export default function SalesTeamReports() {
   const [isDistributionHubOpen, setIsDistributionHubOpen] = useState(false);
   const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
   const [recordSaleTab, setRecordSaleTab] = useState<'new_sale' | 'rest_payment'>('new_sale');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [modalTargetRep, setModalTargetRep] = useState<RepPerformanceData | null>(null);
 
   // Fetch performance data
   const { data, isLoading, refetch, isRefetching } = useSalesTeamReports(
@@ -305,11 +308,15 @@ export default function SalesTeamReports() {
           </button>
 
           <button
-            onClick={handleExportCSV}
+            onClick={() => {
+              setModalTargetRep(null);
+              setIsReportModalOpen(true);
+            }}
             className="px-3.5 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-2 text-xs font-semibold shadow-sm"
+            title="Download Personal or Team Reports (PDF / Excel)"
           >
             <Download size={15} className="text-emerald-400" />
-            <span>Export CSV</span>
+            <span>Download Reports</span>
           </button>
 
           <button
@@ -1174,12 +1181,27 @@ export default function SalesTeamReports() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setSelectedRep(null)}
-                    className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setModalTargetRep(currentSelectedRep);
+                        setIsReportModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-all shadow-sm active:scale-95"
+                      title="Download Employee Sales & Performance Report"
+                    >
+                      <Download size={14} />
+                      <span>Download Report</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedRep(null)}
+                      className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Close"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Consultant Performance Overview: Handling (Self) & Delegation (Assigned Out) */}
@@ -1881,6 +1903,16 @@ export default function SalesTeamReports() {
           refetch();
         }}
         defaultTab={recordSaleTab}
+      />
+
+      {/* 📊 Sales Employee & Team Report Modal */}
+      <SalesEmployeeReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        rep={modalTargetRep}
+        allReps={reps}
+        defaultTimeframe={timeframe === 'month' ? 'month' : timeframe === 'week' ? 'week' : timeframe === 'today' ? 'today' : 'all'}
+        branchName={profile?.branch_id && reps.length > 0 ? reps[0]?.branchName : undefined}
       />
     </div>
   );
