@@ -180,13 +180,25 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
   const previewTotalSales = previewSales.reduce((s, i) => s + i.amount, 0);
   const previewTotalProfit = previewSales.reduce((s, i) => s + i.profit, 0);
 
-  // Print Setup (PDF Landscape)
+  // Print Setup (PDF Landscape / Portrait)
   const printRef = useRef<HTMLDivElement>(null);
   const timeframeLabel = useMemo(() => {
-    if (dateFilter === 'today') return 'Today (' + format(new Date(), 'dd MMM yyyy') + ')';
-    if (dateFilter === 'week') return 'This Week';
-    if (dateFilter === 'month') return format(new Date(), 'MMMM yyyy');
-    if (dateFilter === 'custom' && customStart && customEnd) return `${customStart} to ${customEnd}`;
+    const now = new Date();
+    if (dateFilter === 'today') return format(now, 'dd MMMM yyyy');
+    if (dateFilter === 'week') {
+      const mon = startOfWeek(now, { weekStartsOn: 1 });
+      return `${format(mon, 'dd MMM')} to ${format(now, 'dd MMM yyyy')}`;
+    }
+    if (dateFilter === 'month') return format(now, 'MMMM yyyy');
+    if (dateFilter === 'custom' && customStart && customEnd) {
+      try {
+        const s = parseISO(customStart);
+        const e = parseISO(customEnd);
+        return `${format(s, 'dd MMM yyyy')} to ${format(e, 'dd MMM yyyy')}`;
+      } catch {
+        return `${customStart} to ${customEnd}`;
+      }
+    }
     return 'All Records';
   }, [dateFilter, customStart, customEnd]);
 
@@ -195,14 +207,23 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
     const rawName = activeRepData.employeeId === 'all-team' ? 'Team' : (activeRepData.fullName || 'Employee');
     const nameStr = rawName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
     let periodStr = '';
+    const now = new Date();
+
     if (dateFilter === 'today') {
-      periodStr = format(new Date(), 'dd_MMM_yyyy');
+      periodStr = format(now, 'dd_MMM_yyyy');
     } else if (dateFilter === 'week') {
-      periodStr = `This_Week_${format(new Date(), 'dd_MMM_yyyy')}`;
+      const mon = startOfWeek(now, { weekStartsOn: 1 });
+      periodStr = `${format(mon, 'ddMMM')}_to_${format(now, 'ddMMM_yyyy')}`;
     } else if (dateFilter === 'month') {
-      periodStr = format(new Date(), 'MMM_yyyy');
+      periodStr = format(now, 'MMMM_yyyy');
     } else if (dateFilter === 'custom' && customStart && customEnd) {
-      periodStr = `${customStart}_to_${customEnd}`;
+      try {
+        const s = parseISO(customStart);
+        const e = parseISO(customEnd);
+        periodStr = `${format(s, 'ddMMM')}_to_${format(e, 'ddMMM_yyyy')}`;
+      } catch {
+        periodStr = `${customStart}_to_${customEnd}`;
+      }
     } else {
       periodStr = 'All_Records';
     }
