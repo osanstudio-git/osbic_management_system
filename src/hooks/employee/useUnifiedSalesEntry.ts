@@ -53,6 +53,7 @@ export interface RecordNewSalePayload {
   linkToExistingJobId?: string | null;
   assignToOpsId?: string | null;
   quotationId?: string | null;
+  workStatus?: 'pending' | 'in_progress' | 'completed';
 }
 
 export interface RecordRestPaymentPayload {
@@ -124,16 +125,54 @@ export const useUnifiedSalesEntry = () => {
   // 2. Fetch Active Quotations for selected client/lead
   const fetchClientQuotations = async (clientId?: string | null, leadId?: string | null) => {
     if (!clientId && !leadId) return [];
-    let q = supabase
+    const quotes: any[] = [];
+
+    // Check invoices table (quotations)
+    let qInv = supabase
       .from('invoices')
-      .select('id, invoice_number, total_amount, subtotal, status, created_at, items')
-      .eq('type', 'quotation');
+      .select('id, invoice_number, total_amount, subtotal, status, created_at, items:invoice_items(*)')
+      .eq('type', 'quotation')
+      .in('status', ['draft', 'sent', 'viewed', 'partially_paid', 'accepted']);
 
-    if (clientId) q = q.eq('client_id', clientId);
-    else if (leadId) q = q.eq('lead_id', leadId);
+    if (clientId) qInv = qInv.eq('client_id', clientId);
+    else if (leadId) qInv = qInv.eq('lead_id', leadId);
 
-    const { data } = await q.order('created_at', { ascending: false }).limit(10);
-    return data || [];
+    const { data: invQuotes } = await qInv.order('created_at', { ascending: false }).limit(10);
+    if (invQuotes && invQuotes.length > 0) {
+      quotes.push(...invQuotes.map(q => ({
+        ...q,
+        sourceTable: 'invoices',
+        quoteNumber: q.invoice_number || `QUO-${q.id.slice(0, 6)}`,
+      })));
+    }
+
+    // Also check quotations table if used
+    try {
+      let qTab = supabase
+        .from('quotations')
+        .select('id, quotation_number, total_amount, subtotal, status, created_at, items:quotation_items(*)')
+        .in('status', ['draft', 'sent', 'viewed', 'accepted']);
+
+      if (clientId) qTab = qTab.eq('client_id', clientId);
+      else if (leadId) qTab = qTab.eq('lead_id', leadId);
+
+      const { data: tabQuotes } = await qTab.order('created_at', { ascending: false }).limit(10);
+      if (tabQuotes && tabQuotes.length > 0) {
+        tabQuotes.forEach(tq => {
+          if (!quotes.some(existing => existing.id === tq.id)) {
+            quotes.push({
+              ...tq,
+              sourceTable: 'quotations',
+              quoteNumber: tq.quotation_number || `QUO-${tq.id.slice(0, 6)}`,
+            });
+          }
+        });
+      }
+    } catch {
+      // quotations table optional
+    }
+
+    return quotes;
   };
 
   // 3. Search Candidate Existing Ops Jobs for this client (for smart auto-alignment)
@@ -264,6 +303,11 @@ export const useUnifiedSalesEntry = () => {
         proofPath = await uploadReceiptFile(payload.receiptFile, 'sales-receipts');
       }
 
+      const txDate = payload.transactionDate;
+      const historicalIso = new Date(`${txDate}T10:00:00.000Z`).toISOString();
+      const completedIso = new Date(`${txDate}T18:00:00.000Z`).toISOString();
+      const jobStatus = payload.workStatus === 'completed' ? 'completed' : payload.workStatus === 'pending' ? 'draft' : 'active';
+
       let activeJobId = payload.linkToExistingJobId;
 
       // If Linking to an Existing Ops Job:
@@ -288,10 +332,13 @@ export const useUnifiedSalesEntry = () => {
             sales_employee_id: profile?.id,
             advance_amount: newTotalAdvance,
             advance_paid: isAdvancePaid,
-            advance_paid_at: isAdvancePaid ? payload.transactionDate : null,
+            advance_paid_at: isAdvancePaid ? historicalIso : null,
             remaining_amount: remaining,
             remaining_paid: isRemainingPaid,
-            remaining_paid_at: isRemainingPaid ? payload.transactionDate : null,
+            remaining_paid_at: isRemainingPaid ? historicalIso : null,
+            status: payload.workStatus === 'completed' ? 'completed' : undefined,
+            completed_at: payload.workStatus === 'completed' ? completedIso : undefined,
+            quotation_id: payload.quotationId || undefined,
             notes: payload.notes
               ? `[Linked Sale by ${profile?.full_name || 'Sales'}: ${payload.notes}]`
               : undefined,
@@ -300,7 +347,7 @@ export const useUnifiedSalesEntry = () => {
       } else {
         // Create Brand New Job for Ops
         const randomJobSuffix = Date.now().toString().slice(-6);
-        const jobCode = `JOB-${format(new Date(payload.transactionDate), 'yyyy')}-${randomJobSuffix}`;
+        const jobCode = `JOB-${format(new Date(txDate), 'yyyy')}-${randomJobSuffix}`;
         const totalFee = payload.totalDealAmount;
         const workFee = Math.max(0, totalFee - payload.governmentFeeEstimate);
         const remaining = Math.max(0, totalFee - payload.amountReceived);
@@ -321,20 +368,23 @@ export const useUnifiedSalesEntry = () => {
             assigned_by: profile?.id,
             service_id: defaultService?.id || '',
             custom_name: `${payload.workType}${payload.workDescription ? ' - ' + payload.workDescription : ''}`,
-            status: 'active',
+            status: jobStatus,
             total_fee: totalFee,
             work_fee: workFee,
             ministry_fee: payload.governmentFeeEstimate,
             advance_amount: payload.amountReceived,
             advance_paid: isAdvancePaid,
-            advance_paid_at: isAdvancePaid ? payload.transactionDate : null,
+            advance_paid_at: isAdvancePaid ? historicalIso : null,
             remaining_amount: remaining,
             remaining_paid: isRemainingPaid,
-            remaining_paid_at: isRemainingPaid ? payload.transactionDate : null,
-            started_at: payload.transactionDate,
+            remaining_paid_at: isRemainingPaid ? historicalIso : null,
+            created_at: historicalIso,
+            started_at: historicalIso,
+            completed_at: payload.workStatus === 'completed' ? completedIso : null,
             entry_type: payload.leadId ? 'lead' : 'walkin',
             notes: payload.notes || null,
             branch_id: profile?.branch_id || null,
+            quotation_id: payload.quotationId || null,
           })
           .select('id')
           .single();
@@ -345,7 +395,7 @@ export const useUnifiedSalesEntry = () => {
 
       // Record Payment in job_payments with Safe Fallback for Columns
       if (activeJobId && payload.amountReceived > 0) {
-        const auditTag = `[TRANSACTION_DATE:${payload.transactionDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
+        const auditTag = `[TRANSACTION_DATE:${txDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
         const combinedNotes = payload.notes ? `${payload.notes}\n${auditTag}` : auditTag;
 
         const basePayment: any = {
@@ -357,13 +407,14 @@ export const useUnifiedSalesEntry = () => {
           recorded_by: profile?.id,
           status: 'verified', // Sales payments logged are verified upon receipt
           verified_by: profile?.id,
-          verified_at: new Date().toISOString(),
+          verified_at: historicalIso,
+          created_at: historicalIso,
         };
 
         // Try insert with optional fields (payment_date, proof_url, payment_type)
         let insertRes = await supabase.from('job_payments').insert({
           ...basePayment,
-          payment_date: payload.transactionDate,
+          payment_date: txDate,
           payment_type: payload.paymentType,
           sales_employee_id: profile?.id,
           ...(proofPath ? { proof_url: proofPath } : {}),
@@ -384,7 +435,8 @@ export const useUnifiedSalesEntry = () => {
       await supabase.from('walkin_sales').insert({
         employee_id: profile?.id,
         branch_id: profile?.branch_id ?? null,
-        date: payload.transactionDate,
+        date: txDate,
+        created_at: historicalIso,
         client_name: payload.clientName,
         client_phone: payload.clientPhone || null,
         work_type: payload.workType,
@@ -393,31 +445,49 @@ export const useUnifiedSalesEntry = () => {
         total_amount: payload.totalDealAmount,
         government_fee: payload.governmentFeeEstimate,
         profit,
-        status: 'in_progress',
+        status: payload.workStatus === 'completed' ? 'completed' : 'in_progress',
         notes: `[Auto-aligned to Job: ${activeJobId}] ${payload.notes || ''}`,
         client_receipt_url: proofPath,
       });
 
-      // If linked to lead, mark lead won
+      // If linked to lead, mark lead converted
       if (payload.leadId) {
         await supabase
           .from('leads')
           .update({
-            status: 'won',
-            conversion_date: payload.transactionDate,
+            status: 'converted',
+            conversion_date: txDate,
+            converted_at: historicalIso,
+            converted_job_id: activeJobId,
             quoted_amount: payload.totalDealAmount,
           })
           .eq('id', payload.leadId);
       }
 
-      // If linked to quotation, update invoice status
+      // If linked to quotation, update status to accepted / converted
       if (payload.quotationId) {
         await supabase
           .from('invoices')
           .update({
-            status: payload.amountReceived >= payload.totalDealAmount ? 'paid' : 'partially_paid',
+            status: 'accepted',
+            accepted_at: historicalIso,
+            job_id: activeJobId,
+            converted_job_ids: [activeJobId],
           })
           .eq('id', payload.quotationId);
+
+        try {
+          await supabase
+            .from('quotations')
+            .update({
+              status: 'accepted',
+              accepted_at: historicalIso,
+              converted_job_ids: [activeJobId],
+            })
+            .eq('id', payload.quotationId);
+        } catch {
+          // optional table
+        }
       }
 
       return { success: true, jobId: activeJobId };
@@ -428,6 +498,12 @@ export const useUnifiedSalesEntry = () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs_with_balance_due'] });
       queryClient.invalidateQueries({ queryKey: ['sales_team_reports'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_finance'] });
+      queryClient.invalidateQueries({ queryKey: ['living_deals'] });
     },
     onError: (err: any) => {
       console.error(err);

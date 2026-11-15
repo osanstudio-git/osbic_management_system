@@ -288,12 +288,23 @@ export default function EmployeeReports() {
     };
   }, [filteredLeads, filteredQuotations, reportType]);
 
-  // Calculations for Payments
-  const totalCollected = filteredPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const uniqueJobsFromPaymentsSet = new Set(filteredPayments.map(p => p.job_id));
+  // Filter active (non-cancelled) payments so cancelled files do not inflate finance figures
+  const activePayments = useMemo(() => {
+    return filteredPayments.filter(p => {
+      const isJobCancelled = p.job?.status === 'cancelled';
+      const isPaymentCancelled = p.status === 'cancelled' || p.status === 'voided' || p.status === 'refunded';
+      return !isJobCancelled && !isPaymentCancelled;
+    });
+  }, [filteredPayments]);
+
+  // Calculations for Payments (strictly based on active payments)
+  const totalCollected = activePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const uniqueJobsFromPaymentsSet = new Set(activePayments.map(p => p.job_id));
+  const totalTransactionsCount = activePayments.length;
+  const cancelledPaymentsCount = filteredPayments.length - activePayments.length;
   
-  // Calculate realized profit proportionally from payments
-  const realizedProfit = filteredPayments.reduce((sum: number, p: any) => {
+  // Calculate realized profit proportionally from active payments only
+  const realizedProfit = activePayments.reduce((sum: number, p: any) => {
     const paymentAmount = Number(p.amount || 0);
     const jobTotal = Number(p.job?.total_fee || 0);
     const jobProfit = Number(p.job?.work_fee || 0);
@@ -304,8 +315,9 @@ export default function EmployeeReports() {
     return sum;
   }, 0);
 
-  // Calculations for Jobs
-  const totalJobProfits = filteredJobs.reduce((sum, j) => sum + Number(j.work_fee || 0), 0);
+  // Calculations for Jobs (exclude cancelled jobs from expected center profit)
+  const activeJobs = useMemo(() => filteredJobs.filter(j => j.status !== 'cancelled'), [filteredJobs]);
+  const totalJobProfits = activeJobs.reduce((sum, j) => sum + Number(j.work_fee || 0), 0);
   const completedJobsCount = filteredJobs.filter(j => j.status === 'completed').length;
 
   // Incentive Calculation (Always based on realized profit from payments)
@@ -327,24 +339,31 @@ export default function EmployeeReports() {
         'Payment Method',
         'Reference',
         'Payment Amount (OMR)',
+        'Effective Counted (OMR)',
+        'Accounting Status',
         'Job Total Fee (OMR)',
         'Service Fee / Work Fee (OMR)',
         'Ministry Fee (OMR)',
         'Job Status'
       ];
-      csvData = filteredPayments.map(p => [
-        format(new Date(p.created_at), 'yyyy-MM-dd HH:mm'),
-        p.job?.job_code || 'N/A',
-        p.job?.client?.full_name || 'N/A',
-        p.job?.service?.name_en || 'N/A',
-        p.payment_method?.toUpperCase() || 'N/A',
-        p.reference_number || 'N/A',
-        p.amount?.toFixed(3) || '0.000',
-        p.job?.total_fee?.toFixed(3) || '0.000',
-        p.job?.work_fee?.toFixed(3) || '0.000',
-        p.job?.ministry_fee?.toFixed(3) || '0.000',
-        p.job?.status?.toUpperCase() || 'N/A'
-      ]);
+      csvData = filteredPayments.map(p => {
+        const isCancelled = p.job?.status === 'cancelled' || p.status === 'cancelled' || p.status === 'voided' || p.status === 'refunded';
+        return [
+          format(new Date(p.created_at), 'yyyy-MM-dd HH:mm'),
+          p.job?.job_code || 'N/A',
+          p.job?.client?.full_name || 'N/A',
+          p.job?.service?.name_en || 'N/A',
+          p.payment_method?.toUpperCase() || 'N/A',
+          p.reference_number || 'N/A',
+          p.amount?.toFixed(3) || '0.000',
+          isCancelled ? '0.000' : (p.amount?.toFixed(3) || '0.000'),
+          isCancelled ? 'CANCELLED (EXCLUDED)' : 'ACTIVE',
+          p.job?.total_fee?.toFixed(3) || '0.000',
+          p.job?.work_fee?.toFixed(3) || '0.000',
+          p.job?.ministry_fee?.toFixed(3) || '0.000',
+          p.job?.status?.toUpperCase() || 'N/A'
+        ];
+      });
       filename = `Payments_Report_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     } else if (reportType === 'sales') {
       if (!filteredLeads.length) return;
@@ -893,8 +912,13 @@ export default function EmployeeReports() {
                   <div className="flex items-start justify-between relative z-10">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{isRtl ? 'إجمالي المعاملات' : 'Total Transactions'}</p>
-                      <h3 className="text-3xl font-syne font-bold text-foreground">
-                        {filteredPayments.length}
+                      <h3 className="text-3xl font-syne font-bold text-foreground flex items-baseline gap-2">
+                        <span>{totalTransactionsCount}</span>
+                        {cancelledPaymentsCount > 0 && (
+                          <span className="text-xs font-sans text-rose-400 font-semibold">
+                            ({cancelledPaymentsCount} {isRtl ? 'ملغي' : 'cancelled'})
+                          </span>
+                        )}
                       </h3>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
@@ -1071,12 +1095,20 @@ export default function EmployeeReports() {
                       </td>
                     </tr>
                   ) : (
-                    (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => (
+                    (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => {
+                      const isItemCancelled = reportType === 'payments'
+                        ? (item.job?.status === 'cancelled' || item.status === 'cancelled' || item.status === 'voided' || item.status === 'refunded')
+                        : item.status === 'cancelled';
+
+                      return (
                       <motion.tr 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         key={item.id} 
-                        className="border-b border-border/50 hover:bg-muted/20 transition-colors group text-start"
+                        className={cn(
+                          "border-b border-border/50 transition-colors group text-start",
+                          isItemCancelled ? "opacity-60 bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-muted/20"
+                        )}
                       >
                         <td className="p-4">
                           <div className="flex flex-col">
@@ -1135,7 +1167,10 @@ export default function EmployeeReports() {
                           <>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end">
-                                <span className="text-sm font-bold text-amber-500">
+                                <span className={cn(
+                                  "text-sm font-bold",
+                                  isItemCancelled ? "line-through text-muted-foreground/60" : "text-amber-500"
+                                )}>
                                   {item.job?.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
@@ -1145,12 +1180,21 @@ export default function EmployeeReports() {
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end">
-                                <span className="text-sm font-bold text-emerald-500">
+                                <span className={cn(
+                                  "text-sm font-bold",
+                                  isItemCancelled ? "line-through text-muted-foreground" : "text-emerald-500"
+                                )}>
                                   {item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
                                 </span>
-                                <span className="text-[9px] uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full mt-1">
-                                  {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
-                                </span>
+                                {isItemCancelled ? (
+                                  <span className="text-[9px] uppercase tracking-wider text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full mt-1 font-bold">
+                                    {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full mt-1">
+                                    {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </>
@@ -1197,8 +1241,9 @@ export default function EmployeeReports() {
                           </span>
                         </td>
                       </motion.tr>
-                    ))
-                  )}
+                    );
+                  })
+                )}
                 </tbody>
               </table>
 
@@ -1217,8 +1262,13 @@ export default function EmployeeReports() {
                     <p className="text-sm">{isRtl ? 'لم يتم العثور على سجلات لهذه الفترة.' : 'No records found for this period.'}</p>
                   </div>
                 ) : (
-                  (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => (
-                    <div key={item.id} className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3 text-start">
+                  (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => {
+                    const isItemCancelled = reportType === 'payments'
+                      ? (item.job?.status === 'cancelled' || item.status === 'cancelled' || item.status === 'voided' || item.status === 'refunded')
+                      : item.status === 'cancelled';
+
+                    return (
+                    <div key={item.id} className={cn("bg-card border rounded-xl p-4 shadow-sm flex flex-col gap-3 text-start", isItemCancelled ? "border-rose-500/30 opacity-70 bg-rose-500/5" : "border-border")}>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-foreground truncate">
@@ -1270,15 +1320,25 @@ export default function EmployeeReports() {
                           <>
                             <div>
                               <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'ربح الوظيفة' : 'Job Profit'}</div>
-                              <div className="text-xs font-bold text-amber-500">{item.job?.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}</div>
+                              <div className={cn("text-xs font-bold", isItemCancelled ? "line-through text-muted-foreground/60" : "text-amber-500")}>
+                                {item.job?.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
+                              </div>
                               <div className="text-[9px] text-muted-foreground mt-0.5">{isRtl ? 'الأدنى:' : 'Min:'} {item.job?.ministry_fee?.toFixed(3) || '0.000'}</div>
                             </div>
                             <div className={isRtl ? 'text-left' : 'text-right'}>
                               <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'الدفعة' : 'Payment'}</div>
-                              <div className="text-xs font-bold text-emerald-500">{item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}</div>
-                              <div className="inline-block text-[8px] uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded mt-0.5">
-                                {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                              <div className={cn("text-xs font-bold", isItemCancelled ? "line-through text-muted-foreground" : "text-emerald-500")}>
+                                {item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
                               </div>
+                              {isItemCancelled ? (
+                                <div className="inline-block text-[8px] uppercase tracking-wider text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded mt-0.5 font-bold">
+                                  {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
+                                </div>
+                              ) : (
+                                <div className="inline-block text-[8px] uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded mt-0.5">
+                                  {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                                </div>
+                              )}
                             </div>
                           </>
                         ) : (
@@ -1310,7 +1370,8 @@ export default function EmployeeReports() {
                         {format(new Date(item.created_at), 'dd MMM yyyy, HH:mm')}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

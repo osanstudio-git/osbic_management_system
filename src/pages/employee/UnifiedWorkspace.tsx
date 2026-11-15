@@ -8,10 +8,11 @@ import { JobDetailsView } from '../../components/employee/JobDetailsView';
 import { ClientDetailsView } from '../../components/employee/ClientDetailsView';
 import { ClientListView } from '../../components/employee/ClientListView';
 import { TaskListView } from '../../components/employee/TaskListView';
-import { Search, Plus, Clock, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase, ChevronDown, Calendar } from 'lucide-react';
+import { Search, Plus, Clock, ArrowLeft, X, User, UserCheck, LayoutGrid, List, Zap, Briefcase, ChevronDown, Calendar, DollarSign } from 'lucide-react';
 import { JobBuilder } from '../../components/employee/JobBuilder';
 import CreateClientSlideOver from '../../components/shared/clients/CreateClientSlideOver';
 import WalkInModal from '../../components/employee/WalkInModal';
+import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 
 import { useTranslation } from 'react-i18next';
 
@@ -52,6 +53,7 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [isRegisterClientOpen, setIsRegisterClientOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<any>(null);
+  const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -448,16 +450,26 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                 {filterType === 'tasks' ? t('ops.tasks') : filterType === 'clients' ? t('ops.clients') : t('ops.pipeline')}
               </h2>
               {filterType === 'pipeline' && (
-                <button
-                  onClick={() => {
-                    setSelectedJobId(null);
-                    setSelectedClientId(null);
-                    setIsBuildingJob(true);
-                  }}
-                  className="p-2 bg-primary text-primary-foreground rounded-xl shadow-lg hover:scale-105 transition-all"
-                >
-                  <Plus size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsRecordSaleOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                    title={isRtl ? 'تسجيل صفقة أو بيع سابق' : 'Record Sale / Backlog'}
+                  >
+                    <DollarSign size={14} />
+                    <span className="hidden sm:inline">{isRtl ? 'تسجيل صفقة' : 'Record Sale'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedJobId(null);
+                      setSelectedClientId(null);
+                      setIsBuildingJob(true);
+                    }}
+                    className="p-2 bg-primary text-primary-foreground rounded-xl shadow-lg hover:scale-105 transition-all"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
               )}
               {filterType === 'clients' && (
                 <div className="flex bg-muted/50 p-1 rounded-xl border border-border">
@@ -865,6 +877,15 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* 💰 Unified Sales & Backlog Record Modal */}
+      <UnifiedRecordSaleModal
+        isOpen={isRecordSaleOpen}
+        onClose={() => {
+          setIsRecordSaleOpen(false);
+          refetch();
+        }}
+      />
     </>
   );
 };

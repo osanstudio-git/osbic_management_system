@@ -218,36 +218,91 @@ export const DailySalesSheetDocument = forwardRef<HTMLDivElement, Props>(({ data
         )}
       </div>
 
-      {/* ─── SECTION 4: Deals Won & Converted ─── */}
+      {/* ─── SECTION 4: Deals Won & Converted (5-Pillar Verification) ─── */}
       <div className="mb-5">
         <div className="py-1 px-2.5 font-bold text-white uppercase tracking-wider text-[9px] flex justify-between items-center rounded-t" style={{ backgroundColor: '#10b981' }}>
-          <span>4. Deals Won & Converted to Active Jobs ({data.convertedDeals.length})</span>
-          <span>Value: OMR {data.metrics.convertedDealsAmount.toFixed(3)}</span>
+          <span>4. Deals Won & Active Operations Files ({data.convertedDeals.length})</span>
+          <span>Contract Value: OMR {data.metrics.convertedDealsAmount.toFixed(3)}</span>
         </div>
         {data.convertedDeals.length > 0 ? (
-          <table className="w-full border border-gray-200 border-t-0 text-[9px] text-left">
+          <table className="w-full border border-gray-200 border-t-0 text-[8.5px] text-left">
             <thead className="bg-gray-100 font-bold text-gray-700">
               <tr>
-                <th className="p-1.5 border-b border-r w-8 text-center">#</th>
-                <th className="p-1.5 border-b border-r">Job File Code</th>
-                <th className="p-1.5 border-b border-r">Client / Company Name</th>
-                <th className="p-1.5 border-b border-r">Service Details</th>
-                <th className="p-1.5 border-b text-right w-24">Contract Value (OMR)</th>
+                <th className="p-1 border-b border-r w-6 text-center">#</th>
+                <th className="p-1 border-b border-r w-24">Job / Code</th>
+                <th className="p-1 border-b border-r">Company / Client</th>
+                <th className="p-1 border-b border-r">Service Details</th>
+                <th className="p-1 border-b border-r text-center w-20">Ops Status</th>
+                <th className="p-1 border-b border-r text-right w-16">Total (OMR)</th>
+                <th className="p-1 border-b border-r text-right w-16">Collected</th>
+                <th className="p-1 border-b border-r text-right w-16">Due</th>
+                <th className="p-1 border-b text-center w-16">Payment</th>
               </tr>
             </thead>
             <tbody>
-              {data.convertedDeals.map((deal, idx) => (
-                <tr key={deal.id || idx} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-1.5 border-r text-center">{idx + 1}</td>
-                  <td className="p-1.5 border-r font-mono font-bold text-emerald-700">{deal.job_code}</td>
-                  <td className="p-1.5 border-r font-semibold">{deal.title}</td>
-                  <td className="p-1.5 border-r text-gray-700">{deal.service_name}</td>
-                  <td className="p-1.5 text-right font-mono font-bold text-emerald-800">
-                    OMR {Number(deal.amount || 0).toFixed(3)}
-                  </td>
-                </tr>
-              ))}
+              {data.convertedDeals.map((deal, idx) => {
+                const totalAmt = Number(deal.amount || 0);
+                const advanceAmt = Number(deal.advance || 0);
+                const remainingAmt = Number(deal.remaining != null ? deal.remaining : Math.max(0, totalAmt - advanceAmt));
+                const opsStatus = deal.work_status || 'active';
+                const payStatus = deal.payment_status || (remainingAmt <= 0 ? 'Paid' : advanceAmt > 0 ? 'Partial' : 'Pending');
+
+                return (
+                  <tr key={deal.id || idx} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="p-1 border-r text-center">{idx + 1}</td>
+                    <td className="p-1 border-r font-mono font-bold text-emerald-700">{deal.job_code}</td>
+                    <td className="p-1 border-r font-semibold">{deal.title}</td>
+                    <td className="p-1 border-r text-gray-700">{deal.service_name}</td>
+                    <td className="p-1 border-r text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-[7.5px] font-bold uppercase ${
+                        opsStatus === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : opsStatus === 'draft'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {opsStatus === 'completed' ? 'Completed' : opsStatus === 'draft' ? 'Draft' : 'In Progress'}
+                      </span>
+                    </td>
+                    <td className="p-1 border-r text-right font-mono font-bold text-gray-900">
+                      {totalAmt.toFixed(3)}
+                    </td>
+                    <td className="p-1 border-r text-right font-mono font-bold text-emerald-700">
+                      {advanceAmt.toFixed(3)}
+                    </td>
+                    <td className="p-1 border-r text-right font-mono font-bold text-amber-700">
+                      {remainingAmt.toFixed(3)}
+                    </td>
+                    <td className="p-1 text-center font-bold">
+                      <span className={`px-1.5 py-0.5 rounded text-[7.5px] font-bold uppercase ${
+                        payStatus === 'Paid'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : payStatus === 'Partial'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {payStatus}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
+            <tfoot className="bg-gray-50 font-bold border-t border-gray-200">
+              <tr>
+                <td colSpan={5} className="p-1 text-right text-gray-600 uppercase text-[8px]">Summary Totals:</td>
+                <td className="p-1 text-right font-mono font-black text-gray-900 border-r">
+                  {data.convertedDeals.reduce((s: number, d: any) => s + Number(d.amount || 0), 0).toFixed(3)}
+                </td>
+                <td className="p-1 text-right font-mono font-black text-emerald-700 border-r">
+                  {data.convertedDeals.reduce((s: number, d: any) => s + Number(d.advance || 0), 0).toFixed(3)}
+                </td>
+                <td className="p-1 text-right font-mono font-black text-amber-700 border-r">
+                  {data.convertedDeals.reduce((s: number, d: any) => s + Number(d.remaining != null ? d.remaining : Math.max(0, Number(d.amount || 0) - Number(d.advance || 0))), 0).toFixed(3)}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         ) : (
           <div className="p-2.5 border border-t-0 text-center text-gray-400 italic text-[9px]">No deals finalized on this date.</div>

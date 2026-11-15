@@ -1114,7 +1114,13 @@ export const useResolveOperationalRequest = () => {
            // DEEP CLEAN: Purge all dependencies before deleting the job
            // IMPORTANT: We do this in a specific order to avoid FK issues
            
-           // 1. Delete associated steps
+           // 1. Delete associated steps & financials
+           await supabase.from('job_additional_charges').delete().eq('job_id', jobId);
+           await supabase.from('job_payments').delete().eq('job_id', jobId);
+           await supabase.from('invoices').delete().eq('job_id', jobId);
+           await supabase.from('job_services').delete().eq('job_id', jobId);
+           await supabase.from('walkin_sales').delete().or(`notes.ilike.%${jobId}%`);
+
            const { error: stepsError } = await supabase.from('job_steps').delete().eq('job_id', jobId);
            if (stepsError) throw stepsError;
 
@@ -1153,6 +1159,10 @@ export const useResolveOperationalRequest = () => {
       qc.invalidateQueries({ queryKey: ['admin', 'jobs'] });
       qc.invalidateQueries({ queryKey: ['employee', 'jobs'] });
       qc.invalidateQueries({ queryKey: ['employee', 'requests'] });
+      qc.invalidateQueries({ queryKey: ['employee', 'reports'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'finance_metrics_v2'] });
+      qc.invalidateQueries({ queryKey: ['walkin_sales'] });
+      qc.invalidateQueries({ queryKey: ['sales_team_reports'] });
       qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
@@ -1357,6 +1367,10 @@ export const useAdminDeleteJob = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'jobs'] });
       qc.invalidateQueries({ queryKey: ['employee', 'jobs'] });
+      qc.invalidateQueries({ queryKey: ['employee', 'reports'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'finance_metrics_v2'] });
+      qc.invalidateQueries({ queryKey: ['walkin_sales'] });
+      qc.invalidateQueries({ queryKey: ['sales_team_reports'] });
     },
   });
 };

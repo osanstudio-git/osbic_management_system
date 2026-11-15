@@ -19,6 +19,7 @@ import { Clock } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import BranchOverviewDashboard from '../../components/employee/BranchOverviewDashboard';
 import TeamBirthdayBanner from '../../components/employee/TeamBirthdayBanner';
+import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 
 const weeklyData = [
   { day: 'Mon', tasks: 3 },
@@ -50,6 +51,7 @@ const EmployeeDashboard = () => {
   const isPro = profile?.is_pro ?? false;
   const showModeSwitcher = canDoSales && canDoOps && !isPro;
   const [mode, setMode] = useState<'sales' | 'ops' | 'pro'>('sales');
+  const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -241,6 +243,17 @@ const EmployeeDashboard = () => {
                 {isRtl ? 'نمط العمليات' : 'Ops Mode'}
               </button>
             </div>
+          )}
+
+          {(canDoSales || mode === 'sales') && (
+            <button
+              onClick={() => setIsRecordSaleOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 sm:py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+              title={isRtl ? 'تسجيل صفقة أو بيع سابق' : 'Record Sale / Backlog'}
+            >
+              <DollarSign size={15} />
+              <span>{isRtl ? 'تسجيل صفقة / بيع سابق' : 'Record Sale / Backlog'}</span>
+            </button>
           )}
 
           {!isPro && (
@@ -602,6 +615,12 @@ const EmployeeDashboard = () => {
       )}
         </>
       )}
+
+      {/* 💰 Unified Sales & Backlog Record Modal */}
+      <UnifiedRecordSaleModal
+        isOpen={isRecordSaleOpen}
+        onClose={() => setIsRecordSaleOpen(false)}
+      />
     </div>
   );
 };

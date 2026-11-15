@@ -8,6 +8,7 @@ import { pdf } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { downloadReceipt } from '../../utils/invoiceGenerator';
 import { AllocationModal } from './AllocationModal';
+import { GovFeeVarianceModal } from './GovFeeVarianceModal';
 
 const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
@@ -24,6 +25,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
   const [allocatingPayment, setAllocatingPayment] = useState<any>(null);
   const [isAllocating, setIsAllocating] = useState(false);
   const [isAddingCharge, setIsAddingCharge] = useState(false);
+  const [isGovFeeVarianceOpen, setIsGovFeeVarianceOpen] = useState(false);
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
   const [newPayment, setNewPayment] = useState({ amount: '', method: 'bank_transfer', reference: '', notes: '', date: format(new Date(), 'yyyy-MM-dd') });
@@ -37,8 +39,9 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
   const totalAdditional = additionalCharges.reduce((sum, charge) => sum + Number(charge.amount), 0);
   const totalSubTasks = subTasks.reduce((sum, st) => sum + Number(st.ministry_fee), 0);
   const totalBilled = job.work_fee + billedMinistryFee + totalAdditional + totalSubTasks;
-  const totalPaid = payments.reduce((sum, pay) => sum + Number(pay.amount), 0);
-  const totalVerified = payments.filter(p => p.status === 'verified').reduce((sum, pay) => sum + Number(pay.amount), 0);
+  const activePayments = payments.filter(p => p.status !== 'cancelled' && p.status !== 'refunded' && p.status !== 'voided');
+  const totalPaid = activePayments.reduce((sum, pay) => sum + Number(pay.amount), 0);
+  const totalVerified = activePayments.filter(p => p.status === 'verified').reduce((sum, pay) => sum + Number(pay.amount), 0);
   const totalSpent = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
   const remainingBalance = totalBilled - totalPaid;
 
@@ -552,12 +555,22 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         <div className="space-y-4 mb-8">
           <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Additional Charges</h4>
-            <button
-              onClick={() => setIsAddingCharge(true)}
-              className="text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <Plus size={12} /> Add Charge
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsGovFeeVarianceOpen(true)}
+                className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
+                title="Adjust for actual government fee variance"
+              >
+                <span>Gov Fee Variance</span>
+              </button>
+              <button
+                onClick={() => setIsAddingCharge(true)}
+                className="text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <Plus size={12} /> Add Charge
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -1136,14 +1149,21 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
               </div>
 
               <div className="space-y-2">
-                {payments.map(payment => (
-                  <div key={payment.id} className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                {payments.map(payment => {
+                  const isVoided = payment.status === 'cancelled' || payment.status === 'refunded' || payment.status === 'voided';
+                  return (
+                  <div key={payment.id} className={cn(
+                    "flex items-center justify-between p-4 border rounded-xl transition-all",
+                    isVoided ? "bg-rose-500/5 border-rose-500/20 opacity-70" : "bg-primary/5 border-primary/20"
+                  )}>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        {payment.payment_method === 'cash' && <Banknote size={14} className="text-emerald-500" />}
-                        {payment.payment_method === 'bank_transfer' && <Landmark size={14} className="text-blue-500" />}
-                        {(payment.payment_method === 'pos' || payment.payment_method === 'online') && <CreditCard size={14} className="text-purple-500" />}
-                        <span className="text-sm font-bold text-foreground capitalize">{payment.payment_method.replace('_', ' ')}</span>
+                        {payment.payment_method === 'cash' && <Banknote size={14} className={isVoided ? "text-muted-foreground" : "text-emerald-500"} />}
+                        {payment.payment_method === 'bank_transfer' && <Landmark size={14} className={isVoided ? "text-muted-foreground" : "text-blue-500"} />}
+                        {(payment.payment_method === 'pos' || payment.payment_method === 'online') && <CreditCard size={14} className={isVoided ? "text-muted-foreground" : "text-purple-500"} />}
+                        <span className={cn("text-sm font-bold capitalize", isVoided ? "text-muted-foreground line-through" : "text-foreground")}>
+                          {payment.payment_method.replace('_', ' ')}
+                        </span>
                         
                         {payment.status === 'pending' && (
                           <span className="ml-2 text-[9px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase tracking-widest flex items-center gap-1">
@@ -1153,6 +1173,16 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                         {payment.status === 'verified' && (
                           <span className="ml-2 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase tracking-widest flex items-center gap-1">
                             <CheckCircle2 size={10} /> Verified
+                          </span>
+                        )}
+                        {payment.status === 'cancelled' && (
+                          <span className="ml-2 text-[9px] font-bold text-rose-500 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded uppercase tracking-widest flex items-center gap-1">
+                            <X size={10} /> Voided / Excluded
+                          </span>
+                        )}
+                        {payment.status === 'refunded' && (
+                          <span className="ml-2 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded uppercase tracking-widest flex items-center gap-1">
+                            <AlertCircle size={10} /> Client Refund
                           </span>
                         )}
                       </div>
@@ -1253,9 +1283,15 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                         );
                       })()}
                     </div>
-                    <span className="font-mono text-sm text-emerald-500 font-bold">+{Number(payment.amount).toFixed(3)} OMR</span>
+                    <span className={cn(
+                      "font-mono text-sm font-bold",
+                      isVoided ? "line-through text-muted-foreground/60" : "text-emerald-500"
+                    )}>
+                      {isVoided ? '' : '+'}{Number(payment.amount).toFixed(3)} OMR
+                    </span>
                   </div>
-                ))}
+                  );
+                })}
 
                 {payments.length === 0 && (
                   <div className="text-center border border-dashed border-border rounded-xl p-6 text-muted-foreground text-xs">
@@ -1310,6 +1346,17 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
           />
         )}
       </AnimatePresence>
+
+      {/* 🛡️ Gov Fee Variance & Financial Rebalance Modal */}
+      <GovFeeVarianceModal
+        isOpen={isGovFeeVarianceOpen}
+        onClose={() => setIsGovFeeVarianceOpen(false)}
+        job={job}
+        onSuccess={() => {
+          loadChargesAndPayments();
+          onPaymentReceived();
+        }}
+      />
     </div>
   );
 };

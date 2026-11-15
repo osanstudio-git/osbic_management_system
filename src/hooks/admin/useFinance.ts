@@ -147,10 +147,11 @@ export const useFinanceMetrics = (branchId?: string | null) => {
       const branchMap = new Map<string, any>();
       branches.forEach(b => branchMap.set(b.id, b));
 
-      // 4. Fetch jobs
+      // 4. Fetch jobs (excluding cancelled files)
       let query = supabase
         .from('jobs')
         .select('*')
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
       if (branchId) {
@@ -200,19 +201,11 @@ export const useFinanceMetrics = (branchId?: string | null) => {
         }
 
         // Advance & Remaining calculation
-        let advanceAmt = Number(job.advance_amount);
-        if (isNaN(advanceAmt) || advanceAmt <= 0) {
-          advanceAmt = totalFee * (Number(job.advance_percentage) || 50) / 100;
-        }
-        let remainingAmt = Number(job.remaining_amount);
-        if (isNaN(remainingAmt) || remainingAmt <= 0) {
-          remainingAmt = Math.max(0, totalFee - advanceAmt);
-        }
-
+        const advanceVal = Number(job.advance_amount) || 0;
         const advancePaid = Boolean(job.advance_paid);
         const remainingPaid = Boolean(job.remaining_paid);
 
-        const collectedAmount = (advancePaid ? advanceAmt : 0) + (remainingPaid ? remainingAmt : 0);
+        const collectedAmount = remainingPaid ? totalFee : Math.min(totalFee, advanceVal);
         const pendingAmount = Math.max(0, totalFee - collectedAmount);
 
         // Global Totals
@@ -234,8 +227,9 @@ export const useFinanceMetrics = (branchId?: string | null) => {
           todayCollected += collectedAmount;
         }
 
-        if (!advancePaid) advancesUnpaid += advanceAmt;
-        if (!remainingPaid) remainingUnpaid += remainingAmt;
+        const expectedAdvance = totalFee * (Number(job.advance_percentage) || 50) / 100;
+        if (!advancePaid) advancesUnpaid += Math.max(0, expectedAdvance - advanceVal);
+        if (!remainingPaid) remainingUnpaid += pendingAmount;
 
         // Resolve Entities
         const clientProfile = profileMap.get(job.client_id);
@@ -287,9 +281,9 @@ export const useFinanceMetrics = (branchId?: string | null) => {
           total_fee: totalFee,
           work_fee: workFee,
           ministry_fee: ministryFee,
-          advance_amount: advanceAmt,
+          advance_amount: advanceVal,
           advance_paid: advancePaid,
-          remaining_amount: remainingAmt,
+          remaining_amount: pendingAmount,
           remaining_paid: remainingPaid,
           collected_amount: collectedAmount,
           pending_amount: pendingAmount,

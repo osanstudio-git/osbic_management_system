@@ -10,7 +10,7 @@ import {
   Compass, LayoutGrid, List, SlidersHorizontal, Download,
   FileSpreadsheet, FileText, PhoneCall, Award, MessageSquarePlus, Sparkles,
   Trash2, Table, Users, Crown, Target, TrendingUp, CheckCircle2, ChevronDown, Check,
-  Percent, AlertTriangle, Clock, X, BarChart3, ArrowRight
+  Percent, AlertTriangle, Clock, X, BarChart3, ArrowRight, DollarSign
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isBefore, startOfDay, isToday } from 'date-fns';
@@ -23,6 +23,7 @@ import { QuickInteractionModal } from '../../components/employee/QuickInteractio
 import { LivingDealsTable } from '../../components/employee/LivingDealsTable';
 import { SalesExportCenterModal } from '../../components/employee/SalesExportCenterModal';
 import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
+import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 import { type Lead } from '../../hooks/shared/useLeads';
 
 function cn(...inputs: ClassValue[]) {
@@ -86,6 +87,7 @@ export default function EmployeeLeads() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
+  const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
   const [quickLogLead, setQuickLogLead] = useState<Lead | null>(null);
 
   // Living Deal Row Grid is the primary/default view
@@ -482,6 +484,15 @@ export default function EmployeeLeads() {
               <span>Team Reports</span>
             </Link>
           )}
+
+          <button
+            onClick={() => setIsRecordSaleOpen(true)}
+            className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold px-4 py-3 rounded-xl hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2 text-sm"
+            title="Record New Sale or Past Backlog Transaction"
+          >
+            <DollarSign size={18} />
+            <span>Record Sale / Backlog</span>
+          </button>
 
           <button
             onClick={() => setIsAddOpen(true)}
@@ -1245,6 +1256,15 @@ export default function EmployeeLeads() {
         isOpen={isLeadDistributionHubOpen}
         onClose={() => setIsLeadDistributionHubOpen(false)}
         branchId={isSalesHead ? null : profile?.branch_id}
+      />
+
+      {/* 💵 Record Sale / Backlog Deals Modal */}
+      <UnifiedRecordSaleModal
+        isOpen={isRecordSaleOpen}
+        onClose={() => {
+          setIsRecordSaleOpen(false);
+          refetch();
+        }}
       />
     </div>
   );

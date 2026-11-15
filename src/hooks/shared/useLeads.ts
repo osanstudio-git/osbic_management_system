@@ -709,36 +709,51 @@ export const useDailySalesSheetData = (employeeId?: string, targetDateStr?: stri
         .lte('converted_at', endOfDayIso)
         .order('converted_at', { ascending: false });
 
-      // Also check jobs created on this day with sales_employee_id
+      // Also check jobs created or started on this day with sales_employee_id
       const { data: convertedJobsData } = await supabase
         .from('jobs')
         .select('*, client:profiles!client_id(full_name, company_name), service:services!service_id(name_en, name_ar)')
         .eq('sales_employee_id', employeeId!)
-        .gte('created_at', startOfDayIso)
-        .lte('created_at', endOfDayIso)
+        .or(`and(created_at.gte.${startOfDayIso},created_at.lte.${endOfDayIso}),and(started_at.gte.${startOfDayIso},started_at.lte.${endOfDayIso})`)
         .order('created_at', { ascending: false });
 
-      // Merge won deals
-      const convertedDeals = [
-        ...(convertedLeadsData || []).map((l: any) => ({
+      // Merge won deals without duplicates
+      const convertedDeals: any[] = [];
+      const seenJobIds = new Set<string>();
+
+      (convertedLeadsData || []).forEach((l: any) => {
+        if (l.converted_job?.id) seenJobIds.add(l.converted_job.id);
+        convertedDeals.push({
           id: l.id,
           title: l.contact_name + (l.company_name ? ` (${l.company_name})` : ''),
           job_code: l.converted_job?.job_code || 'JOB-CONVERTED',
-          amount: Number(l.converted_job?.total_fee || 0),
-          advance: Number(l.converted_job?.advance_paid || 0),
-          service_name: l.converted_job?.service_name || 'Business Service',
+          amount: Number(l.converted_job?.total_fee || l.quoted_amount || 0),
+          advance: Number(l.converted_job?.advance_amount || 0),
+          remaining: Number(l.converted_job?.remaining_amount || 0),
+          service_name: l.converted_job?.custom_name || l.converted_job?.service_name || 'Business Service',
+          work_status: l.converted_job?.status || 'active',
+          payment_status: l.converted_job?.remaining_paid ? 'Paid' : (l.converted_job?.advance_paid ? 'Partial' : 'Pending'),
           converted_at: l.converted_at || l.updated_at
-        })),
-        ...(convertedJobsData || []).filter((j: any) => !convertedLeadsData?.some((l: any) => l.converted_job_id === j.id)).map((j: any) => ({
-          id: j.id,
-          title: j.client?.full_name + (j.client?.company_name ? ` (${j.client.company_name})` : ''),
-          job_code: j.job_code || 'JOB',
-          amount: Number(j.total_fee || 0),
-          advance: Number(j.advance_paid || 0),
-          service_name: j.service?.name_en || j.service_name || 'Service',
-          converted_at: j.created_at
-        }))
-      ];
+        });
+      });
+
+      (convertedJobsData || []).forEach((j: any) => {
+        if (!seenJobIds.has(j.id)) {
+          seenJobIds.add(j.id);
+          convertedDeals.push({
+            id: j.id,
+            title: j.client?.full_name + (j.client?.company_name ? ` (${j.client.company_name})` : ''),
+            job_code: j.job_code || 'JOB',
+            amount: Number(j.total_fee || 0),
+            advance: Number(j.advance_amount || 0),
+            remaining: Number(j.remaining_amount || 0),
+            service_name: j.custom_name || j.service?.name_en || 'Business Service',
+            work_status: j.status || 'active',
+            payment_status: j.remaining_paid ? 'Paid' : (j.advance_paid ? 'Partial' : 'Pending'),
+            converted_at: j.created_at || j.started_at
+          });
+        }
+      });
 
       // 6. Fetch upcoming follow-ups scheduled for tomorrow / next working days
       const tomorrowStart = new Date(year, month - 1, day + 1, 0, 0, 0).toISOString();

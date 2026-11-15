@@ -188,12 +188,17 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
     }
     lines.push('');
 
-    // 4. Won Deals
-    lines.push(`4. DEALS WON & CONVERTED`);
-    lines.push(`Job File Code,Client / Company,Service,Contract Total (OMR)`);
+    // 4. Won Deals (5-Pillar Verification)
+    lines.push(`4. DEALS WON & ACTIVE OPERATIONS FILES`);
+    lines.push(`Job File Code,Client / Company,Service Details,Ops Status,Contract Total (OMR),Advance Collected (OMR),Balance Due (OMR),Payment Status`);
     if (salesSheetData.convertedDeals.length > 0) {
       salesSheetData.convertedDeals.forEach(d => {
-        lines.push(`"${d.job_code}","${d.title}","${d.service_name}",${Number(d.amount || 0).toFixed(3)}`);
+        const total = Number(d.amount || 0);
+        const adv = Number(d.advance || 0);
+        const rem = Number(d.remaining != null ? d.remaining : Math.max(0, total - adv));
+        const ops = d.work_status || 'active';
+        const pay = d.payment_status || (rem <= 0 ? 'Paid' : adv > 0 ? 'Partial' : 'Pending');
+        lines.push(`"${d.job_code}","${d.title}","${d.service_name}","${ops}",${total.toFixed(3)},${adv.toFixed(3)},${rem.toFixed(3)},"${pay}"`);
       });
     } else {
       lines.push(`No deals converted on this date.`);

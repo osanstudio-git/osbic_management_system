@@ -280,24 +280,24 @@ export const useSalesTeamReports = (
         const empInvoices = invoicesData.filter(inv => inv.employee_id === emp.id);
         const empWalkin = walkinData.filter(ws => ws.employee_id === emp.id);
 
-        // Separate quotations vs invoices
-        const empQuotes = empInvoices.filter(i => i.type === 'quotation');
-        const empWonInvoices = empInvoices.filter(i => i.type === 'invoice' && ['paid', 'partially_paid', 'accepted'].includes(i.status));
+        // Separate quotations vs invoices (excluding cancelled records)
+        const empQuotes = empInvoices.filter(i => i.type === 'quotation' && i.status !== 'cancelled');
+        const empWonInvoices = empInvoices.filter(i => i.type === 'invoice' && ['paid', 'partially_paid', 'accepted'].includes(i.status) && i.status !== 'cancelled');
 
         // Leads metrics
         const totalLeads = empLeads.length;
         const newLeads = empLeads.filter(l => l.status === 'new').length;
-        const wonLeads = empLeads.filter(l => l.status === 'converted' || Number(l.total_amount) > 0).length;
+        const wonLeads = empLeads.filter(l => l.status === 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length;
         const lostLeads = empLeads.filter(l => ['lost', 'cancelled'].includes(l.status)).length;
-        const quotedLeads = empLeads.filter(l => ['quoted', 'negotiating'].includes(l.status) || Number(l.quoted_amount) > 0).length;
-        const inProgressLeads = totalLeads - newLeads - wonLeads - lostLeads;
+        const quotedLeads = empLeads.filter(l => (['quoted', 'negotiating'].includes(l.status) || Number(l.quoted_amount) > 0) && l.status !== 'cancelled' && l.status !== 'lost').length;
+        const inProgressLeads = Math.max(0, totalLeads - newLeads - wonLeads - lostLeads);
 
         const conversionRate = totalLeads > 0 ? Number(((wonLeads / totalLeads) * 100).toFixed(1)) : 0;
 
         // Quotes metrics (both from leads.quoted_amount and invoices table quotations)
         const quotesCount = empQuotes.length;
         const quotesFromInvoices = empQuotes.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
-        const quotesFromLeads = empLeads.reduce((sum, l) => sum + (Number(l.quoted_amount) || 0), 0);
+        const quotesFromLeads = empLeads.filter(l => l.status !== 'cancelled' && l.status !== 'lost').reduce((sum, l) => sum + (Number(l.quoted_amount) || 0), 0);
         // Take the larger or combined quotes amount cleanly
         const totalQuotedAmount = Math.max(quotesFromInvoices, quotesFromLeads);
         const avgQuoteAmount = quotesCount > 0 ? Number((totalQuotedAmount / quotesCount).toFixed(3)) : 0;
@@ -313,7 +313,7 @@ export const useSalesTeamReports = (
           const tot = Number(l.total_amount) || 0;
           const gf = Number(l.govt_fee) || 0;
           const p = l.profit != null ? Number(l.profit) : tot - gf;
-          if (l.status === 'converted' || tot > 0) {
+          if (l.status === 'converted' && l.status !== 'cancelled' && l.status !== 'lost') {
             wonLeadsCount++;
             leadRevenue += tot;
             leadGovt += gf;

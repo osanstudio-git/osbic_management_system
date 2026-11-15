@@ -4,7 +4,8 @@ import {
   X, Calendar, DollarSign, CheckCircle2, AlertCircle, RefreshCw,
   Search, Link as LinkIcon, User, Building2, Phone, FileText,
   CreditCard, Banknote, Landmark, Upload, ChevronRight, Sparkles,
-  Layers, ArrowRight, ShieldCheck, Check, Clock, Plus, MessageSquare
+  Layers, ArrowRight, ShieldCheck, Check, Clock, Plus, MessageSquare,
+  Zap
 } from 'lucide-react';
 import { format, differenceInDays, subDays } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -118,6 +119,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
   const [workDescription, setWorkDescription] = useState<string>('');
   const [availableQuotes, setAvailableQuotes] = useState<any[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+  const [workStatus, setWorkStatus] = useState<'pending' | 'in_progress' | 'completed'>('in_progress');
 
   // Ops Candidate Alignment State
   const [candidateOpsJobs, setCandidateOpsJobs] = useState<CandidateOpsJob[]>([]);
@@ -207,6 +209,10 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
 
   // When Quotation is Selected, auto-fill details
   const handleSelectQuote = (quoteId: string) => {
+    if (selectedQuoteId === quoteId) {
+      setSelectedQuoteId('');
+      return;
+    }
     setSelectedQuoteId(quoteId);
     const quote = availableQuotes.find(q => q.id === quoteId);
     if (quote) {
@@ -214,9 +220,12 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
       if (quote.items && quote.items.length > 0) {
         const govFee = quote.items.reduce((s: number, it: any) => s + (Number(it.ministry_fee) || 0), 0);
         setGovernmentFeeEstimate(govFee.toString());
-        setWorkType(quote.items[0].description || COMMON_WORK_TYPES[0]);
+        const firstDesc = quote.items[0].description || quote.items[0].name;
+        if (firstDesc) {
+          setWorkDescription(firstDesc);
+        }
       }
-      toast.success(`Loaded details from Quotation #${quote.invoice_number || quote.id.slice(0, 8)}`);
+      toast.success(`Connected to Quotation #${quote.quoteNumber || quote.invoice_number || quote.id.slice(0, 8)}`);
     }
   };
 
@@ -290,6 +299,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
         receiptFile,
         linkToExistingJobId: selectedExistingJobId,
         quotationId: selectedQuoteId || null,
+        workStatus,
       });
 
       const remainingBalance = Math.max(0, total - received);
@@ -738,25 +748,36 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                 {/* 4. Open Quotations for Client */}
                 {availableQuotes.length > 0 && (
                   <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
-                    <label className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
-                      <FileText size={14} /> Open Quotation Detected
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
+                        <FileText size={14} /> Open Quotation Detected
+                      </label>
+                      <span className="text-[11px] text-muted-foreground">
+                        Click quote to link & auto-convert
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {availableQuotes.map(q => (
                         <button
                           key={q.id}
                           type="button"
                           onClick={() => handleSelectQuote(q.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
                             selectedQuoteId === q.id
-                              ? 'bg-blue-500 text-white border-blue-500'
+                              ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
                               : 'bg-background border-border text-foreground hover:bg-muted/50'
                           }`}
                         >
-                          Quote #{q.invoice_number || q.id.slice(0, 6)} ({q.total_amount} OMR)
+                          {selectedQuoteId === q.id && <Check size={12} />}
+                          <span>Quote #{q.quoteNumber || q.invoice_number || q.id.slice(0, 6)} ({q.total_amount} OMR)</span>
                         </button>
                       ))}
                     </div>
+                    {selectedQuoteId && (
+                      <p className="text-[11px] text-emerald-400 font-medium">
+                        ✓ Quotation linked: upon saving, this quote will be automatically converted to prevent duplicate pipeline quotes.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -784,6 +805,61 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                       placeholder="e.g. 1 Year investor visa, CR activities..."
                       className="w-full mt-1.5 px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm focus:border-primary focus:outline-none"
                     />
+                  </div>
+                </div>
+
+                {/* 5.5 Work Execution Status */}
+                <div className="p-3.5 rounded-xl bg-muted/20 border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Zap size={14} className="text-amber-400" /> Current Work Execution Status *
+                    </label>
+                    <span className="text-[11px] text-muted-foreground">
+                      {workStatus === 'completed'
+                        ? 'Job finished • No pending Ops tasks'
+                        : workStatus === 'in_progress'
+                        ? 'Job active • Ongoing in Ops system'
+                        : 'Draft • Pending Ops pickup'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setWorkStatus('in_progress')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        workStatus === 'in_progress'
+                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Zap size={13} />
+                      <span>In Progress</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkStatus('completed')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        workStatus === 'completed'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>Completed / Backlog</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkStatus('pending')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        workStatus === 'pending'
+                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Clock size={13} />
+                      <span>Pending Draft</span>
+                    </button>
                   </div>
                 </div>
 
