@@ -3,7 +3,7 @@ import { TaskDashboard } from './TaskDashboard';
 import { 
   ChevronRight, ChevronDown, LayoutGrid, List as ListIcon, Clock, CheckCircle2, 
   Briefcase, Plus, Zap, Search, Filter, X, ArrowUpDown, RotateCcw, 
-  Users, Pencil, Trash2, User, CornerDownRight
+  Users, Pencil, Trash2, User, CornerDownRight, XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,7 +50,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [taskToCancel, setTaskToCancel] = useState<any | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'awaiting_govt' | 'completed' | 'on_hold'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'awaiting_govt' | 'completed' | 'on_hold' | 'cancelled'>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'fee_desc'>('newest');
@@ -119,6 +119,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     else if (statusFilter === 'awaiting_govt') filteredJobs = filteredJobs.filter(j => j.status === 'awaiting_govt');
     else if (statusFilter === 'completed') filteredJobs = filteredJobs.filter(j => j.status === 'completed');
     else if (statusFilter === 'on_hold') filteredJobs = filteredJobs.filter(j => j.status === 'on_hold');
+    else if (statusFilter === 'cancelled') filteredJobs = filteredJobs.filter(j => j.status === 'cancelled');
   }
 
   // 2. Filter by Service Dropdown
@@ -167,6 +168,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       latestDate: string;
       activeCount: number;
       completedCount: number;
+      cancelledCount: number;
       totalFee: number;
       totalPendingDue: number;
     }>();
@@ -184,6 +186,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           latestDate: job.started_date || job.created_at || '',
           activeCount: 0,
           completedCount: 0,
+          cancelledCount: 0,
           totalFee: 0,
           totalPendingDue: 0
         });
@@ -191,16 +194,23 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
       const g = groups.get(clientId)!;
       g.jobs.push(job);
-      if (job.status === 'completed') {
+      const isCancelled = job.status === 'cancelled';
+      if (isCancelled) {
+        g.cancelledCount += 1;
+      } else if (job.status === 'completed') {
         g.completedCount += 1;
       } else {
         g.activeCount += 1;
       }
-      const fee = Number(job.total_fee) || 0;
-      g.totalFee += fee;
-      if (!job.remaining_paid && fee > 0) {
-        const remaining = Number(job.remaining_due_amount);
-        g.totalPendingDue += remaining > 0 ? remaining : fee;
+
+      // ONLY sum fees and pending balances for active/completed jobs (exclude cancelled)
+      if (!isCancelled) {
+        const fee = Number(job.total_fee) || 0;
+        g.totalFee += fee;
+        if (!job.remaining_paid && fee > 0) {
+          const remaining = Number(job.remaining_due_amount);
+          g.totalPendingDue += remaining > 0 ? remaining : fee;
+        }
       }
 
       const jobDate = job.started_date || job.created_at || '';
@@ -221,18 +231,26 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     return result;
   }, [displayJobs]);
 
-  const renderJobSubRow = (job: any, isQuick: boolean) => (
+  const renderJobSubRow = (job: any, isQuick: boolean) => {
+    const isCancelled = job.status === 'cancelled';
+    return (
     <tr 
       key={job.id} 
       onClick={() => onTaskSelect(job.id)}
-      className="border-b border-border/40 bg-muted/10 hover:bg-muted/30 transition-colors cursor-pointer group text-start font-sans"
+      className={`border-b border-border/40 transition-colors cursor-pointer group text-start font-sans ${
+        isCancelled 
+          ? 'bg-rose-500/5 hover:bg-rose-500/10 opacity-75' 
+          : 'bg-muted/10 hover:bg-muted/30'
+      }`}
     >
       <td className={`py-3 px-6 ${isRtl ? 'pr-12' : 'pl-12'}`}>
         <div className="flex items-center gap-2.5">
           <CornerDownRight size={14} className="text-muted-foreground/60 shrink-0" />
           <div className="flex flex-col">
             <span className={`text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md border w-fit ${
-              isQuick 
+              isCancelled
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                : isQuick 
                 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
                 : 'bg-primary/10 text-primary border-primary/20'
             }`}>
@@ -247,18 +265,22 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
       <td className="py-3 px-6">
-        <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{job.service_name}</div>
+        <div className={`text-xs font-bold transition-colors ${isCancelled ? 'text-muted-foreground line-through' : 'text-foreground group-hover:text-primary'}`}>
+          {job.service_name}
+        </div>
         <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{job.service_category}</div>
       </td>
       <td className="py-3 px-6">
         <div className="flex items-center gap-1.5 mb-0.5">
           <div className={`w-1.5 h-1.5 rounded-full ${
+            isCancelled ? 'bg-rose-500' :
             job.status === 'completed' ? 'bg-emerald-500' :
             job.status === 'active' || job.status === 'in_progress' ? 'bg-primary' :
             job.status === 'draft' ? 'bg-amber-500' : 'bg-muted-foreground'
           }`} />
-          <span className="text-[11px] font-bold uppercase tracking-wider">
-            {job.status === 'completed' ? (isRtl ? 'مكتمل' : 'completed') :
+          <span className={`text-[11px] font-bold uppercase tracking-wider ${isCancelled ? 'text-rose-400' : ''}`}>
+            {isCancelled ? (isRtl ? 'ملغي' : 'cancelled') :
+             job.status === 'completed' ? (isRtl ? 'مكتمل' : 'completed') :
              job.status === 'active' || job.status === 'in_progress' ? (isRtl ? 'نشط' : 'active') :
              job.status === 'draft' ? (isRtl ? 'مسودة' : 'draft') : (isRtl ? 'معلق' : job.status)}
           </span>
@@ -268,10 +290,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
       <td className="py-3 px-6">
-        <div className="text-xs font-bold text-foreground">
+        <div className={`text-xs font-bold ${isCancelled ? 'line-through text-muted-foreground/60' : 'text-foreground'}`}>
           {(job.total_fee || 0).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
         </div>
-        {job.remaining_paid || job.total_fee === 0 ? (
+        {isCancelled ? (
+          <div className="text-[9px] font-bold uppercase tracking-widest text-rose-500 flex items-center gap-1 mt-0.5">
+            {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
+          </div>
+        ) : job.remaining_paid || job.total_fee === 0 ? (
           <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1 mt-0.5">
             <CheckCircle2 size={10} /> {isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}
           </div>
@@ -315,22 +341,34 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
-  const renderJobRow = (job: any, isQuick: boolean) => (
+  const renderJobRow = (job: any, isQuick: boolean) => {
+    const isCancelled = job.status === 'cancelled';
+    return (
     <tr 
       key={job.id} 
       onClick={() => onTaskSelect(job.id)}
-      className="border-b border-border hover:bg-muted/30 transition-colors cursor-pointer group text-start font-sans"
+      className={`border-b border-border transition-colors cursor-pointer group text-start font-sans ${
+        isCancelled 
+          ? 'bg-rose-500/5 hover:bg-rose-500/10 opacity-75' 
+          : 'hover:bg-muted/30'
+      }`}
     >
       <td className="py-4 px-6">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isQuick ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
-             {isQuick ? <Zap size={18} /> : <Briefcase size={18} />}
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            isCancelled ? 'bg-rose-500/10 text-rose-400' :
+            isQuick ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'
+          }`}>
+             {isCancelled ? <XCircle size={18} /> : isQuick ? <Zap size={18} /> : <Briefcase size={18} />}
           </div>
           <div>
-            <div className="text-sm font-bold text-foreground">{getClientName(job)}</div>
-            <div className={`text-[10px] font-bold uppercase tracking-widest ${isQuick ? 'text-amber-500' : 'text-muted-foreground'}`}>{job.job_code}</div>
+            <div className={`text-sm font-bold ${isCancelled ? 'text-muted-foreground' : 'text-foreground'}`}>{getClientName(job)}</div>
+            <div className={`text-[10px] font-bold uppercase tracking-widest ${
+              isCancelled ? 'text-rose-400' : isQuick ? 'text-amber-500' : 'text-muted-foreground'
+            }`}>{job.job_code}</div>
             {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name) && (
               <div className="text-[10px] text-amber-400 font-medium">
                 By: {job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name || (job.assigned_by_profile as any)?.full_name}
@@ -340,31 +378,39 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
       <td className="py-4 px-6">
-        <div className="text-sm text-foreground">{job.service_name}</div>
+        <div className={`text-sm font-bold transition-colors ${isCancelled ? 'text-muted-foreground line-through' : 'text-foreground group-hover:text-primary'}`}>
+          {job.service_name}
+        </div>
         <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{job.service_category}</div>
       </td>
       <td className="py-4 px-6">
         <div className="flex items-center gap-2 mb-1">
           <div className={`w-2 h-2 rounded-full ${
+            isCancelled ? 'bg-rose-500' :
             job.status === 'completed' ? 'bg-emerald-500' :
             job.status === 'active' || job.status === 'in_progress' ? 'bg-primary' :
             job.status === 'draft' ? 'bg-amber-500' : 'bg-muted-foreground'
           }`} />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {job.status === 'completed' ? (isRtl ? 'مكتمل' : 'completed') :
+          <span className={`text-xs font-bold uppercase tracking-wider ${isCancelled ? 'text-rose-400' : ''}`}>
+            {isCancelled ? (isRtl ? 'ملغي' : 'cancelled') :
+             job.status === 'completed' ? (isRtl ? 'مكتمل' : 'completed') :
              job.status === 'active' || job.status === 'in_progress' ? (isRtl ? 'نشط' : 'active') :
              job.status === 'draft' ? (isRtl ? 'مسودة' : 'draft') : (isRtl ? 'معلق' : job.status)}
           </span>
         </div>
         <div className="text-[10px] text-muted-foreground">
-          {isRtl ? `${job.completed_steps} من أصل ${job.total_steps} خطوات` : `${job.completed_steps} of ${job.total_steps} steps`}
+          {isRtl ? `${job.completed_steps || 0} من أصل ${job.total_steps || 0} خطوات` : `${job.completed_steps || 0} of ${job.total_steps || 0} steps`}
         </div>
       </td>
       <td className="py-4 px-6">
-        <div className="text-sm font-bold text-foreground">
+        <div className={`text-sm font-bold ${isCancelled ? 'line-through text-muted-foreground/60' : 'text-foreground'}`}>
           {isRtl ? `${(job.total_fee || 0).toFixed(3)} ر.ع.` : `${(job.total_fee || 0).toFixed(3)} OMR`}
         </div>
-        {job.remaining_paid || job.total_fee === 0 ? (
+        {isCancelled ? (
+          <div className="text-[10px] font-bold uppercase tracking-widest text-rose-500 flex items-center gap-1 mt-1">
+            {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
+          </div>
+        ) : job.remaining_paid || job.total_fee === 0 ? (
           <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1 mt-1">
             <CheckCircle2 size={12} /> {isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}
           </div>
@@ -377,7 +423,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       <td className="py-4 px-6">
         <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
           <Clock size={12} />
-          {format(new Date(job.started_date), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy')}
+          {job.started_date ? format(new Date(job.started_date), isRtl ? 'yyyy/MM/dd' : 'MMM dd, yyyy') : '-'}
         </div>
       </td>
       <td className="py-4 px-6 text-right">
@@ -408,7 +454,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-background no-scrollbar" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -535,6 +582,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 <option value="awaiting_govt" className="bg-card text-foreground py-1">{isRtl ? 'بانتظار الجهات الحكومية' : 'Awaiting Govt'}</option>
                 <option value="completed" className="bg-card text-foreground py-1">{isRtl ? 'مكتملة' : 'Completed'}</option>
                 <option value="on_hold" className="bg-card text-foreground py-1">{isRtl ? 'قيد الانتظار' : 'On Hold'}</option>
+                <option value="cancelled" className="bg-card text-foreground py-1">{isRtl ? 'الملغية' : 'Cancelled'}</option>
               </select>
             </div>
 
@@ -700,7 +748,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                             </div>
                           </td>
                           <td className="py-3.5 px-6">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {group.activeCount > 0 && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500">
                                   {group.activeCount} {isRtl ? 'نشط' : 'Active'}
@@ -709,6 +757,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                               {group.completedCount > 0 && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400">
                                   {group.completedCount} {isRtl ? 'مكتمل' : 'Completed'}
+                                </span>
+                              )}
+                              {group.cancelledCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                  {group.cancelledCount} {isRtl ? 'ملغي' : 'Cancelled'}
                                 </span>
                               )}
                             </div>

@@ -723,11 +723,12 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
 
                                 <div className="flex items-center justify-between text-[9px] pt-1 border-t border-border/30">
                                   <span className={`px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                    job.status === 'cancelled' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                                     job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
                                     job.status === 'draft' ? 'bg-muted text-muted-foreground' :
                                     'bg-amber-500/10 text-amber-500'
                                   }`}>
-                                    {job.status}
+                                    {job.status === 'cancelled' ? (isRtl ? 'ملغي' : 'cancelled') : job.status}
                                   </span>
                                   {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
                                     <span className="text-muted-foreground truncate max-w-[140px]">
@@ -773,11 +774,13 @@ const UnifiedWorkspace: React.FC<UnifiedWorkspaceProps> = ({ filterType }) => {
                     </h3>
 
                     <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/40 text-[10px]">
-                      <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
-                          job.status === 'draft' ? 'bg-muted text-muted-foreground' :
-                            'bg-amber-500/10 text-amber-500'
-                        }`}>
-                        {job.status}
+                      <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
+                        job.status === 'cancelled' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                        job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                        job.status === 'draft' ? 'bg-muted text-muted-foreground' :
+                        'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {job.status === 'cancelled' ? (isRtl ? 'ملغي' : 'cancelled') : job.status}
                       </span>
                       {(job.assigner_name || job.sales_employee?.full_name || job.assigner?.full_name) && (
                         <span className="text-muted-foreground truncate max-w-[160px]">
