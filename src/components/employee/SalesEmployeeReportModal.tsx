@@ -135,6 +135,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
 
   // Preview Counts
   const previewLeads = (activeRepData.leads || []).filter(l => isInDateRange(l.created_at || l.conversion_date));
+  const previewDistributedLeads = (activeRepData.distributedLeads || []).filter(l => isInDateRange(l.created_at || l.conversion_date));
   const previewSales = React.useMemo(() => {
     const list: any[] = [];
     const seenJobIds = new Set<string>();
@@ -306,7 +307,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
           `"${(lead.contact_name || '').replace(/"/g, '""')}"`,
           `"${(lead.company_name || '').replace(/"/g, '""')}"`,
           `"${((lead.lead_sources as any)?.name || 'Direct').replace(/"/g, '""')}"`,
-          `"${isAssigned ? 'Assigned' : 'Self-Added'}"`,
+          `"${isAssigned ? (lead.assignedByName ? `Assigned by ${lead.assignedByName}` : 'Assigned Lead') : 'Self-Added'}"`,
           `"${lead.status}"`,
           qAmt > 0 ? qAmt.toFixed(3) : '0.000',
           pAmt > 0 ? pAmt.toFixed(3) : '0.000',
@@ -315,6 +316,30 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
       });
 
       csvSections.push(`"TOTAL (OMR):","","","","","","",${sumQuoted.toFixed(3)},${sumExpProfit.toFixed(3)}`);
+      csvSections.push(``);
+    }
+
+    // SECTION 3: Distributed Leads (if any)
+    if (previewDistributedLeads.length > 0) {
+      csvSections.push(`"--- SECTION: LEADS DISTRIBUTED TO TEAM MEMBERS ---"`);
+      const distHeaders = ['sl no', 'date', 'client', 'company', 'source', 'passed to consultant', 'status', 'quoted amount'];
+      csvSections.push(distHeaders.join(','));
+
+      previewDistributedLeads.forEach((dl, idx) => {
+        const qAmt = Number(dl.quoted_amount) || 0;
+        const row = [
+          idx + 1,
+          `"${dl.created_at ? format(new Date(dl.created_at), 'dd/MM/yyyy') : ''}"`,
+          `"${(dl.contact_name || '').replace(/"/g, '""')}"`,
+          `"${(dl.company_name || '').replace(/"/g, '""')}"`,
+          `"${((dl.lead_sources as any)?.name || 'Direct').replace(/"/g, '""')}"`,
+          `"${(dl.assignedToName || 'Team Member').replace(/"/g, '""')}"`,
+          `"${dl.status}"`,
+          qAmt > 0 ? qAmt.toFixed(3) : '0.000',
+        ];
+        csvSections.push(row.join(','));
+      });
+      csvSections.push(``);
     }
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvSections.join('\n'));
@@ -549,10 +574,13 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                 <span className="text-[10px] text-muted-foreground block">OMR Margin</span>
               </div>
               <div>
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground block">Matched Leads</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  {previewDistributedLeads.length > 0 ? 'Pipeline & Delegation' : 'Matched Leads'}
+                </span>
                 <span className="text-sm font-black text-foreground">{previewLeads.length} Leads</span>
                 <span className="text-[10px] text-sky-500 block">
                   {previewLeads.filter(l => l.status === 'converted').length} Won
+                  {previewDistributedLeads.length > 0 ? ` • ${previewDistributedLeads.length} passed to team` : ''}
                 </span>
               </div>
             </div>

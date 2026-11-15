@@ -59,8 +59,15 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
     }
   };
 
-  // Filtered Leads
+  // Filtered Leads (personal pipeline handled)
   const filteredLeads = (rep.leads || []).filter(l => isInDateRange(l.created_at || l.conversion_date));
+
+  // Filtered Distributed Leads (leads passed to team members by this sales lead/manager)
+  const filteredDistributedLeads = (rep.distributedLeads || []).filter(l => isInDateRange(l.created_at || l.conversion_date));
+  const distributedCount = filteredDistributedLeads.length || rep.assignedByMeCount || 0;
+  const isSalesLeadOrManager = Boolean(rep.isSalesHead || distributedCount > 0);
+  const assignedInCount = filteredLeads.filter(l => l.assigned_to === rep.employeeId && l.assigned_by && l.assigned_by !== rep.employeeId).length;
+  const directAddedCount = filteredLeads.filter(l => !l.assigned_by || l.assigned_by === rep.employeeId).length;
 
   // Filtered Sales (Both Walkin and Converted Jobs/Leads)
   // Consolidate rep.sales and rep.assignedJobs without duplication
@@ -173,16 +180,25 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
       {/* ─── Consultant Profile & Quick Stats Bar ─── */}
       <div className="grid grid-cols-5 border border-slate-200 rounded-lg p-3 mb-5 bg-slate-50/80 gap-3 text-[11px]">
         <div className="border-r border-slate-200 pr-3">
-          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">Sales Consultant</span>
+          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">
+            {isSalesLeadOrManager ? 'Sales Lead / Head' : 'Sales Consultant'}
+          </span>
           <span className="font-black text-slate-900 text-sm">{rep.fullName}</span>
           <span className="text-[10px] text-slate-500 font-mono block">{rep.employeeCode || 'EMP'}</span>
         </div>
 
         <div className="border-r border-slate-200 pr-3">
-          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">Assigned / Pipeline</span>
+          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">
+            {isSalesLeadOrManager ? 'Pipeline & Delegation' : 'Assigned / Pipeline'}
+          </span>
           <span className="font-black text-slate-800 text-sm">{filteredLeads.length} Leads</span>
           <span className="text-[10px] text-slate-500 block">
-            {filteredLeads.filter(l => l.assigned_to === rep.employeeId && l.assigned_by && l.assigned_by !== rep.employeeId).length} assigned • {filteredLeads.filter(l => !l.assigned_by || l.assigned_by === rep.employeeId).length} direct
+            <span>{assignedInCount} assigned • {directAddedCount} direct</span>
+            {isSalesLeadOrManager && distributedCount > 0 && (
+              <span className="block font-bold text-indigo-700 mt-0.5">
+                ✦ {distributedCount} passed to team
+              </span>
+            )}
           </span>
         </div>
 
@@ -295,7 +311,10 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
       {(reportType === 'both' || reportType === 'leads_quotes') && (
         <div className="mb-6">
           <div className="flex items-center justify-between bg-sky-900 text-white px-3 py-1.5 rounded-t text-[10px] font-extrabold uppercase tracking-wider">
-            <span>Leads & Quotations Pipeline ({filteredLeads.length} Leads Handled)</span>
+            <span>
+              Leads & Quotations Pipeline ({filteredLeads.length} Direct Leads
+              {distributedCount > 0 ? ` • ${distributedCount} Distributed to Team` : ''})
+            </span>
             <span>Won: {wonLeadsCount} • Active: {inProgressLeadsCount} • New: {newLeadsCount}</span>
           </div>
 
@@ -325,8 +344,8 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
                     <td className="p-1.5 border-r border-slate-200">
                       <div className="font-bold text-slate-900">{lead.contact_name || 'Client'}</div>
                       {isAssigned ? (
-                        <span className="text-[8px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded font-semibold inline-block">
-                          Assigned Lead
+                        <span className="text-[8px] text-amber-800 bg-amber-100/80 border border-amber-300/80 px-1.5 py-0.5 rounded font-bold inline-block">
+                          Assigned by {lead.assignedByName || 'Manager'}
                         </span>
                       ) : (
                         <span className="text-[8px] text-slate-500 inline-block">
