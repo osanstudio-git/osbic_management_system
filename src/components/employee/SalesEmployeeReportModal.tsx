@@ -266,7 +266,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
     // SECTION 2: Leads & Quotations Table
     if (reportType === 'both' || reportType === 'leads_quotes') {
       csvSections.push(`"--- SECTION: LEADS PIPELINE & QUOTATIONS ---"`);
-      const leadsHeaders = ['sl no', 'date', 'client', 'company', 'source', 'status', 'quoted amount', 'expected profit', 'remark'];
+      const leadsHeaders = ['sl no', 'date', 'client', 'company', 'source', 'acquisition', 'status', 'quoted amount', 'expected profit'];
       csvSections.push(leadsHeaders.join(','));
 
       let sumQuoted = 0;
@@ -277,6 +277,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
         const pAmt = Number(lead.expected_profit) || 0;
         sumQuoted += qAmt;
         sumExpProfit += pAmt;
+        const isAssigned = Boolean(lead.assigned_by && lead.assigned_by !== activeRepData.employeeId);
 
         const row = [
           idx + 1,
@@ -284,15 +285,15 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
           `"${(lead.contact_name || '').replace(/"/g, '""')}"`,
           `"${(lead.company_name || '').replace(/"/g, '""')}"`,
           `"${((lead.lead_sources as any)?.name || 'Direct').replace(/"/g, '""')}"`,
+          `"${isAssigned ? 'Assigned' : 'Self-Added'}"`,
           `"${lead.status}"`,
           qAmt > 0 ? qAmt.toFixed(3) : '0.000',
           pAmt > 0 ? pAmt.toFixed(3) : '0.000',
-          `"${lead.lead_code || ''}"`,
         ];
         csvSections.push(row.join(','));
       });
 
-      csvSections.push(`"TOTAL (OMR):","","","","","",${sumQuoted.toFixed(3)},${sumExpProfit.toFixed(3)},""`);
+      csvSections.push(`"TOTAL (OMR):","","","","","","",${sumQuoted.toFixed(3)},${sumExpProfit.toFixed(3)}`);
     }
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvSections.join('\n'));

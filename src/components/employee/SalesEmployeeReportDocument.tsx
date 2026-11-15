@@ -304,13 +304,12 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
               <tr className="bg-slate-100 font-extrabold text-slate-700 text-left border-b border-slate-200 uppercase tracking-wider text-[9px]">
                 <th className="p-1.5 border-r border-slate-200 w-10 text-center">sl no</th>
                 <th className="p-1.5 border-r border-slate-200 w-24">date</th>
-                <th className="p-1.5 border-r border-slate-200 min-w-[130px]">contact name</th>
+                <th className="p-1.5 border-r border-slate-200 min-w-[140px]">contact name</th>
                 <th className="p-1.5 border-r border-slate-200 min-w-[130px]">company / organization</th>
                 <th className="p-1.5 border-r border-slate-200 w-24">source</th>
                 <th className="p-1.5 border-r border-slate-200 w-24 text-center">status</th>
                 <th className="p-1.5 border-r border-slate-200 w-24 text-right">quoted amount</th>
-                <th className="p-1.5 border-r border-slate-200 w-24 text-right">expected profit</th>
-                <th className="p-1.5 text-slate-600">lead code / remarks</th>
+                <th className="p-1.5 text-right w-24">expected profit</th>
               </tr>
             </thead>
             <tbody>
@@ -318,11 +317,23 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
                 const leadDate = lead.created_at ? format(new Date(lead.created_at), 'dd MMM yyyy') : '-';
                 const quotedVal = Number(lead.quoted_amount) || 0;
                 const profitVal = Number(lead.expected_profit) || 0;
+                const isAssigned = Boolean(lead.assigned_by && lead.assigned_by !== rep.employeeId);
                 return (
                   <tr key={lead.id || idx} className="border-b border-slate-200 hover:bg-slate-50/50">
                     <td className="p-1.5 border-r border-slate-200 text-center font-mono text-slate-500 font-bold">{idx + 1}</td>
                     <td className="p-1.5 border-r border-slate-200 text-slate-700 whitespace-nowrap">{leadDate}</td>
-                    <td className="p-1.5 border-r border-slate-200 font-bold text-slate-900">{lead.contact_name || 'Client'}</td>
+                    <td className="p-1.5 border-r border-slate-200">
+                      <div className="font-bold text-slate-900">{lead.contact_name || 'Client'}</div>
+                      {isAssigned ? (
+                        <span className="text-[8px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded font-semibold inline-block">
+                          Assigned Lead
+                        </span>
+                      ) : (
+                        <span className="text-[8px] text-slate-500 inline-block">
+                          Self-Added
+                        </span>
+                      )}
+                    </td>
                     <td className="p-1.5 border-r border-slate-200 text-slate-700">{lead.company_name || '-'}</td>
                     <td className="p-1.5 border-r border-slate-200 text-slate-600 text-[9px] uppercase tracking-wider">
                       {(lead.lead_sources as any)?.name || 'Direct'}
@@ -340,11 +351,8 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
                     <td className="p-1.5 border-r border-slate-200 text-right font-mono font-bold text-slate-900">
                       {quotedVal > 0 ? quotedVal.toFixed(3) : '-'}
                     </td>
-                    <td className="p-1.5 border-r border-slate-200 text-right font-mono font-bold text-sky-800">
+                    <td className="p-1.5 text-right font-mono font-bold text-sky-800">
                       {profitVal > 0 ? profitVal.toFixed(3) : '-'}
-                    </td>
-                    <td className="p-1.5 text-slate-600 font-mono text-[9px] truncate max-w-[180px]">
-                      {lead.lead_code || '-'}
                     </td>
                   </tr>
                 );
@@ -352,7 +360,7 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
 
               {filteredLeads.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-4 text-center text-slate-400 italic">
+                  <td colSpan={8} className="p-4 text-center text-slate-400 italic">
                     No leads registered for this employee in the selected period.
                   </td>
                 </tr>
@@ -367,11 +375,8 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
                   <td className="p-2 border-r border-slate-300 text-right font-mono text-xs font-black text-slate-900">
                     {totalQuotedInLeads.toFixed(3)}
                   </td>
-                  <td className="p-2 border-r border-slate-300 text-right font-mono text-xs font-black text-sky-800">
+                  <td className="p-2 text-right font-mono text-xs font-black text-sky-800">
                     {totalExpectedProfitInLeads.toFixed(3)}
-                  </td>
-                  <td className="p-2 text-slate-500 text-[9px] text-center italic">
-                    {wonLeadsCount} of {filteredLeads.length} Won ({filteredLeads.length > 0 ? ((wonLeadsCount / filteredLeads.length) * 100).toFixed(1) : 0}%)
                   </td>
                 </tr>
               </tfoot>
