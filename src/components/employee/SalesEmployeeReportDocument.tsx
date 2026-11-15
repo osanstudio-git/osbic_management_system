@@ -12,6 +12,7 @@ interface Props {
   customStart?: string;
   customEnd?: string;
   branchName?: string;
+  orientation?: 'landscape' | 'portrait';
 }
 
 export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
@@ -22,9 +23,11 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
   customStart,
   customEnd,
   branchName,
+  orientation = 'landscape',
 }, ref) => {
   const brandColor = '#0f172a'; // Deep slate navy
   const accentColor = '#0284c7'; // Primary blue
+  const isPortrait = orientation === 'portrait';
 
   // Date filtering helper
   const isInDateRange = (dateStr?: string | null) => {
@@ -121,14 +124,18 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
   return (
     <div
       ref={ref}
-      className="bg-white text-slate-900 p-8 min-h-[794px] w-[1122px] max-w-full mx-auto shadow-xl relative font-sans text-[11px] leading-relaxed print:w-[297mm] print:min-h-[210mm] print:m-0 print:shadow-none print:p-6 print:text-black print:bg-white"
+      className={`bg-white text-slate-900 p-8 mx-auto shadow-xl relative font-sans leading-relaxed print:m-0 print:shadow-none print:p-6 print:text-black print:bg-white ${
+        isPortrait 
+          ? 'w-[794px] min-h-[1122px] print:w-[210mm] print:min-h-[297mm] text-[10px]' 
+          : 'w-[1122px] min-h-[794px] print:w-[297mm] print:min-h-[210mm] text-[11px]'
+      }`}
       style={{ boxSizing: 'border-box' }}
     >
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
-            size: landscape;
-            margin: 10mm;
+            size: ${isPortrait ? 'portrait' : 'landscape'};
+            margin: 8mm;
           }
           body {
             -webkit-print-color-adjust: exact !important;
@@ -154,7 +161,7 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
 
         <div className="text-right">
           <div className="inline-block px-3 py-1 text-white font-extrabold text-[11px] uppercase tracking-wider rounded" style={{ backgroundColor: accentColor }}>
-            {reportType === 'both' && 'Complete 360° Sales & Pipeline Report'}
+            {reportType === 'both' && 'Comprehensive Sales & Leads Report'}
             {reportType === 'sales_revenue' && 'Sales, Revenue & Collections Sheet'}
             {reportType === 'leads_quotes' && 'Leads Pipeline & Quotations Report'}
           </div>
@@ -372,22 +379,6 @@ export const SalesEmployeeReportDocument = forwardRef<HTMLDivElement, Props>(({
           </table>
         </div>
       )}
-
-      {/* ─── Sign-off Footer ─── */}
-      <div className="mt-8 pt-4 border-t border-slate-300 grid grid-cols-3 text-center text-[9px] uppercase tracking-wider text-slate-500">
-        <div>
-          <p className="font-bold mb-8">Prepared By (Sales Consultant)</p>
-          <div className="border-t border-slate-400 w-32 mx-auto pt-1 font-bold text-slate-900">{rep.fullName}</div>
-        </div>
-        <div>
-          <p className="font-bold mb-8">Reviewed By (Sales Head / Manager)</p>
-          <div className="border-t border-slate-400 w-32 mx-auto pt-1 font-bold text-slate-900">Signature / Seal</div>
-        </div>
-        <div>
-          <p className="font-bold mb-8">Accounts & Finance Verification</p>
-          <div className="border-t border-slate-400 w-32 mx-auto pt-1 font-bold text-slate-900">Date & Stamp</div>
-        </div>
-      </div>
     </div>
   );
 });

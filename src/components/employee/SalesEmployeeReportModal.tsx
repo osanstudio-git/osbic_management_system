@@ -33,6 +33,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>(defaultTimeframe);
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
 
   // Sync selected rep if initialRep changes
   React.useEffect(() => {
@@ -189,9 +190,28 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
     return 'All Records';
   }, [dateFilter, customStart, customEnd]);
 
+  // Smart date and period based file naming
+  const getSmartFileName = (ext: 'pdf' | 'csv') => {
+    const rawName = activeRepData.employeeId === 'all-team' ? 'Team' : (activeRepData.fullName || 'Employee');
+    const nameStr = rawName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    let periodStr = '';
+    if (dateFilter === 'today') {
+      periodStr = format(new Date(), 'dd_MMM_yyyy');
+    } else if (dateFilter === 'week') {
+      periodStr = `This_Week_${format(new Date(), 'dd_MMM_yyyy')}`;
+    } else if (dateFilter === 'month') {
+      periodStr = format(new Date(), 'MMM_yyyy');
+    } else if (dateFilter === 'custom' && customStart && customEnd) {
+      periodStr = `${customStart}_to_${customEnd}`;
+    } else {
+      periodStr = 'All_Records';
+    }
+    return `OSBIC_${nameStr}_Sales_Report_${periodStr}.${ext}`;
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `OSBIC_${activeRepData.fullName.replace(/\s+/g, '_')}_Sales_Report_${format(new Date(), 'yyyyMMdd')}`,
+    documentTitle: getSmartFileName('pdf').replace('.pdf', ''),
   });
 
   // Export to CSV / Excel (Exact Match to User's Format)
@@ -278,7 +298,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvSections.join('\n'));
     const link = document.createElement('a');
     link.setAttribute('href', csvContent);
-    link.setAttribute('download', `OSBIC_${activeRepData.fullName.replace(/\s+/g, '_')}_Sales_Report_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+    link.setAttribute('download', getSmartFileName('csv'));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -355,7 +375,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
             {/* Step 1: Report Content Breakdown */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                1. Select Report Content Breakdown
+                1. Select Report Content
               </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <button
@@ -368,11 +388,11 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-bold text-xs text-foreground">Complete 360°</span>
-                    <Sparkles size={14} className={reportType === 'both' ? 'text-primary' : 'text-muted-foreground'} />
+                    <span className="font-bold text-xs text-foreground">Both (Sales & Leads)</span>
+                    <Layers size={14} className={reportType === 'both' ? 'text-primary' : 'text-muted-foreground'} />
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-snug">
-                    Both tables: Leads & Quotes funnel + Closed Sales & Revenue sheet
+                    Includes both Closed Sales table and Leads Pipeline
                   </p>
                 </button>
 
@@ -390,7 +410,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                     <DollarSign size={14} className={reportType === 'sales_revenue' ? 'text-emerald-500' : 'text-muted-foreground'} />
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-snug">
-                    Excel model: Client, Service, Amount, Gov, Profit, Balance, Mode
+                    Client, Service, Amount, Gov, Profit, Balance, Mode (Excel model)
                   </p>
                 </button>
 
@@ -408,7 +428,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                     <TrendingUp size={14} className={reportType === 'leads_quotes' ? 'text-sky-500' : 'text-muted-foreground'} />
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-snug">
-                    Inquiries, statuses, quoted values & expected margins
+                    Inquiries, quotation values, and statuses
                   </p>
                 </button>
               </div>
@@ -460,6 +480,40 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
               )}
             </div>
 
+            {/* Step 3: Print Orientation */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+                3. Print Orientation (PDF)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOrientation('landscape')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    orientation === 'landscape'
+                      ? 'bg-primary/10 border-primary text-primary shadow-sm ring-1 ring-primary/20'
+                      : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <span className="text-sm">▤</span>
+                  <span>Horizontal (Landscape)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOrientation('portrait')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    orientation === 'portrait'
+                      ? 'bg-primary/10 border-primary text-primary shadow-sm ring-1 ring-primary/20'
+                      : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <span className="text-sm">▥</span>
+                  <span>Vertical (Portrait)</span>
+                </button>
+              </div>
+            </div>
+
             {/* Live Data Summary Card */}
             <div className="p-4 rounded-xl border border-border/80 bg-muted/20 grid grid-cols-3 gap-3 text-center">
               <div>
@@ -504,12 +558,12 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                 className="px-5 py-2.5 rounded-xl bg-primary text-white font-extrabold text-xs hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 active:scale-95"
               >
                 <Printer size={14} />
-                <span>Download Landscape PDF</span>
+                <span>Download {orientation === 'landscape' ? 'Horizontal' : 'Vertical'} PDF</span>
               </button>
             </div>
           </div>
 
-          {/* Hidden Print Document (Horizontal Landscape) */}
+          {/* Hidden Print Document */}
           <div className="hidden">
             <SalesEmployeeReportDocument
               ref={printRef}
@@ -520,6 +574,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
               customStart={customStart}
               customEnd={customEnd}
               branchName={branchName}
+              orientation={orientation}
             />
           </div>
         </motion.div>
