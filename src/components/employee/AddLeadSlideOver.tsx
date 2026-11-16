@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users, 
   Calendar, Briefcase, Sparkles, AlertTriangle, UserCheck, 
-  Building2, Phone, Clock, Loader2, ShieldAlert
+  Building2, Phone, Clock, Loader2, ShieldAlert, Boxes
 } from 'lucide-react';
 import { useLeads, useCreateLead, useCheckDuplicateLead } from '../../hooks/shared/useLeads';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
+import { useAdminPackages } from '../../hooks/admin/useAdminPackages';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -32,7 +33,7 @@ interface Props {
 export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
   const { profile } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
-  const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
+  const [interestType, setInterestType] = useState<'service' | 'package' | 'custom'>('service');
   const [debouncedPhone, setDebouncedPhone] = useState('');
   const [debouncedName, setDebouncedName] = useState('');
   const [formData, setFormData] = useState({
@@ -45,6 +46,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
     custom_source_text: '',
     referral_name: '',
     selected_service_id: '',
+    selected_package_id: '',
     custom_service_name: '',
     is_custom_service: false,
     services: [] as string[],
@@ -58,6 +60,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
   const { useLeadSourcesList } = useLeads();
   const { data: sources } = useLeadSourcesList();
   const { data: servicesList } = useAdminServices();
+  const { data: packagesList } = useAdminPackages();
 
   const createLeadMutation = useCreateLead();
 
@@ -65,11 +68,19 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
   const isOtherSource = selectedSourceName === 'Other';
   const isReferralSource = selectedSourceName?.toLowerCase().includes('referral') ?? false;
 
+  const chosenService = servicesList?.find(s => s.id === formData.selected_service_id);
+  const chosenPackage = packagesList?.find(p => p.id === formData.selected_package_id);
+  const packageCalculatedPrice = chosenPackage
+    ? (chosenPackage.fixed_price != null 
+        ? Number(chosenPackage.fixed_price)
+        : (chosenPackage.services?.reduce((sum: number, s: any) => sum + (Number(s.service?.work_fee) || 0) + (Number(s.service?.ministry_fee) || 0), 0) || 0) * (1 - (chosenPackage.discount_percentage || 0) / 100))
+    : 0;
+
   // Reset form when opened/closed
   useEffect(() => {
     if (!isOpen) {
       setStep(1);
-      setIsSourceDropdownOpen(false);
+      setInterestType('service');
       setDebouncedPhone('');
       setDebouncedName('');
       setFormData({
@@ -82,6 +93,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
         custom_source_text: '',
         referral_name: '',
         selected_service_id: '',
+        selected_package_id: '',
         custom_service_name: '',
         is_custom_service: false,
         services: [],
@@ -167,22 +179,40 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       ? `[Custom Source: ${formData.custom_source_text.trim()}]\n${formData.notes}`
       : formData.notes;
 
-    const chosenService = servicesList?.find(s => s.id === formData.selected_service_id);
-    const resolvedServiceName = formData.is_custom_service
-      ? formData.custom_service_name.trim()
-      : (chosenService ? chosenService.name_en : '');
+    let resolvedServiceName = '';
+    let interestedServicesPayload: any[] | undefined = undefined;
+    let serviceIds: string[] = [];
 
-    const interestedServicesPayload = chosenService ? [{
-      id: chosenService.id,
-      name: chosenService.name_en,
-      price: (Number(chosenService.work_fee) || 0) + (Number(chosenService.ministry_fee) || 0)
-    }] : (resolvedServiceName ? [{
-      id: 'custom',
-      name: resolvedServiceName,
-      price: 0
-    }] : undefined);
-
-    const serviceIds = formData.selected_service_id ? [formData.selected_service_id] : [];
+    if (interestType === 'package' && chosenPackage) {
+      resolvedServiceName = chosenPackage.name_en;
+      interestedServicesPayload = [{
+        id: chosenPackage.id,
+        name: chosenPackage.name_en,
+        price: packageCalculatedPrice || 0,
+        type: 'package',
+        package_id: chosenPackage.id
+      }];
+      if (chosenPackage.services && chosenPackage.services.length > 0) {
+        serviceIds = chosenPackage.services.map((ps: any) => ps.service_id).filter(Boolean);
+      }
+    } else if (interestType === 'service' && chosenService) {
+      resolvedServiceName = chosenService.name_en;
+      interestedServicesPayload = [{
+        id: chosenService.id,
+        name: chosenService.name_en,
+        price: (Number(chosenService.work_fee) || 0) + (Number(chosenService.ministry_fee) || 0),
+        type: 'service'
+      }];
+      serviceIds = [chosenService.id];
+    } else if (interestType === 'custom' && formData.custom_service_name.trim()) {
+      resolvedServiceName = formData.custom_service_name.trim();
+      interestedServicesPayload = [{
+        id: 'custom',
+        name: resolvedServiceName,
+        price: 0,
+        type: 'custom'
+      }];
+    }
 
     createLeadMutation.mutate({
       contact_name: formData.contact_name,
@@ -192,6 +222,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
       services: serviceIds,
       service_required: resolvedServiceName || undefined,
       interested_services: interestedServicesPayload,
+      quoted_amount: interestType === 'package' && packageCalculatedPrice > 0 ? packageCalculatedPrice : undefined,
       created_at: formData.lead_date || undefined,
       contact_email: formData.contact_email || undefined,
       company_name: formData.company_name || undefined,
@@ -227,10 +258,10 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-full sm:w-[520px] bg-card border-l border-border shadow-2xl z-50 flex flex-col"
+            className="fixed inset-y-0 right-0 w-full sm:w-[540px] bg-card border-l border-border shadow-2xl z-50 flex flex-col max-h-screen"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border">
+            <div className="flex items-center justify-between p-6 border-b border-border shrink-0">
               <div>
                 <h2 className="text-xl font-syne font-bold text-foreground">Add New Lead</h2>
                 <p className="text-xs text-muted-foreground mt-1 font-medium">Step {step} of 2 — {step === 1 ? 'Required Details' : 'Optional Context'}</p>
@@ -240,8 +271,8 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
               </button>
             </div>
 
-            {/* Form Fields */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Form Fields - Smooth Scroll with Ample Bottom Spacing */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 overscroll-contain pb-24">
               {step === 1 ? (
                 /* STEP 1: REQUIRED + CORE DETAILS */
                 <div className="space-y-4">
@@ -491,95 +522,172 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
 
 
 
-                  {/* Interested Service (Optional) */}
+                  {/* Interested Service / Business Package / Custom Selector */}
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                      <Briefcase size={14} className="text-primary" />
-                      <span>Interested Service (Optional)</span>
-                    </label>
-                    <select
-                      value={formData.is_custom_service ? 'custom' : formData.selected_service_id}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === 'custom') {
-                          setFormData({
-                            ...formData,
-                            is_custom_service: true,
-                            selected_service_id: ''
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            is_custom_service: false,
-                            selected_service_id: val,
-                            custom_service_name: ''
-                          });
-                        }
-                      }}
-                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm"
-                    >
-                      <option value="" className="bg-card text-foreground">-- Select Interested Service (Optional) --</option>
-                      {servicesList?.map(svc => (
-                        <option key={svc.id} value={svc.id} className="bg-card text-foreground">
-                          {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''}
-                        </option>
-                      ))}
-                      <option value="custom" className="bg-card text-primary font-bold">+ Custom Service (Free Text)...</option>
-                    </select>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Briefcase size={14} className="text-primary" />
+                        <span>Interested Requirement (Optional)</span>
+                      </label>
+                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        {interestType === 'package' ? 'Business Package' : interestType === 'service' ? 'Individual Service' : 'Custom Requirement'}
+                      </span>
+                    </div>
 
-                    {formData.is_custom_service && (
+                    {/* 3-Way Segmented Selector: Service vs Package vs Custom */}
+                    <div className="grid grid-cols-3 p-1 bg-muted/40 rounded-xl border border-border mb-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInterestType('service');
+                          setFormData(prev => ({ ...prev, selected_package_id: '', is_custom_service: false }));
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                          interestType === 'service'
+                            ? 'bg-card text-primary shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Briefcase size={13} />
+                        <span>Service</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInterestType('package');
+                          setFormData(prev => ({ ...prev, selected_service_id: '', is_custom_service: false }));
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                          interestType === 'package'
+                            ? 'bg-card text-amber-400 shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Boxes size={13} />
+                        <span>Package</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInterestType('custom');
+                          setFormData(prev => ({ ...prev, selected_service_id: '', selected_package_id: '', is_custom_service: true }));
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                          interestType === 'custom'
+                            ? 'bg-card text-emerald-400 shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Sparkles size={13} />
+                        <span>Custom</span>
+                      </button>
+                    </div>
+
+                    {/* 1. Service Dropdown */}
+                    {interestType === 'service' && (
+                      <select
+                        value={formData.selected_service_id}
+                        onChange={e => setFormData({ ...formData, selected_service_id: e.target.value })}
+                        className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm cursor-pointer"
+                      >
+                        <option value="" className="bg-card text-foreground">-- Select Interested Service (Optional) --</option>
+                        {servicesList?.filter(s => s.is_active !== false).map(svc => (
+                          <option key={svc.id} value={svc.id} className="bg-card text-foreground">
+                            {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''} • {((Number(svc.work_fee) || 0) + (Number(svc.ministry_fee) || 0)).toFixed(3)} OMR
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* 2. Business Package Dropdown */}
+                    {interestType === 'package' && (
+                      <div className="space-y-2">
+                        <select
+                          value={formData.selected_package_id}
+                          onChange={e => setFormData({ ...formData, selected_package_id: e.target.value })}
+                          className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm cursor-pointer"
+                        >
+                          <option value="" className="bg-card text-foreground">-- Select Business Package (Optional) --</option>
+                          {packagesList?.filter(p => p.is_active !== false).map(pkg => {
+                            const pkgPrice = pkg.fixed_price != null 
+                              ? Number(pkg.fixed_price)
+                              : (pkg.services?.reduce((sum: number, s: any) => sum + (Number(s.service?.work_fee) || 0) + (Number(s.service?.ministry_fee) || 0), 0) || 0) * (1 - (pkg.discount_percentage || 0) / 100);
+                            return (
+                              <option key={pkg.id} value={pkg.id} className="bg-card text-foreground">
+                                📦 {pkg.name_en} {pkg.name_ar ? `(${pkg.name_ar})` : ''} {pkgPrice > 0 ? `• ${pkgPrice.toFixed(3)} OMR` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        {/* Selected Package Badge & Info Card */}
+                        {chosenPackage && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 3 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                                <Boxes size={16} />
+                              </div>
+                              <div>
+                                <p className="font-bold text-foreground text-xs">{chosenPackage.name_en}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {chosenPackage.services?.length ? `${chosenPackage.services.length} services bundled in package` : 'All-inclusive Business Bundle'}
+                                </p>
+                              </div>
+                            </div>
+                            {packageCalculatedPrice > 0 && (
+                              <span className="font-mono font-bold text-amber-400 bg-card px-2.5 py-1 rounded-lg border border-amber-500/30 text-xs shrink-0">
+                                {packageCalculatedPrice.toFixed(3)} OMR
+                              </span>
+                            )}
+                          </motion.div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 3. Custom Free-Text Requirement */}
+                    {interestType === 'custom' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="mt-2 space-y-1"
+                        className="space-y-1"
                       >
                         <input
                           type="text"
                           value={formData.custom_service_name}
                           onChange={e => setFormData({ ...formData, custom_service_name: e.target.value })}
-                          placeholder="e.g. Investor Visa, Company Liquidation, etc."
-                          className="w-full bg-white/5 border border-primary/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary transition-colors text-sm"
+                          placeholder="e.g. Investor Visa + CR Setup + PRO Bundle"
+                          className="w-full bg-white/5 border border-emerald-500/40 rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-emerald-500 transition-colors text-sm"
                           autoFocus
                         />
-                        <p className="text-[11px] text-muted-foreground">Specify the custom service requirement</p>
+                        <p className="text-[11px] text-muted-foreground">Specify the custom service or package requirement</p>
                       </motion.div>
                     )}
                   </div>
 
-                  <div className="relative">
+                  {/* Lead Source Selector - Bulletproof Native Select (Never cut off or trapped) */}
+                  <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">Source *</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
-                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-left text-foreground focus:outline-none focus:border-gold transition-colors flex items-center justify-between text-sm"
+                    <select
+                      value={formData.source_id}
+                      onChange={e => {
+                        setFormData({ ...formData, source_id: e.target.value, custom_source_text: '' });
+                      }}
+                      className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm cursor-pointer"
+                      required
                     >
-                      <span>{selectedSourceName || 'Select lead source'}</span>
-                      <ChevronDown size={16} className="text-muted-foreground" />
-                    </button>
-
-                    {isSourceDropdownOpen && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setIsSourceDropdownOpen(false)} 
-                        />
-                        <div className="absolute left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-50 py-1 max-h-48 overflow-y-auto">
-                          {sources?.map(source => (
-                            <button
-                              key={source.id}
-                              type="button"
-                              onClick={() => {
-                                setFormData({ ...formData, source_id: source.id, custom_source_text: '' });
-                                setIsSourceDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors block"
-                            >
-                              {source.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                      <option value="" className="bg-card text-foreground">-- Select Lead Source * --</option>
+                      {sources?.map(source => (
+                        <option key={source.id} value={source.id} className="bg-card text-foreground">
+                          {source.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {isOtherSource && (
@@ -684,7 +792,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
             </div>
 
             {/* Footer Buttons */}
-            <div className="p-6 border-t border-border flex gap-3">
+            <div className="p-6 border-t border-border flex gap-3 bg-card shrink-0">
               {step === 1 ? (
                 <>
                   <button

@@ -367,38 +367,64 @@ export default function EmployeeLeads() {
   return (
     <div className="space-y-6 pb-24 max-w-[1650px] mx-auto p-4 sm:p-6 lg:p-8">
       {/* Top Banner / Sales Head Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+      <div className="bg-card border border-border rounded-[2.2rem] p-6 sm:p-7 shadow-2xl relative overflow-hidden space-y-5">
         <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
           <Zap size={160} className="text-primary" />
         </div>
         
-        <div className="relative z-10 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-primary/20">
-              Sales Portal 2.0
-            </span>
-            {isSalesHead && (
-              <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-amber-500/20 flex items-center gap-1">
-                <Crown size={12} /> Sales Head View
+        {/* Tier 1: Page Identity & Primary Action Buttons (Always Prominent & First) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-primary/20">
+                Sales Portal 2.0
               </span>
-            )}
-            {canAssignLeads && !isSalesHead && (
-              <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-indigo-500/20 flex items-center gap-1">
-                <Target size={12} /> Lead Coordinator
-              </span>
-            )}
+              {isSalesHead && (
+                <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-amber-500/20 flex items-center gap-1">
+                  <Crown size={12} /> Sales Head View
+                </span>
+              )}
+              {canAssignLeads && !isSalesHead && (
+                <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-indigo-500/20 flex items-center gap-1">
+                  <Target size={12} /> Lead Coordinator
+                </span>
+              )}
+            </div>
+            
+            <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground">
+              {isSalesHead ? 'Team Sales Pipeline' : 'My Sales Workspace'}
+            </h1>
+            <p className="text-muted-foreground text-xs sm:text-sm max-w-xl">
+              Single living deal row from initial inquiry to closed sale. Real-time follow-up radar, automatic net profit calculation.
+            </p>
           </div>
-          
-          <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground">
-            {isSalesHead ? 'Team Sales Pipeline' : 'My Sales Workspace'}
-          </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm max-w-xl">
-            Single living deal row from initial inquiry to closed sale. Real-time follow-up radar, automatic net profit calculation.
-          </p>
 
-          {/* Sales Head Team Rep Switcher */}
-          {isSalesHead && (
-            <div className="pt-2 flex flex-wrap items-center gap-3">
+          {/* Primary Call-to-Actions (Add Lead is Top Priority) */}
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => setIsAddOpen(true)}
+              className="bg-primary text-[#0A0F1E] font-extrabold px-6 py-3.5 rounded-xl hover:shadow-xl hover:shadow-gold/30 active:scale-95 transition-all flex items-center gap-2.5 text-sm shadow-md shadow-gold/15"
+            >
+              <Plus size={19} className="stroke-[2.5]" />
+              <span>Add Lead</span>
+            </button>
+
+            <button
+              onClick={() => setIsRecordSaleOpen(true)}
+              className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold px-4 py-3.5 rounded-xl hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2 text-sm"
+              title="Record New Sale or Past Backlog Transaction"
+            >
+              <DollarSign size={18} />
+              <span>Record Sale / Backlog</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tier 2: Rep Controls & Auxiliary Utility Toolbar */}
+        <div className="pt-4 border-t border-border/60 flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative z-10">
+          {/* Left: Rep Switcher (if Sales Head) or Info */}
+          {isSalesHead ? (
+            <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Viewing Rep:
               </span>
@@ -406,7 +432,7 @@ export default function EmployeeLeads() {
                 <select
                   value={selectedRepId}
                   onChange={e => setSelectedRepId(e.target.value)}
-                  className="bg-muted/80 border border-primary/40 text-foreground font-bold text-xs px-4 py-2 rounded-xl outline-none shadow-sm cursor-pointer hover:border-primary transition-all"
+                  className="bg-muted/80 border border-primary/40 text-foreground font-bold text-xs px-3.5 py-2 rounded-xl outline-none shadow-sm cursor-pointer hover:border-primary transition-all max-w-[240px] truncate"
                 >
                   <option value="all">All Sales Reps (Whole Team)</option>
                   {salesReps.map(rep => (
@@ -427,80 +453,67 @@ export default function EmployeeLeads() {
                 </button>
               </div>
             </div>
+          ) : (
+            <div className="text-xs text-muted-foreground font-medium">
+              Real-time consultant pipeline & living deal updates
+            </div>
           )}
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 relative z-10 shrink-0 flex-wrap">
-          <button 
-            onClick={() => refetch()}
-            className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border"
-            title="Refresh Deals"
-          >
-            <RefreshCw size={16} />
-          </button>
-          
-          <button
-            onClick={() => setIsDailySheetOpen(true)}
-            className="p-3 rounded-2xl bg-muted/50 hover:bg-white/10 text-foreground border border-border transition-all flex items-center gap-2 text-xs font-bold shadow-sm active:scale-95"
-            title="Open Daily Sales Sheet (DSR)"
-          >
-            <FileSpreadsheet size={16} />
-            <span>Daily Sheet</span>
-          </button>
-
-          <button
-            onClick={() => setIsExportCenterOpen(true)}
-            className="p-3 rounded-2xl bg-gradient-to-r from-primary/10 to-gold/20 hover:from-primary/20 hover:to-gold/30 text-primary border border-primary/40 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-gold/10 active:scale-95"
-            title="1-Click Multi-Role Export Center (Excel, CSV, PDF)"
-          >
-            <Download size={16} />
-            <span>1-Click Export Center</span>
-          </button>
-
-          {(isSalesHead || canAssignLeads) && (
+          {/* Right: Auxiliary Utility Tools */}
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => setIsLeadDistributionHubOpen(true)}
-              className="p-3 rounded-2xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-indigo-500/10 active:scale-95"
-              title="Open Lead Assignment & Distribution Hub"
+              onClick={() => setIsDailySheetOpen(true)}
+              className="p-2.5 px-3 rounded-xl bg-muted/50 hover:bg-white/10 text-foreground border border-border transition-all flex items-center gap-2 text-xs font-bold shadow-sm active:scale-95"
+              title="Open Daily Sales Sheet (DSR)"
             >
-              <Target size={16} />
-              <span>Lead Assignment Hub</span>
-              {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
-                  {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length}
-                </span>
-              )}
+              <FileSpreadsheet size={15} />
+              <span>Daily Sheet</span>
             </button>
-          )}
 
-          {isSalesHead && (
-            <Link
-              to="/employee/sales-team-reports"
-              className="p-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-amber-500/10 active:scale-95"
-              title="Sales Team Performance & Reports"
+            <button
+              onClick={() => setIsExportCenterOpen(true)}
+              className="p-2.5 px-3 rounded-xl bg-gradient-to-r from-primary/10 to-gold/20 hover:from-primary/20 hover:to-gold/30 text-primary border border-primary/40 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-gold/10 active:scale-95"
+              title="1-Click Multi-Role Export Center (Excel, CSV, PDF)"
             >
-              <BarChart3 size={16} />
-              <span>Team Reports</span>
-            </Link>
-          )}
+              <Download size={15} />
+              <span>1-Click Export Center</span>
+            </button>
 
-          <button
-            onClick={() => setIsRecordSaleOpen(true)}
-            className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold px-4 py-3 rounded-xl hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 transition-all flex items-center gap-2 text-sm"
-            title="Record New Sale or Past Backlog Transaction"
-          >
-            <DollarSign size={18} />
-            <span>Record Sale / Backlog</span>
-          </button>
+            {(isSalesHead || canAssignLeads) && (
+              <button
+                onClick={() => setIsLeadDistributionHubOpen(true)}
+                className="p-2.5 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-indigo-500/10 active:scale-95"
+                title="Open Lead Assignment & Distribution Hub"
+              >
+                <Target size={15} />
+                <span>Lead Assignment Hub</span>
+                {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
+                    {(leads || []).filter(l => !l.assigned_to && l.status !== 'converted' && l.status !== 'cancelled' && l.status !== 'lost').length}
+                  </span>
+                )}
+              </button>
+            )}
 
-          <button
-            onClick={() => setIsAddOpen(true)}
-            className="bg-primary text-[#0A0F1E] font-bold px-5 py-3 rounded-xl hover:shadow-lg hover:shadow-gold/20 active:scale-95 transition-all flex items-center gap-2 text-sm"
-          >
-            <Plus size={18} />
-            <span>Add Lead</span>
-          </button>
+            {isSalesHead && (
+              <Link
+                to="/employee/sales-team-reports"
+                className="p-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-2 text-xs font-bold shadow-md shadow-amber-500/10 active:scale-95"
+                title="Sales Team Performance & Reports"
+              >
+                <BarChart3 size={15} />
+                <span>Team Reports</span>
+              </Link>
+            )}
+
+            <button 
+              onClick={() => refetch()}
+              className="p-2.5 rounded-xl bg-muted/50 hover:bg-white/10 text-foreground transition-all border border-border"
+              title="Refresh Deals"
+            >
+              <RefreshCw size={15} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -769,9 +782,19 @@ export default function EmployeeLeads() {
         </div>
 
         {/* Search, Filter Panel & View Mode Toggle */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
+          {/* Quick Add Lead Button */}
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-primary text-[#0A0F1E] font-extrabold px-3.5 py-2 rounded-xl hover:shadow-md hover:shadow-gold/20 active:scale-95 transition-all flex items-center gap-1.5 text-xs shrink-0"
+            title="Register a new lead opportunity"
+          >
+            <Plus size={15} className="stroke-[2.5]" />
+            <span>Add Lead</span>
+          </button>
+
           {/* Search Input */}
-          <div className="relative flex-1 md:w-64">
+          <div className="relative flex-1 min-w-[200px] md:w-64">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
             <input
               type="text"
