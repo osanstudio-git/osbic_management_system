@@ -368,6 +368,7 @@ export const useUploadMultipleServiceDocuments = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["job_services", variables.jobId] });
       queryClient.invalidateQueries({ queryKey: ["client", "documents"] });
+      queryClient.invalidateQueries({ queryKey: ["ops_my_tasks"] });
     },
   });
 };
@@ -416,6 +417,7 @@ export const useDeleteJobServiceDocument = () => {
     onSuccess: (_data, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["job_services"] });
       queryClient.invalidateQueries({ queryKey: ["client", "documents"] });
+      queryClient.invalidateQueries({ queryKey: ["ops_my_tasks"] });
     },
   });
 };

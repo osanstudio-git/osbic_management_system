@@ -3,14 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
-import { useMyOpsTasks, useUpdateServiceStatus, type StatusUpdatePayload } from '../../hooks/employee/useTimeline';
+import { useMyOpsTasks, useUpdateServiceStatus, type StatusUpdatePayload, useDelegatedByMeTasks, useOpsCoworkers } from '../../hooks/employee/useTimeline';
 import { useUploadMultipleServiceDocuments, useDeleteJobServiceDocument } from '../../hooks/employee/useJobServices';
+import { DelegateTaskModal } from '../../components/employee/DelegateTaskModal';
 import {
   Clock, CheckCircle2, AlertCircle, Shield, ExternalLink,
   ChevronRight, ChevronDown, X, FileText, Phone, Building2, Calendar,
   Layers, Users, Info, Upload, Download, Eye, Trash2, Paperclip, Loader2,
   Check, Wallet, Sparkles, Search, Filter, LayoutGrid, List, MessageSquare,
-  ArrowDownWideNarrow, ArrowUpNarrowWide
+  ArrowDownWideNarrow, ArrowUpNarrowWide, Receipt, RefreshCw, ArrowRightLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -85,9 +86,15 @@ const StatusUpdateSheet = ({
   const [proNotes, setProNotes] = useState(task.pro_notes || '');
   const [pros, setPros] = useState<any[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [actualFee, setActualFee] = useState('');
+  const [actualFee, setActualFee] = useState(() => {
+    if (task.gov_fee_actual_paid != null) return String(task.gov_fee_actual_paid);
+    if (task.ministry_fee != null && Number(task.ministry_fee) > 0) return String(task.ministry_fee);
+    return '';
+  });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [paidByClient, setPaidByClient] = useState(task.notes?.includes('[PAID BY CLIENT CARD]') || false);
+  const [paidByClient, setPaidByClient] = useState(
+    task.gov_payment_status === 'client_paid' || task.notes?.includes('[PAID BY CLIENT CARD]') || false
+  );
 
   const { mutateAsync: updateStatus, isPending } = useUpdateServiceStatus();
   const uploadMutation = useUploadMultipleServiceDocuments();
@@ -120,20 +127,41 @@ const StatusUpdateSheet = ({
     e.preventDefault();
     try {
       let receiptUrl: string | null = null;
+      const targetJobId = task.job_id || task.job?.id || 'general';
       if (receiptFile) {
         const fileExt = receiptFile.name.split('.').pop() || 'pdf';
-        const filePath = `${task.job_id || task.job?.id}/receipt_${Date.now()}.${fileExt}`;
+        const fileName = `${targetJobId}/${task.id}/${Date.now()}_gov_receipt.${fileExt}`;
+        const filePath = `documents/${fileName}`;
         const { error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, receiptFile);
         if (!uploadError) {
           receiptUrl = filePath;
+
+          if (profile) {
+            await supabase.from('job_service_documents').insert({
+              job_service_id: task.id,
+              job_id: targetJobId,
+              document_name: `Government Receipt - ${task.service_name || task.service?.name_en || 'Service'}`,
+              file_name: receiptFile.name,
+              file_path: filePath,
+              file_size: receiptFile.size,
+              file_type: receiptFile.type,
+              uploaded_by: profile.id,
+              upload_source: 'ops',
+              document_category: 'output',
+              notes: 'gov_receipt',
+              status: 'approved',
+              is_client_visible: true,
+              created_at: new Date().toISOString()
+            } as any);
+          }
         }
       }
 
       await updateStatus({
         jobServiceId: task.id,
-        jobId: task.job_id || task.job?.id,
+        jobId: targetJobId,
         fromStatus: task.status,
         toStatus: newStatus,
         serviceName: task.service_name || task.service?.name_en,
@@ -146,16 +174,37 @@ const StatusUpdateSheet = ({
         issueDate: issueDate || undefined,
         expiryDate: expiryDate || undefined,
         completedDate: newStatus === 'completed' ? completedDate : undefined,
+        govFeeActualPaid: actualFee !== '' && !isNaN(Number(actualFee)) ? Number(actualFee) : undefined,
+        govReceiptUrl: receiptUrl || undefined,
+        paidByClient,
       });
+
+      // Direct sync to job_services for immediate UI responsiveness
+      const jsUpdates: any = {};
+      if (actualFee !== '' && !isNaN(Number(actualFee))) {
+        jsUpdates.gov_fee_actual_paid = Number(actualFee);
+        jsUpdates.gov_paid_at = new Date().toISOString();
+        jsUpdates.gov_paid_by = profile?.id;
+        jsUpdates.gov_payment_status = paidByClient ? 'client_paid' : 'paid';
+      }
+      if (receiptUrl) {
+        jsUpdates.gov_receipt_url = receiptUrl;
+      }
+      if (Object.keys(jsUpdates).length > 0) {
+        await supabase
+          .from('job_services')
+          .update(jsUpdates)
+          .eq('id', task.id);
+      }
 
       if (actualFee && Number(actualFee) > 0 && profile) {
         await supabase.from('job_expenses').insert({
-          job_id: task.job_id,
+          job_id: targetJobId,
           job_service_id: task.id,
           amount: Number(actualFee),
           expense_type: 'ministry_fee',
-          receipt_url: receiptUrl,
-          notes: paidByClient ? 'Paid with client card' : (reason ? `Logged via status update: ${reason}` : 'Ministry fee logged via status update'),
+          receipt_url: receiptUrl || task.gov_receipt_url || null,
+          notes: paidByClient ? 'Paid with client card (Direct Pay)' : (reason ? `Logged via status update: ${reason}` : 'Ministry fee logged via status update'),
           created_by: profile.id,
           status: 'pending_approval'
         });
@@ -322,6 +371,106 @@ const StatusUpdateSheet = ({
             />
           </div>
 
+          {/* 🏛️ Government Fee & Government Receipt (Optional) */}
+          <div className="space-y-3 p-3.5 rounded-2xl bg-primary/5 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
+                <Receipt size={13} className="text-primary" />
+                <span>{isRtl ? 'الرسوم الحكومية وإيصال الدفع (اختياري)' : 'Government Fee & Receipt (Optional)'}</span>
+              </label>
+              {task.ministry_fee != null && Number(task.ministry_fee) > 0 && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {isRtl ? 'المقدر:' : 'Est:'} {Number(task.ministry_fee).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                </span>
+              )}
+            </div>
+
+            {/* Direct Pay with Client Card Checkbox */}
+            <label className="flex items-center gap-2 py-1.5 px-3 bg-background/80 hover:bg-background rounded-xl border border-border cursor-pointer select-none transition-all">
+              <input
+                type="checkbox"
+                checked={paidByClient}
+                onChange={e => setPaidByClient(e.target.checked)}
+                className="w-4 h-4 rounded accent-primary bg-card border-border cursor-pointer"
+              />
+              <span className="text-[11px] font-semibold text-foreground">
+                {isRtl ? 'تم الدفع مباشرة ببطاقة العميل البنكية (دفع مباشر)' : 'Paid directly using client card (Direct Pay)'}
+              </span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Actual Gov Fee */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'المبلغ الحكومي الفعلي' : 'Actual Gov Fee'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={actualFee}
+                    onChange={e => {
+                      const text = e.target.value;
+                      if (/^\d*\.?\d*$/.test(text)) {
+                        setActualFee(text);
+                      }
+                    }}
+                    placeholder={task.ministry_fee ? String(task.ministry_fee) : '0.000'}
+                    className="w-full bg-card border border-border focus:border-primary rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none transition-all font-mono"
+                  />
+                  <span className={`absolute ${isRtl ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground font-mono pointer-events-none`}>
+                    {isRtl ? 'ر.ع.' : 'OMR'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Gov Receipt Upload */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'إيصال الدفع الحكومي' : 'Government Receipt'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="sheet_gov_receipt_upload"
+                    className="hidden"
+                    onChange={e => setReceiptFile(e.target.files?.[0] || null)}
+                    accept="image/*,.pdf"
+                  />
+                  <label
+                    htmlFor="sheet_gov_receipt_upload"
+                    className="w-full bg-card border border-border hover:border-primary/50 rounded-xl px-3 py-2 text-xs text-foreground flex items-center justify-between cursor-pointer transition-all truncate"
+                  >
+                    <span className="truncate text-muted-foreground font-mono text-[11px]">
+                      {receiptFile 
+                        ? receiptFile.name 
+                        : (task.gov_receipt_url ? (isRtl ? '✓ إيصال مرفق (انقر للتغيير)' : '✓ Receipt attached (Change)') : (isRtl ? 'إرفاق إيصال (صورة/PDF)...' : 'Upload Receipt (PDF/Img)...'))}
+                    </span>
+                    <Upload size={13} className="text-primary shrink-0 ml-1.5" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Receipt Selected Badge & Clear */}
+            {receiptFile && (
+              <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-primary/30 text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <span className="font-mono text-[11px] truncate text-foreground">{receiptFile.name}</span>
+                  <span className="text-[10px] text-muted-foreground">({(receiptFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReceiptFile(null)}
+                  className="p-1 text-muted-foreground hover:text-rose-500 transition-colors shrink-0 ml-2"
+                  title="Remove"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
               {isRtl ? 'ملاحظات وتفاصيل التحديث' : 'Status Notes / Next Steps'}
@@ -364,15 +513,23 @@ const TaskRow = ({
   task,
   onUpdate,
   onOpenBriefing,
+  isDelegatedOutView = false,
 }: {
   task: any;
   onUpdate: () => void;
   onOpenBriefing?: (jobId: string, serviceId?: string) => void;
+  isDelegatedOutView?: boolean;
 }) => {
   const { profile } = useAuth();
+  const { i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
+  const { data: coworkers = [] } = useOpsCoworkers();
   const [showDocs, setShowDocs] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [replacingDocId, setReplacingDocId] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const cfg = getStatusConfig(task.status);
   const uploadMutation = useUploadMultipleServiceDocuments();
@@ -380,6 +537,11 @@ const TaskRow = ({
 
   const isLocked = task.job?.status === 'on_hold' && task.job?.notes?.includes('[LOCKED_MINISTRY_FEE]');
   const assignedByName = task.assigner?.full_name || task.job?.assigned_by_profile?.full_name;
+
+  const delegator = task.delegated_by ? coworkers.find((c) => c.id === task.delegated_by) : null;
+  const delegatorName = delegator?.full_name;
+  const currentOps = task.ops_employee_id ? coworkers.find((c) => c.id === task.ops_employee_id) : null;
+  const currentOpsName = task.ops_employee?.full_name || currentOps?.full_name;
 
   const docs = task.documents || [];
   const inputs = docs.filter((d: any) => d.document_category === 'input');
@@ -412,6 +574,93 @@ const TaskRow = ({
     }
   };
 
+  const handleReplaceDoc = async (doc: any, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    setReplacingDocId(doc.id);
+    const toastId = toast.loading(isRtl ? 'جاري استبدال المستند...' : 'Replacing document...');
+    try {
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `${task.job_id}/${task.id}/${Date.now()}_${sanitizedName}`;
+
+      // 1. Upload replacement to Supabase storage
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+      if (storageError) throw storageError;
+
+      // 2. Remove old storage file if existed
+      if (doc.file_path) {
+        await supabase.storage.from('documents').remove([doc.file_path]).catch(() => {});
+      }
+
+      // 3. Update job_service_documents record
+      const isInput = doc.document_category === 'input';
+      const { error: dbError } = await (supabase
+        .from('job_service_documents') as any)
+        .update({
+          file_name: file.name,
+          ...(isInput ? {} : { document_name: file.name.replace(/\.[^/.]+$/, "") }),
+          file_path: filePath,
+          file_size: file.size,
+          file_type: file.type,
+          uploaded_by: profile.id,
+          upload_source: 'ops',
+          status: 'approved',
+          is_client_visible: true,
+          created_at: new Date().toISOString()
+        })
+        .eq('id', doc.id);
+      if (dbError) throw dbError;
+
+      // 4. Sync gov_receipt_url if this was the attached government receipt
+      if (task.gov_receipt_url === doc.file_path) {
+        await (supabase.from('job_services') as any)
+          .update({ gov_receipt_url: filePath })
+          .eq('id', task.id);
+      }
+
+      toast.success(isRtl ? 'تم استبدال المستند بنجاح' : 'Document replaced successfully', { id: toastId });
+      onUpdate();
+    } catch (err: any) {
+      console.error('Error replacing doc:', err);
+      toast.error(err.message || 'Failed to replace document', { id: toastId });
+    } finally {
+      setReplacingDocId(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDoc = async (doc: any) => {
+    const docTitle = doc.document_name || doc.file_name || 'this document';
+    const confirmMsg = isRtl
+      ? `هل أنت متأكد من حذف "${docTitle}"؟`
+      : `Are you sure you want to delete "${docTitle}"?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingDocId(doc.id);
+    const toastId = toast.loading(isRtl ? 'جاري حذف المستند...' : 'Deleting document...');
+    try {
+      await deleteMutation.mutateAsync({ id: doc.id, filePath: doc.file_path });
+
+      // If this document was set as the task's gov_receipt_url, clear it from job_services
+      if (task.gov_receipt_url === doc.file_path) {
+        await (supabase.from('job_services') as any)
+          .update({ gov_receipt_url: null })
+          .eq('id', task.id);
+      }
+
+      toast.success(isRtl ? 'تم حذف المستند بنجاح' : 'Document removed successfully', { id: toastId });
+      onUpdate();
+    } catch (err: any) {
+      console.error('Error deleting doc:', err);
+      toast.error(err.message || 'Failed to delete document', { id: toastId });
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+
   const handleViewDoc = async (doc: any) => {
     try {
       const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 3600);
@@ -439,6 +688,24 @@ const TaskRow = ({
             {task.service?.requires_pro && (
               <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-400/20">
                 <Shield size={10} /> PRO Required
+              </span>
+            )}
+            {delegatorName && !isDelegatedOutView && (
+              <span
+                className="text-[9px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0"
+                title={task.delegation_notes ? `Note: ${task.delegation_notes}` : undefined}
+              >
+                <ArrowRightLeft size={9} />
+                <span>{isRtl ? `مفوضة من ${delegatorName}` : `Delegated by ${delegatorName}`}</span>
+              </span>
+            )}
+            {isDelegatedOutView && currentOpsName && (
+              <span
+                className="text-[9px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0"
+                title={task.delegation_notes ? `Note: ${task.delegation_notes}` : undefined}
+              >
+                <ArrowRightLeft size={9} />
+                <span>{isRtl ? `مسندة حالياً إلى ${currentOpsName}` : `Assigned to ${currentOpsName}`}</span>
               </span>
             )}
             {isLocked ? (
@@ -478,6 +745,15 @@ const TaskRow = ({
             )}
           </div>
 
+          {task.delegation_notes && (
+            <div className="text-[11px] text-blue-400/90 italic flex items-center gap-1.5 bg-blue-500/5 px-2.5 py-1 rounded-lg border border-blue-500/15 mt-1.5">
+              <span className="font-bold text-[9px] uppercase tracking-wider not-italic text-blue-400">
+                {isRtl ? 'ملاحظة التسليم:' : 'Handoff note:'}
+              </span>
+              <span>"{task.delegation_notes}"</span>
+            </div>
+          )}
+
           {/* Deliverables quick pills */}
           {outputs.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -514,16 +790,30 @@ const TaskRow = ({
             </button>
           )}
 
-          {task.status !== 'completed' && task.status !== 'cancelled' && !isLocked && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSheet(true);
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all border border-primary/25"
-            >
-              <span>Update</span>
-            </button>
+          {task.status !== 'completed' && task.status !== 'cancelled' && !isLocked && !isDelegatedOutView && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSheet(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all border border-primary/25"
+              >
+                <span>{isRtl ? 'تحديث' : 'Update'}</span>
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDelegateModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold transition-all border border-blue-500/25"
+                title={isRtl ? 'تفويض المهمة إلى زميل آخر' : 'Delegate task to a coworker'}
+              >
+                <ArrowRightLeft size={11} />
+                <span>{isRtl ? 'تفويض' : 'Delegate'}</span>
+              </button>
+            </>
           )}
 
           <button
@@ -558,7 +848,7 @@ const TaskRow = ({
                 {inputs.map((doc: any) => {
                   const hasFile = !!doc.file_path;
                   return (
-                    <div key={doc.id} className="flex items-center justify-between p-2.5 bg-card border border-border/40 rounded-xl text-xs">
+                    <div key={doc.id} className="flex items-center justify-between p-2.5 bg-card border border-border/40 rounded-xl text-xs hover:border-border transition-all">
                       <div className="min-w-0 pr-2">
                         <p className="font-bold text-foreground truncate">{doc.document_name}</p>
                         {hasFile ? (
@@ -567,11 +857,72 @@ const TaskRow = ({
                           <p className="text-[9px] text-muted-foreground/60 italic">Not Uploaded</p>
                         )}
                       </div>
-                      {hasFile && (
-                        <button onClick={() => handleViewDoc(doc)} className="p-1.5 bg-muted hover:bg-muted/70 text-muted-foreground rounded-lg transition-colors">
-                          <Eye size={12} />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {hasFile && (
+                          <button
+                            type="button"
+                            onClick={() => handleViewDoc(doc)}
+                            title={isRtl ? 'معاينة المستند' : 'Preview Document'}
+                            className="p-1.5 bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                          >
+                            <Eye size={12} />
+                          </button>
+                        )}
+                        {hasFile ? (
+                          <>
+                            <label
+                              title={isRtl ? 'استبدال / إعادة الرفع' : 'Re-upload / Replace'}
+                              className={`p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 rounded-lg transition-colors cursor-pointer ${
+                                replacingDocId === doc.id ? 'opacity-50 pointer-events-none' : ''
+                              }`}
+                            >
+                              {replacingDocId === doc.id ? (
+                                <Loader2 size={12} className="animate-spin text-amber-400" />
+                              ) : (
+                                <RefreshCw size={12} />
+                              )}
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleReplaceDoc(doc, e)}
+                                disabled={replacingDocId === doc.id || deletingDocId === doc.id}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDoc(doc)}
+                              disabled={deletingDocId === doc.id || replacingDocId === doc.id}
+                              title={isRtl ? 'حذف المستند' : 'Remove Document'}
+                              className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              {deletingDocId === doc.id ? (
+                                <Loader2 size={12} className="animate-spin text-rose-400" />
+                              ) : (
+                                <Trash2 size={12} />
+                              )}
+                            </button>
+                          </>
+                        ) : (
+                          <label
+                            title={isRtl ? 'رفع المستند' : 'Upload Document'}
+                            className={`p-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors cursor-pointer ${
+                              replacingDocId === doc.id ? 'opacity-50 pointer-events-none' : ''
+                            }`}
+                          >
+                            {replacingDocId === doc.id ? (
+                              <Loader2 size={12} className="animate-spin text-primary" />
+                            ) : (
+                              <Upload size={12} />
+                            )}
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => handleReplaceDoc(doc, e)}
+                              disabled={replacingDocId === doc.id}
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -604,14 +955,54 @@ const TaskRow = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {outputs.map((doc: any) => (
-                  <div key={doc.id} className="flex items-center justify-between p-2.5 bg-card border border-border/40 rounded-xl text-xs">
+                  <div key={doc.id} className="flex items-center justify-between p-2.5 bg-card border border-border/40 rounded-xl text-xs hover:border-border transition-all">
                     <div className="min-w-0 pr-2">
                       <p className="font-bold text-foreground truncate">{doc.document_name || doc.file_name}</p>
                       <p className="text-[9px] text-emerald-400 font-bold">✓ Ready for client</p>
                     </div>
-                    <button onClick={() => handleViewDoc(doc)} className="p-1.5 bg-muted hover:bg-muted/70 text-muted-foreground rounded-lg transition-colors">
-                      <Eye size={12} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleViewDoc(doc)}
+                        title={isRtl ? 'معاينة المستند' : 'Preview Document'}
+                        className="p-1.5 bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                      >
+                        <Eye size={12} />
+                      </button>
+
+                      <label
+                        title={isRtl ? 'استبدال / إعادة الرفع' : 'Re-upload / Replace'}
+                        className={`p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 rounded-lg transition-colors cursor-pointer ${
+                          replacingDocId === doc.id ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        {replacingDocId === doc.id ? (
+                          <Loader2 size={12} className="animate-spin text-amber-400" />
+                        ) : (
+                          <RefreshCw size={12} />
+                        )}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleReplaceDoc(doc, e)}
+                          disabled={replacingDocId === doc.id || deletingDocId === doc.id}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDoc(doc)}
+                        disabled={deletingDocId === doc.id || replacingDocId === doc.id}
+                        title={isRtl ? 'حذف المستند' : 'Remove Document'}
+                        className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deletingDocId === doc.id ? (
+                          <Loader2 size={12} className="animate-spin text-rose-400" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {outputs.length === 0 && (
@@ -636,6 +1027,13 @@ const TaskRow = ({
           />
         )}
       </AnimatePresence>
+
+      <DelegateTaskModal
+        task={task}
+        isOpen={showDelegateModal}
+        onClose={() => setShowDelegateModal(false)}
+        onSuccess={onUpdate}
+      />
     </div>
   );
 };
@@ -645,11 +1043,13 @@ const TaskRow = ({
 const GroupedJobCard = ({
   group,
   onUpdate,
-  onOpenBriefing
+  onOpenBriefing,
+  isDelegatedOutView = false,
 }: {
   group: any;
   onUpdate: () => void;
   onOpenBriefing?: (jobId: string, serviceId?: string) => void;
+  isDelegatedOutView?: boolean;
 }) => {
   const navigate = useNavigate();
 
@@ -737,6 +1137,7 @@ const GroupedJobCard = ({
             task={task}
             onUpdate={onUpdate}
             onOpenBriefing={onOpenBriefing}
+            isDelegatedOutView={isDelegatedOutView}
           />
         ))}
       </div>
@@ -746,12 +1147,18 @@ const GroupedJobCard = ({
 
 // ─── Main MyTasks Page ─────────────────────────────────────────────────────────
 
-type FilterTab = 'all' | 'urgent' | 'on_hold' | 'completed';
+type FilterTab = 'all' | 'urgent' | 'on_hold' | 'completed' | 'delegated_out';
 type DoneDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'custom';
 
 const MyTasks: React.FC = () => {
   const { profile } = useAuth();
   const { data: tasks = [], isLoading, refetch } = useMyOpsTasks(profile?.id || null);
+  const { data: delegatedOutTasks = [], refetch: refetchDelegatedOut } = useDelegatedByMeTasks(profile?.id || null);
+
+  const handleRefreshAll = () => {
+    refetch();
+    refetchDelegatedOut();
+  };
   const [filter, setFilter] = useState<FilterTab>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [briefingJobId, setBriefingJobId] = useState<string | null>(null);
@@ -933,6 +1340,7 @@ const MyTasks: React.FC = () => {
       case 'urgent': return urgent;
       case 'on_hold': return onHold;
       case 'completed': return filteredDoneTasks;
+      case 'delegated_out': return delegatedOutTasks;
       default: return active;
     }
   };
@@ -1013,6 +1421,7 @@ const MyTasks: React.FC = () => {
     { key: 'urgent', label: isRtl ? 'عاجل' : 'Urgent', count: urgent.length, color: 'text-yellow-400' },
     { key: 'on_hold', label: isRtl ? 'متوقف مؤقتاً' : 'On Hold', count: onHold.length, color: 'text-red-400' },
     { key: 'completed', label: isRtl ? 'مكتمل' : 'Done', count: done.length },
+    { key: 'delegated_out', label: isRtl ? 'مفوضة للزملاء' : 'Delegated Out', count: delegatedOutTasks.length, color: 'text-blue-400' },
   ];
 
   if (isLoading) {
@@ -1133,7 +1542,7 @@ const MyTasks: React.FC = () => {
                       <GroupedJobCard
                         key={group.jobId}
                         group={group}
-                        onUpdate={refetch}
+                        onUpdate={handleRefreshAll}
                         onOpenBriefing={handleOpenBriefing}
                       />
                     ))}
@@ -1152,7 +1561,7 @@ const MyTasks: React.FC = () => {
                       <GroupedJobCard
                         key={group.jobId}
                         group={group}
-                        onUpdate={refetch}
+                        onUpdate={handleRefreshAll}
                         onOpenBriefing={handleOpenBriefing}
                       />
                     ))}
@@ -1171,7 +1580,7 @@ const MyTasks: React.FC = () => {
                       <GroupedJobCard
                         key={group.jobId}
                         group={group}
-                        onUpdate={refetch}
+                        onUpdate={handleRefreshAll}
                         onOpenBriefing={handleOpenBriefing}
                       />
                     ))}
@@ -1189,6 +1598,33 @@ const MyTasks: React.FC = () => {
                 </div>
               )}
             </>
+          ) : filter === 'delegated_out' ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ArrowRightLeft size={14} />
+                  <strong>{isRtl ? 'المهام التي قمت بتفويضها لزملائك' : 'Tasks you delegated to coworkers'}</strong>
+                  — {isRtl ? 'يمكنك متابعة تقدمها هنا حتى يكتمل إنجازها' : 'Track their live progress here until completion'}
+                </span>
+                <span className="font-bold bg-blue-500/20 px-2.5 py-0.5 rounded-full">{delegatedOutTasks.length}</span>
+              </div>
+              {delegatedOutTasks.length === 0 ? (
+                <div className="text-center border-2 border-dashed border-border/60 rounded-3xl py-16 p-8 space-y-2">
+                  <ArrowRightLeft size={32} className="text-muted-foreground/40 mx-auto" />
+                  <p className="text-xs font-bold text-muted-foreground">{isRtl ? 'لم تقم بتفويض أي مهام للزملاء حالياً' : 'You have not delegated any tasks to coworkers'}</p>
+                </div>
+              ) : (
+                groupTasksByJob(delegatedOutTasks).map(group => (
+                  <GroupedJobCard
+                    key={group.jobId}
+                    group={group}
+                    onUpdate={handleRefreshAll}
+                    onOpenBriefing={handleOpenBriefing}
+                    isDelegatedOutView={true}
+                  />
+                ))
+              )}
+            </div>
           ) : (
             <div className="space-y-4">
               {displayTasks.length === 0 ? (
@@ -1200,8 +1636,9 @@ const MyTasks: React.FC = () => {
                   <GroupedJobCard
                     key={group.jobId}
                     group={group}
-                    onUpdate={refetch}
+                    onUpdate={handleRefreshAll}
                     onOpenBriefing={handleOpenBriefing}
+                    isDelegatedOutView={false}
                   />
                 ))
               )}

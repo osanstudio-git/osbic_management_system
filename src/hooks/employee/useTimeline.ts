@@ -41,6 +41,9 @@ export interface StatusUpdatePayload {
   issueDate?: string | null;
   expiryDate?: string | null;
   completedDate?: string | null;
+  govFeeActualPaid?: number | null;
+  govReceiptUrl?: string | null;
+  paidByClient?: boolean;
 }
 
 // ─── Fetch timeline for a job_service ────────────────────────────────────────
@@ -193,6 +196,15 @@ export function useUpdateServiceStatus() {
       if (payload.toStatus === 'gov_approved' || payload.toStatus === 'completed') {
         if (payload.issueDate !== undefined) serviceUpdate.issue_date = payload.issueDate;
         if (payload.expiryDate !== undefined) serviceUpdate.expiry_date = payload.expiryDate;
+      }
+      if (payload.govFeeActualPaid !== undefined) {
+        serviceUpdate.gov_fee_actual_paid = payload.govFeeActualPaid;
+        serviceUpdate.gov_paid_at = now;
+        serviceUpdate.gov_paid_by = profile?.id;
+        serviceUpdate.gov_payment_status = payload.paidByClient ? 'client_paid' : 'paid';
+      }
+      if (payload.govReceiptUrl !== undefined) {
+        serviceUpdate.gov_receipt_url = payload.govReceiptUrl;
       }
 
       // 4. Update job_service
@@ -395,3 +407,157 @@ export function useAssignServiceToOps() {
     },
   });
 }
+
+// ─── Ops Coworkers List ───────────────────────────────────────────────────────
+
+export function useOpsCoworkers() {
+  return useQuery<any[]>({
+    queryKey: ['ops_coworkers_list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, employee_code, role, department, can_do_ops, is_pro, avatar_url')
+        .eq('role', 'employee')
+        .order('full_name');
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+}
+
+// ─── Delegate Task to Coworker ────────────────────────────────────────────────
+
+export function useDelegateTask() {
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      jobServiceId,
+      jobId,
+      toEmployeeId,
+      toEmployeeName,
+      reason,
+      serviceName,
+      currentStatus,
+    }: {
+      jobServiceId: string;
+      jobId: string;
+      toEmployeeId: string;
+      toEmployeeName: string;
+      reason?: string;
+      serviceName?: string;
+      currentStatus?: string;
+    }) => {
+      const now = new Date().toISOString();
+
+      // 1. Try to update job_services with full delegation columns
+      let updatePayload: any = {
+        ops_employee_id: toEmployeeId,
+        delegated_by: profile?.id,
+        delegated_at: now,
+        delegation_notes: reason || null,
+        updated_at: now,
+      };
+
+      const { error: updateError } = await (supabase
+        .from('job_services')
+        .update(updatePayload)
+        .eq('id', jobServiceId) as any);
+
+      // If delegation columns do not exist yet in DB schema, safely fallback to ops_employee_id
+      if (updateError) {
+        console.warn('Full delegation column update failed, falling back to ops_employee_id:', updateError.message);
+        const { error: fallbackError } = await (supabase
+          .from('job_services')
+          .update({
+            ops_employee_id: toEmployeeId,
+            updated_at: now,
+          })
+          .eq('id', jobServiceId) as any);
+        if (fallbackError) throw fallbackError;
+      }
+
+      // 2. Insert into job_handoff_notes for team handoff records
+      try {
+        await supabase.from('job_handoff_notes').insert({
+          job_id: jobId,
+          job_service_id: jobServiceId,
+          from_employee_id: profile?.id,
+          to_employee_id: toEmployeeId,
+          stage_name: 'Delegation',
+          note_text: reason ? `Delegated to ${toEmployeeName}: ${reason}` : `Delegated to ${toEmployeeName}`,
+          created_at: now,
+        } as any);
+      } catch (hErr) {
+        console.warn('Could not record in job_handoff_notes:', hErr);
+      }
+
+      // 3. Insert into job_service_timeline for full audit trail
+      try {
+        await supabase.from('job_service_timeline').insert({
+          job_service_id: jobServiceId,
+          job_id: jobId,
+          service_name: serviceName || 'Task',
+          from_status: currentStatus || 'in_progress',
+          to_status: currentStatus || 'in_progress',
+          changed_by: profile?.id,
+          changed_by_name: profile?.full_name,
+          changed_by_role: 'ops',
+          reason: `Delegated to coworker (${toEmployeeName})${reason ? ': ' + reason : ''}`,
+          changed_at: now,
+          is_delay_event: false,
+          is_client_caused: false,
+        } as any);
+      } catch (tErr) {
+        console.warn('Could not record in job_service_timeline:', tErr);
+      }
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['job_services', variables.jobId] });
+      qc.invalidateQueries({ queryKey: ['ops_my_tasks'] });
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      qc.invalidateQueries({ queryKey: ['delegated_by_me'] });
+    },
+  });
+}
+
+// ─── Fetch Tasks Delegated by Me ──────────────────────────────────────────────
+
+export function useDelegatedByMeTasks(employeeId: string | null) {
+  return useQuery<any[]>({
+    queryKey: ['delegated_by_me', employeeId],
+    queryFn: async () => {
+      if (!employeeId) return [];
+      try {
+        const { data, error } = await (supabase
+          .from('job_services')
+          .select(`
+            *,
+            job:jobs(
+              id, job_code, status,
+              client:profiles!jobs_client_id_fkey(id, full_name, phone, is_trusted),
+              assigned_by_profile:profiles!jobs_assigned_by_fkey(full_name)
+            ),
+            service:services(name_en, name_ar, requires_pro, estimated_days),
+            ops_employee:profiles!job_services_ops_employee_id_fkey(full_name),
+            assigner:profiles!job_services_assigned_by_fkey(full_name),
+            documents:job_service_documents(*),
+            expenses:job_expenses(*)
+          `)
+          .eq('delegated_by', employeeId)
+          .order('delegated_at', { ascending: false, nullsFirst: false }) as any);
+        if (error) {
+          console.warn('Delegated by me query returned warning:', error.message);
+          return [];
+        }
+        return (data || []) as any[];
+      } catch (err) {
+        return [];
+      }
+    },
+    enabled: !!employeeId,
+  });
+}
+
