@@ -44,7 +44,7 @@ export interface RecordNewSalePayload {
   workDescription?: string;
   totalDealAmount: number;
   governmentFeeEstimate: number;
-  paymentMode: 'cash' | 'card' | 'bank_transfer';
+  paymentMode: 'cash' | 'pos' | 'card' | 'bank_transfer' | 'mobile_payment';
   paymentType: 'advance' | 'full' | 'custom';
   amountReceived: number;
   referenceNumber?: string;
@@ -60,7 +60,7 @@ export interface RecordRestPaymentPayload {
   jobId: string;
   paymentDate: string;
   amount: number;
-  paymentMode: 'cash' | 'card' | 'bank_transfer';
+  paymentMode: 'cash' | 'pos' | 'card' | 'bank_transfer' | 'mobile_payment';
   referenceNumber?: string;
   notes?: string;
   receiptFile?: File | null;

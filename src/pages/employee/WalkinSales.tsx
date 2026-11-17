@@ -5,7 +5,8 @@ import {
   Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, X, Upload,
   Eye, Trash2, Edit2, Users, FileText, Calendar, Phone, Banknote,
   CreditCard, Landmark, BarChart3, ArrowUpRight, ArrowDownRight,
-  Printer, RefreshCw, ShoppingBag, MessageSquare, Zap, Send, Sparkles, ExternalLink
+  Printer, RefreshCw, ShoppingBag, MessageSquare, Zap, Send, Sparkles, ExternalLink,
+  Smartphone
 } from 'lucide-react';
 import { useWalkinSales, useWalkinEnquiries, calcProfit } from '../../hooks/employee/useWalkinSales';
 import type { WalkinSale, WalkinSaleFormData, WalkinStatus, PaymentMode, WalkinEnquiry, WalkinEnquiryFormData } from '../../hooks/employee/useWalkinSales';
@@ -48,8 +49,10 @@ const ENQUIRY_STATUS_CONFIG: Record<string, { label: string; color: string; dot:
 
 const PAYMENT_CONFIG: Record<PaymentMode, { label: string; icon: React.FC<any> }> = {
   cash: { label: 'Cash', icon: Banknote },
+  pos: { label: 'POS (Machine)', icon: CreditCard },
   card: { label: 'Card', icon: CreditCard },
   bank_transfer: { label: 'Bank Transfer', icon: Landmark },
+  mobile_payment: { label: 'Mobile Payment', icon: Smartphone },
 };
 
 const emptyForm = (): WalkinSaleFormData => ({
@@ -59,6 +62,7 @@ const emptyForm = (): WalkinSaleFormData => ({
   work_type: WORK_TYPES[0],
   work_description: '',
   payment_mode: 'cash',
+  payment_mobile_number: '',
   total_amount: 0,
   government_fee: 0,
   status: 'pending',
@@ -161,6 +165,7 @@ const SaleFormModal: React.FC<{
           work_type: editSale.work_type,
           work_description: editSale.work_description || '',
           payment_mode: editSale.payment_mode,
+          payment_mobile_number: editSale.payment_mobile_number || '',
           total_amount: editSale.total_amount,
           government_fee: editSale.government_fee,
           status: editSale.status,
@@ -438,20 +443,71 @@ const SaleFormModal: React.FC<{
                   </div>
 
                   {/* Payment Mode */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Payment Mode</label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                       {(Object.keys(PAYMENT_CONFIG) as PaymentMode[]).map(pm => {
                         const cfg = PAYMENT_CONFIG[pm];
                         const Icon = cfg.icon;
+                        const isSelected = form.payment_mode === pm;
                         return (
                           <button key={pm} type="button" onClick={() => set('payment_mode', pm)}
-                            className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${form.payment_mode === pm ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-border/60 hover:text-foreground'}`}>
-                            <Icon size={16} /> {cfg.label}
+                            className={`flex items-center justify-center sm:justify-start gap-2 p-2.5 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
+                              isSelected
+                                ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm'
+                                : 'border-border text-muted-foreground hover:border-border/80 hover:text-foreground bg-muted/20'
+                            }`}>
+                            <Icon size={16} className="shrink-0" />
+                            <span className="truncate">{cfg.label}</span>
                           </button>
                         );
                       })}
                     </div>
+
+                    {/* Conditional Mobile Payment Number */}
+                    <AnimatePresence>
+                      {form.payment_mode === 'mobile_payment' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0, y: -6 }}
+                          animate={{ opacity: 1, height: 'auto', y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -6 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden pt-1"
+                        >
+                          <div className="p-3.5 bg-primary/5 border border-primary/25 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-primary flex items-center gap-1.5 uppercase tracking-wider">
+                                <Smartphone size={14} />
+                                Mobile Payment Number *
+                              </label>
+                              {form.client_phone && (
+                                <button
+                                  type="button"
+                                  onClick={() => set('payment_mobile_number', form.client_phone)}
+                                  className="text-[11px] font-semibold text-primary/80 hover:text-primary underline cursor-pointer"
+                                >
+                                  Use Client Phone
+                                </button>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                              <input
+                                type="tel"
+                                required={form.payment_mode === 'mobile_payment'}
+                                value={form.payment_mobile_number || ''}
+                                onChange={e => set('payment_mobile_number', e.target.value)}
+                                placeholder="+968 9... / +968 7... (OmanNet / Wallet phone)"
+                                className="w-full bg-background border border-primary/30 text-foreground pl-10 pr-3 py-2.5 rounded-xl outline-none focus:border-primary transition-all text-sm font-mono placeholder:text-muted-foreground/60"
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Enter the mobile phone number used for the mobile payment (e.g. OmanNet Mobile, BenefitPay, Thawani, or wallet transfer).
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* Financials */}
@@ -923,7 +979,7 @@ const WalkinSales: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filtered.map((sale, i) => {
-                      const PayIcon = PAYMENT_CONFIG[sale.payment_mode].icon;
+                      const PayIcon = PAYMENT_CONFIG[sale.payment_mode]?.icon || Banknote;
                       const clientReceiptUrl = getReceiptUrl(sale.client_receipt_url);
                       const govReceiptUrl = getReceiptUrl(sale.gov_fee_receipt_url);
 
@@ -962,8 +1018,13 @@ const WalkinSales: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">
                             <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                              <PayIcon size={13} /> {PAYMENT_CONFIG[sale.payment_mode].label}
+                              <PayIcon size={13} /> {PAYMENT_CONFIG[sale.payment_mode]?.label || sale.payment_mode}
                             </span>
+                            {sale.payment_mode === 'mobile_payment' && (sale.payment_mobile_number || (sale.notes && sale.notes.includes('[Mobile Payment:'))) && (
+                              <span className="text-[10px] text-primary font-mono block mt-0.5">
+                                📱 {sale.payment_mobile_number || sale.notes?.match(/\[Mobile Payment:\s*([^\]]+)\]/)?.[1]}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm font-bold text-foreground whitespace-nowrap">{sale.total_amount.toFixed(2)}</td>
                           <td className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">{sale.government_fee.toFixed(2)}</td>

@@ -5,7 +5,7 @@ import {
   Search, Link as LinkIcon, User, Building2, Phone, FileText,
   CreditCard, Banknote, Landmark, Upload, ChevronRight, Sparkles,
   Layers, ArrowRight, ShieldCheck, Check, Clock, Plus, MessageSquare,
-  Zap
+  Zap, Smartphone
 } from 'lucide-react';
 import { format, differenceInDays, subDays } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -131,7 +131,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
   const [governmentFeeEstimate, setGovernmentFeeEstimate] = useState<string>('0');
   const [paymentType, setPaymentType] = useState<'advance' | 'full' | 'custom'>('advance');
   const [amountReceived, setAmountReceived] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<'cash' | 'card' | 'bank_transfer'>('bank_transfer');
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'pos' | 'card' | 'bank_transfer' | 'mobile_payment'>('bank_transfer');
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -143,7 +143,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
   const [selectedJobForRest, setSelectedJobForRest] = useState<any | null>(null);
   const [restPaymentDate, setRestPaymentDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [restAmount, setRestAmount] = useState<string>('');
-  const [restPaymentMode, setRestPaymentMode] = useState<'cash' | 'card' | 'bank_transfer'>('bank_transfer');
+  const [restPaymentMode, setRestPaymentMode] = useState<'cash' | 'pos' | 'card' | 'bank_transfer' | 'mobile_payment'>('bank_transfer');
   const [restReference, setRestReference] = useState<string>('');
   const [restNotes, setRestNotes] = useState<string>('');
   const [restReceiptFile, setRestReceiptFile] = useState<File | null>(null);
@@ -958,7 +958,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
 
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground">Payment Mode</label>
-                        <div className="grid grid-cols-3 gap-1.5 mt-1">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1">
                           <button
                             type="button"
                             onClick={() => setPaymentMode('bank_transfer')}
@@ -983,6 +983,17 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                           </button>
                           <button
                             type="button"
+                            onClick={() => setPaymentMode('pos')}
+                            className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 border ${
+                              paymentMode === 'pos'
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background border-border text-muted-foreground'
+                            }`}
+                          >
+                            <CreditCard size={12} /> POS
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setPaymentMode('card')}
                             className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 border ${
                               paymentMode === 'card'
@@ -991,6 +1002,17 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                             }`}
                           >
                             <CreditCard size={12} /> Card
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMode('mobile_payment')}
+                            className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 border ${
+                              paymentMode === 'mobile_payment'
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background border-border text-muted-foreground'
+                            }`}
+                          >
+                            <Smartphone size={12} /> Mobile
                           </button>
                         </div>
                       </div>
@@ -1189,7 +1211,9 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                         >
                           <option value="bank_transfer">Bank Transfer</option>
                           <option value="cash">Cash</option>
-                          <option value="card">Card / POS</option>
+                          <option value="pos">POS (Machine)</option>
+                          <option value="card">Card (Online)</option>
+                          <option value="mobile_payment">Mobile Payment</option>
                         </select>
                       </div>
                     </div>

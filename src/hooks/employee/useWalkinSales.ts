@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type WalkinStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type PaymentMode = 'cash' | 'card' | 'bank_transfer';
+export type PaymentMode = 'cash' | 'pos' | 'card' | 'bank_transfer' | 'mobile_payment';
 
 export interface WalkinSale {
   id: string;
@@ -18,6 +18,7 @@ export interface WalkinSale {
   work_type: string;
   work_description: string | null;
   payment_mode: PaymentMode;
+  payment_mobile_number?: string | null;
   total_amount: number;
   government_fee: number;
   profit: number;
@@ -37,6 +38,7 @@ export interface WalkinSaleFormData {
   work_type: string;
   work_description: string;
   payment_mode: PaymentMode;
+  payment_mobile_number?: string;
   total_amount: number;
   government_fee: number;
   status: WalkinStatus;
@@ -91,25 +93,41 @@ export const useWalkinSales = () => {
     mutationFn: async (formData: WalkinSaleFormData) => {
       const profit = calcProfit(formData.total_amount, formData.government_fee);
 
-      const { data: inserted, error: insertErr } = await supabase
+      const basePayload: Record<string, any> = {
+        employee_id: profile?.id,
+        branch_id: profile?.branch_id ?? null,
+        date: formData.date,
+        client_name: formData.client_name,
+        client_phone: formData.client_phone || null,
+        work_type: formData.work_type,
+        work_description: formData.work_description || null,
+        payment_mode: formData.payment_mode,
+        payment_mobile_number: formData.payment_mode === 'mobile_payment' ? (formData.payment_mobile_number || null) : null,
+        total_amount: formData.total_amount,
+        government_fee: formData.government_fee,
+        profit,
+        status: formData.status,
+        notes: formData.notes || null,
+      };
+
+      let { data: inserted, error: insertErr } = await supabase
         .from('walkin_sales')
-        .insert({
-          employee_id: profile?.id,
-          branch_id: profile?.branch_id ?? null,
-          date: formData.date,
-          client_name: formData.client_name,
-          client_phone: formData.client_phone || null,
-          work_type: formData.work_type,
-          work_description: formData.work_description || null,
-          payment_mode: formData.payment_mode,
-          total_amount: formData.total_amount,
-          government_fee: formData.government_fee,
-          profit,
-          status: formData.status,
-          notes: formData.notes || null,
-        })
+        .insert(basePayload)
         .select()
         .single();
+
+      // Graceful fallback if payment_mobile_number column is not yet migrated in Supabase
+      if (insertErr && (insertErr.message?.includes('payment_mobile_number') || (insertErr as any).code === 'PGRST204')) {
+        delete basePayload.payment_mobile_number;
+        if (formData.payment_mode === 'mobile_payment' && formData.payment_mobile_number) {
+          basePayload.notes = basePayload.notes
+            ? `[Mobile Payment: ${formData.payment_mobile_number}] ${basePayload.notes}`
+            : `[Mobile Payment: ${formData.payment_mobile_number}]`;
+        }
+        const retry = await supabase.from('walkin_sales').insert(basePayload).select().single();
+        inserted = retry.data;
+        insertErr = retry.error;
+      }
 
       if (insertErr) throw insertErr;
 
@@ -146,6 +164,7 @@ export const useWalkinSales = () => {
         work_type: formData.work_type,
         work_description: formData.work_description || null,
         payment_mode: formData.payment_mode,
+        payment_mobile_number: formData.payment_mode === 'mobile_payment' ? (formData.payment_mobile_number || null) : null,
         total_amount: formData.total_amount,
         government_fee: formData.government_fee,
         profit,
@@ -161,7 +180,20 @@ export const useWalkinSales = () => {
         payload.gov_fee_receipt_url = await uploadReceipt(formData.gov_fee_receipt_file, id, 'gov');
       }
 
-      const { error } = await supabase.from('walkin_sales').update(payload).eq('id', id);
+      let { error } = await supabase.from('walkin_sales').update(payload).eq('id', id);
+
+      // Graceful fallback if payment_mobile_number column is not yet migrated in Supabase
+      if (error && (error.message?.includes('payment_mobile_number') || (error as any).code === 'PGRST204')) {
+        delete payload.payment_mobile_number;
+        if (formData.payment_mode === 'mobile_payment' && formData.payment_mobile_number) {
+          payload.notes = payload.notes
+            ? `[Mobile Payment: ${formData.payment_mobile_number}] ${payload.notes}`
+            : `[Mobile Payment: ${formData.payment_mobile_number}]`;
+        }
+        const retry = await supabase.from('walkin_sales').update(payload).eq('id', id);
+        error = retry.error;
+      }
+
       if (error) throw error;
     },
     onSuccess: () => {
