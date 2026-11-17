@@ -6,7 +6,7 @@ import {
   TrendingUp, Users, ArrowRight, ShieldCheck, Briefcase
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import type { RepPerformanceData } from '../../hooks/employee/useSalesTeamReports';
 import { SalesEmployeeReportDocument, type ReportContentType } from './SalesEmployeeReportDocument';
 import toast from 'react-hot-toast';
@@ -16,7 +16,7 @@ interface Props {
   onClose: () => void;
   rep: RepPerformanceData | null;
   allReps?: RepPerformanceData[];
-  defaultTimeframe?: 'all' | 'today' | 'week' | 'month' | 'custom';
+  defaultTimeframe?: 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
   branchName?: string;
 }
 
@@ -30,7 +30,7 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
 }) => {
   const [selectedRepId, setSelectedRepId] = useState<string>(initialRep?.employeeId || 'all');
   const [reportType, setReportType] = useState<ReportContentType>('both');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>(defaultTimeframe);
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom'>(defaultTimeframe);
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
@@ -113,6 +113,10 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
 
       if (dateFilter === 'today') {
         return isWithinInterval(d, { start: startOfDay(now), end: endOfDay(now) });
+      }
+      if (dateFilter === 'yesterday') {
+        const y = subDays(now, 1);
+        return isWithinInterval(d, { start: startOfDay(y), end: endOfDay(y) });
       }
       if (dateFilter === 'week') {
         return isWithinInterval(d, { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
@@ -487,20 +491,30 @@ export const SalesEmployeeReportModal: React.FC<Props> = ({
                 2. Select Date Period
               </label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {(['today', 'week', 'month', 'all', 'custom'] as const).map((period) => (
-                  <button
-                    key={period}
-                    type="button"
-                    onClick={() => setDateFilter(period)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all ${
-                      dateFilter === period
-                        ? 'bg-primary text-white shadow-md shadow-primary/20'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
-                    }`}
-                  >
-                    {period === 'all' ? 'All Records' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period}
-                  </button>
-                ))}
+                {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as const).map((period) => {
+                  const labels: Record<string, string> = {
+                    today: 'Today',
+                    yesterday: 'Yesterday',
+                    week: 'This Week',
+                    month: 'This Month',
+                    all: 'All Records',
+                    custom: 'Custom',
+                  };
+                  return (
+                    <button
+                      key={period}
+                      type="button"
+                      onClick={() => setDateFilter(period)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        dateFilter === period
+                          ? 'bg-primary text-white shadow-md shadow-primary/20'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
+                      }`}
+                    >
+                      {labels[period] || period}
+                    </button>
+                  );
+                })}
               </div>
 
               {dateFilter === 'custom' && (

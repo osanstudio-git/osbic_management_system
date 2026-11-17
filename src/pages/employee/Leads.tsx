@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLeads, useDailySalesSheetData, useDeleteLead } from '../../hooks/shared/useLeads';
 import { useAdminEmployees, useUpdateEmployee } from '../../hooks/admin/useAdminEmployees';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Phone, Calendar, Info, Search, 
@@ -33,6 +33,7 @@ function cn(...inputs: ClassValue[]) {
 export default function EmployeeLeads() {
   const { profile, role } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Guard access
   if (profile && !profile.can_do_sales) {
@@ -89,6 +90,16 @@ export default function EmployeeLeads() {
   const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
   const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
   const [quickLogLead, setQuickLogLead] = useState<Lead | null>(null);
+
+  // Auto-open Daily Sales Sheet if triggered via URL param (e.g. from sidebar navigation)
+  useEffect(() => {
+    if (searchParams.get('dailySheet') === 'true') {
+      setIsDailySheetOpen(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('dailySheet');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Living Deal Row Grid is the primary/default view
   const [viewMode, setViewMode] = useState<'living' | 'grid' | 'list'>('living');

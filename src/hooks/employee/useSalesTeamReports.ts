@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 
-export type TimeframePreset = 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom' | 'all';
+export type TimeframePreset = 'today' | 'yesterday' | 'week' | 'month' | 'quarter' | 'year' | 'custom' | 'all';
 
 export interface RepPerformanceData {
   employeeId: string;
@@ -110,6 +110,12 @@ export function getDateRange(timeframe: TimeframePreset, customStart?: string, c
       const s = startOfDay(now);
       const e = endOfDay(now);
       return { startIso: s.toISOString(), endIso: e.toISOString(), label: 'Today' };
+    }
+    case 'yesterday': {
+      const y = subDays(now, 1);
+      const s = startOfDay(y);
+      const e = endOfDay(y);
+      return { startIso: s.toISOString(), endIso: e.toISOString(), label: 'Yesterday' };
     }
     case 'week': {
       const s = startOfWeek(now, { weekStartsOn: 1 });

@@ -4,7 +4,7 @@ import {
   X, Calendar, Download, Printer, RefreshCw, 
   FileText, TrendingUp, Phone, Users, CheckCircle2,
   ChevronLeft, ChevronRight, Loader2, Sparkles, Building2,
-  Send, CalendarRange, BarChart3
+  Send, CalendarRange, BarChart3, Share2, Check
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
@@ -41,6 +41,7 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
   const activeEmployees = employees.filter(e => e.is_active && (e.can_do_sales || e.department === 'sales' || isManagerOrAdmin));
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
 
   const effectiveEmpId = selectedEmpId || profile?.id;
 
@@ -213,6 +214,135 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
     toast.success('Daily Sales Sheet exported to CSV!');
   };
 
+  const generateWhatsAppSummary = (): string | null => {
+    if (viewMode === 'daily') {
+      if (!salesSheetData) return null;
+      const m = salesSheetData.metrics;
+      const empName = salesSheetData.employee.full_name || 'Consultant';
+      const branch = salesSheetData.employee.branch_name || 'Main Branch';
+      const dateFmt = format(new Date(selectedDate + 'T00:00:00'), 'dd MMM yyyy (EEEE)');
+
+      let text = `📊 *OSBIC DAILY SALES REPORT (DSR)*\n`;
+      text += `📅 *Date:* ${dateFmt}\n`;
+      text += `👤 *Consultant:* ${empName}\n`;
+      text += `🏢 *Branch:* ${branch}\n\n`;
+
+      text += `🎯 *EXECUTIVE KPI SUMMARY*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `• *New Inquiries / Leads:* ${m.newLeadsCount}\n`;
+      text += `• *Calls & Touchpoints:* ${m.interactionsCount} (👍 ${m.positiveCallsCount} +ve / 👎 ${m.negativeCallsCount} -ve)\n`;
+      text += `• *Active Pipeline Leads:* ${m.positiveLeadsCount}\n`;
+      text += `• *Quotations Issued:* ${m.quotesCount} (${m.quotesTotalAmount.toFixed(3)} OMR)\n`;
+      text += `• *Deals Won / Converted:* ${m.convertedDealsCount} (${m.convertedDealsAmount.toFixed(3)} OMR)\n`;
+      text += `• *Next-day Follow-ups:* ${m.scheduledFollowUpsCount}\n\n`;
+
+      if (salesSheetData.convertedDeals.length > 0) {
+        text += `🏆 *WON DEALS & ACTIVE JOBS (${salesSheetData.convertedDeals.length})*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        salesSheetData.convertedDeals.forEach((d, i) => {
+          const total = Number(d.amount || 0).toFixed(3);
+          const adv = Number(d.advance || 0).toFixed(3);
+          const rem = Number(d.remaining != null ? d.remaining : Math.max(0, Number(d.amount || 0) - Number(d.advance || 0))).toFixed(3);
+          text += `${i + 1}. *${d.title}* (${d.job_code || 'JOB'})\n`;
+          text += `   💼 *Service:* ${d.service_name || 'Corporate Service'}\n`;
+          text += `   💰 *Total:* ${total} OMR | *Adv:* ${adv} OMR | *Due:* ${rem} OMR\n`;
+          text += `   ⚙️ *Ops:* ${d.work_status || 'active'} | *Payment:* ${d.payment_status || (Number(rem) <= 0 ? 'Paid' : 'Partial')}\n`;
+        });
+        text += `\n`;
+      }
+
+      if (salesSheetData.quotations.length > 0) {
+        text += `📄 *QUOTATIONS ISSUED (${salesSheetData.quotations.length})*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        salesSheetData.quotations.forEach((q, i) => {
+          const recipient = q.metadata?.company_name || q.client?.company_name || q.lead?.company_name || q.client?.full_name || q.lead?.contact_name || 'Client';
+          text += `${i + 1}. *${recipient}* — ${Number(q.total_amount || 0).toFixed(3)} OMR (${q.invoice_number || 'QUOTE'})\n`;
+        });
+        text += `\n`;
+      }
+
+      if (salesSheetData.newLeads.length > 0) {
+        text += `📥 *NEW INQUIRIES (${salesSheetData.newLeads.length})*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        salesSheetData.newLeads.forEach((l, i) => {
+          const srv = (l.interested_services || []).map((s: any) => s.name || s.name_en || s).join(', ') || 'Business Setup';
+          text += `${i + 1}. *${l.contact_name}* ${l.company_name ? `(${l.company_name})` : ''} - 📞 ${l.contact_phone || 'N/A'}\n`;
+          text += `   📌 Source: ${l.lead_sources?.name || 'Direct'} | Interested: ${srv}\n`;
+        });
+        text += `\n`;
+      }
+
+      text += `_Report generated via OSBIC Connect Management System_`;
+      return text;
+    }
+
+    if (viewMode === 'weekly') {
+      if (!weeklySheetData) return null;
+      const t = weeklySheetData.totals;
+      const empName = weeklySheetData.employee.full_name || 'Consultant';
+      const branch = weeklySheetData.employee.branch_name || 'Main Branch';
+
+      let text = `📊 *OSBIC WEEKLY SALES REPORT (WSR)*\n`;
+      text += `📅 *Period:* ${weeklySheetData.weekStart} to ${weeklySheetData.weekEnd}\n`;
+      text += `👤 *Consultant:* ${empName}\n`;
+      text += `🏢 *Branch:* ${branch}\n\n`;
+
+      text += `🎯 *WEEKLY TOTALS*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `• *New Leads:* ${t.newLeadsCount}\n`;
+      text += `• *Calls Made:* ${t.interactionsCount} (👍 ${t.positiveCallsCount} +ve / 👎 ${t.negativeCallsCount} -ve)\n`;
+      text += `• *Quotes Issued:* ${t.quotesCount} (${t.quotesTotalAmount.toFixed(3)} OMR)\n`;
+      text += `• *Deals Won:* ${t.convertedDealsCount} (${t.convertedDealsAmount.toFixed(3)} OMR)\n\n`;
+
+      text += `_Report generated via OSBIC Connect Management System_`;
+      return text;
+    }
+
+    if (viewMode === 'monthly') {
+      if (!monthlySheetData) return null;
+      const t = monthlySheetData.totals;
+      const empName = monthlySheetData.employee.full_name || 'Consultant';
+      const branch = monthlySheetData.employee.branch_name || 'Main Branch';
+
+      let text = `📊 *OSBIC MONTHLY SALES REPORT (MSR)*\n`;
+      text += `📅 *Month:* ${monthlySheetData.monthLabel}\n`;
+      text += `👤 *Consultant:* ${empName}\n`;
+      text += `🏢 *Branch:* ${branch}\n\n`;
+
+      text += `🎯 *MONTHLY TOTALS*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `• *New Clients Connected:* ${t.newClientsConnectedCount}\n`;
+      text += `• *Calls Made:* ${t.interactionsCount} (👍 ${t.positiveCallsCount} +ve / 👎 ${t.negativeCallsCount} -ve)\n`;
+      text += `• *Quotes Issued:* ${t.quotesCount} (${t.quotesTotalAmount.toFixed(3)} OMR)\n`;
+      text += `• *Deals Won:* ${t.convertedDealsCount} (${t.convertedDealsAmount.toFixed(3)} OMR)\n\n`;
+
+      text += `_Report generated via OSBIC Connect Management System_`;
+      return text;
+    }
+
+    return null;
+  };
+
+  const handleShareWhatsApp = async () => {
+    const text = generateWhatsAppSummary();
+    if (!text) {
+      toast.error('No report data to share');
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopiedWhatsApp(true);
+      setTimeout(() => setCopiedWhatsApp(false), 3000);
+      toast.success('Summary copied to clipboard! Ready to paste into WhatsApp ✓');
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    } catch (e) {
+      toast.error('Could not copy to clipboard');
+    }
+  };
+
   const handleShiftDate = (days: number) => {
     if (viewMode === 'daily') {
       const current = new Date(selectedDate + 'T00:00:00');
@@ -338,6 +468,16 @@ export const DailySalesSheetModal: React.FC<Props> = ({ isOpen, onClose, default
                 title="Refresh Data"
               >
                 <RefreshCw size={16} className={isRefetching ? 'animate-spin' : ''} />
+              </button>
+
+              <button
+                onClick={handleShareWhatsApp}
+                disabled={isLoading || (!salesSheetData && !weeklySheetData && !monthlySheetData)}
+                className="px-3.5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                title="Copy formatted summary & share to WhatsApp"
+              >
+                {copiedWhatsApp ? <Check size={15} /> : <Share2 size={15} />}
+                <span>{copiedWhatsApp ? 'Copied!' : 'WhatsApp'}</span>
               </button>
 
               <button

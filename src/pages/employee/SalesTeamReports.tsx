@@ -25,13 +25,16 @@ import {
   startOfWeek,
   endOfWeek,
   startOfMonth,
-  endOfMonth
+  endOfMonth,
+  subDays
 } from 'date-fns';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import LeadDistributionHubModal from '../../components/employee/LeadDistributionHubModal';
 import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
 import { SalesEmployeeReportModal } from '../../components/employee/SalesEmployeeReportModal';
+
+export type DrawerDateFilter = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 export default function SalesTeamReports() {
   const { profile, role } = useAuth();
@@ -44,7 +47,9 @@ export default function SalesTeamReports() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRep, setSelectedRep] = useState<RepPerformanceData | null>(null);
   const [activeRepTab, setActiveRepTab] = useState<'leads' | 'distributed' | 'quotes' | 'sales' | 'jobs'>('leads');
-  const [drawerDateFilter, setDrawerDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [drawerDateFilter, setDrawerDateFilter] = useState<DrawerDateFilter>('all');
+  const [drawerCustomStart, setDrawerCustomStart] = useState<string>('');
+  const [drawerCustomEnd, setDrawerCustomEnd] = useState<string>('');
   const [isDistributionHubOpen, setIsDistributionHubOpen] = useState(false);
   const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
   const [recordSaleTab, setRecordSaleTab] = useState<'new_sale' | 'rest_payment'>('new_sale');
@@ -123,7 +128,12 @@ export default function SalesTeamReports() {
   }, [reps, selectedRep]);
 
   // Date filter helper for drawer items
-  const isDateInFilter = (dateStr?: string | null, filter: 'all' | 'today' | 'week' | 'month' = 'all') => {
+  const isDateInFilter = (
+    dateStr?: string | null,
+    filter: DrawerDateFilter = 'all',
+    customStart?: string,
+    customEnd?: string
+  ) => {
     if (!dateStr || filter === 'all') return true;
     try {
       const d = typeof dateStr === 'string' ? parseISO(dateStr) : new Date(dateStr);
@@ -132,11 +142,21 @@ export default function SalesTeamReports() {
       if (filter === 'today') {
         return isWithinInterval(d, { start: startOfDay(now), end: endOfDay(now) });
       }
+      if (filter === 'yesterday') {
+        const y = subDays(now, 1);
+        return isWithinInterval(d, { start: startOfDay(y), end: endOfDay(y) });
+      }
       if (filter === 'week') {
         return isWithinInterval(d, { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
       }
       if (filter === 'month') {
         return isWithinInterval(d, { start: startOfMonth(now), end: endOfMonth(now) });
+      }
+      if (filter === 'custom') {
+        if (!customStart) return true;
+        const s = startOfDay(new Date(customStart));
+        const e = customEnd ? endOfDay(new Date(customEnd)) : endOfDay(new Date(customStart));
+        return isWithinInterval(d, { start: s, end: e });
       }
       return true;
     } catch {
@@ -147,28 +167,110 @@ export default function SalesTeamReports() {
   // Filtered lists for the active selected representative in the drawer
   const filteredAssignedLeads = useMemo(() => {
     if (!currentSelectedRep) return [];
-    return (currentSelectedRep.leads || []).filter(l => isDateInFilter(l.created_at, drawerDateFilter));
-  }, [currentSelectedRep, drawerDateFilter]);
+    return (currentSelectedRep.leads || []).filter(l =>
+      isDateInFilter(l.created_at, drawerDateFilter, drawerCustomStart, drawerCustomEnd)
+    );
+  }, [currentSelectedRep, drawerDateFilter, drawerCustomStart, drawerCustomEnd]);
 
   const filteredDistributedLeads = useMemo(() => {
     if (!currentSelectedRep) return [];
-    return (currentSelectedRep.distributedLeads || []).filter(l => isDateInFilter(l.created_at, drawerDateFilter));
-  }, [currentSelectedRep, drawerDateFilter]);
+    return (currentSelectedRep.distributedLeads || []).filter(l =>
+      isDateInFilter(l.created_at, drawerDateFilter, drawerCustomStart, drawerCustomEnd)
+    );
+  }, [currentSelectedRep, drawerDateFilter, drawerCustomStart, drawerCustomEnd]);
 
   const filteredQuotations = useMemo(() => {
     if (!currentSelectedRep) return [];
-    return (currentSelectedRep.quotations || []).filter(q => isDateInFilter(q.created_at || q.issue_date, drawerDateFilter));
-  }, [currentSelectedRep, drawerDateFilter]);
+    return (currentSelectedRep.quotations || []).filter(q =>
+      isDateInFilter(q.created_at || q.issue_date, drawerDateFilter, drawerCustomStart, drawerCustomEnd)
+    );
+  }, [currentSelectedRep, drawerDateFilter, drawerCustomStart, drawerCustomEnd]);
 
   const filteredSales = useMemo(() => {
     if (!currentSelectedRep) return [];
-    return (currentSelectedRep.sales || []).filter(s => isDateInFilter(s.date, drawerDateFilter));
-  }, [currentSelectedRep, drawerDateFilter]);
+    return (currentSelectedRep.sales || []).filter(s =>
+      isDateInFilter(s.date, drawerDateFilter, drawerCustomStart, drawerCustomEnd)
+    );
+  }, [currentSelectedRep, drawerDateFilter, drawerCustomStart, drawerCustomEnd]);
 
   const filteredAssignedJobs = useMemo(() => {
     if (!currentSelectedRep) return [];
-    return (currentSelectedRep.assignedJobs || []).filter(j => isDateInFilter(j.createdAt, drawerDateFilter));
-  }, [currentSelectedRep, drawerDateFilter]);
+    return (currentSelectedRep.assignedJobs || []).filter(j =>
+      isDateInFilter(j.createdAt, drawerDateFilter, drawerCustomStart, drawerCustomEnd)
+    );
+  }, [currentSelectedRep, drawerDateFilter, drawerCustomStart, drawerCustomEnd]);
+
+  // Dynamically computed stats for current drawer filter
+  const drawerStats = useMemo(() => {
+    if (!currentSelectedRep) return null;
+    if (drawerDateFilter === 'all') {
+      return {
+        totalLeads: currentSelectedRep.totalLeads,
+        selfAddedCount: currentSelectedRep.selfAddedCount,
+        assignedToMeCount: currentSelectedRep.assignedToMeCount,
+        wonLeads: currentSelectedRep.wonLeads,
+        conversionRate: currentSelectedRep.conversionRate,
+        wonRevenue: currentSelectedRep.wonRevenue,
+        netProfit: currentSelectedRep.netProfit,
+        assignedByMeCount: currentSelectedRep.assignedByMeCount,
+        assignedJobsCount: currentSelectedRep.assignedJobsCount,
+        assignedJobsTotalFee: currentSelectedRep.assignedJobsTotalFee,
+        assignedJobsCompletedCount: currentSelectedRep.assignedJobsCompletedCount,
+        assignedJobsInProgressCount: currentSelectedRep.assignedJobsInProgressCount,
+        assignedJobsPoolCount: currentSelectedRep.assignedJobsPoolCount,
+      };
+    }
+
+    const leads = filteredAssignedLeads;
+    const selfAdded = leads.filter(l => l.assigned_by === currentSelectedRep.employeeId || !l.assigned_to_profile_id || l.assigned_to_profile_id === currentSelectedRep.employeeId).length;
+    const assignedToMe = leads.length - selfAdded;
+    const won = leads.filter(l => l.status === 'converted' || Number(l.total_amount) > 0).length;
+    const convRate = leads.length > 0 ? Math.round((won / leads.length) * 100) : 0;
+
+    const sales = filteredSales;
+    const revenue = sales.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    const profit = sales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
+
+    const jobs = filteredAssignedJobs;
+    const jobsTotalFee = jobs.reduce((sum, j) => sum + (Number(j.totalFee) || 0), 0);
+    const jobsDone = jobs.filter(j => j.status === 'completed').length;
+    const jobsInProgress = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && !j.isOpenPool).length;
+    const jobsPool = jobs.filter(j => j.isOpenPool).length;
+
+    return {
+      totalLeads: leads.length,
+      selfAddedCount: selfAdded,
+      assignedToMeCount: Math.max(0, assignedToMe),
+      wonLeads: won,
+      conversionRate: convRate,
+      wonRevenue: revenue,
+      netProfit: profit,
+      assignedByMeCount: filteredDistributedLeads.length,
+      assignedJobsCount: jobs.length,
+      assignedJobsTotalFee: jobsTotalFee,
+      assignedJobsCompletedCount: jobsDone,
+      assignedJobsInProgressCount: jobsInProgress,
+      assignedJobsPoolCount: jobsPool,
+    };
+  }, [
+    currentSelectedRep,
+    drawerDateFilter,
+    filteredAssignedLeads,
+    filteredDistributedLeads,
+    filteredSales,
+    filteredAssignedJobs,
+  ]);
+
+  const getDrawerFilterLabel = () => {
+    switch (drawerDateFilter) {
+      case 'today': return 'today';
+      case 'yesterday': return 'yesterday';
+      case 'week': return 'this week';
+      case 'month': return 'this month';
+      case 'custom': return drawerCustomStart ? `${drawerCustomStart} to ${drawerCustomEnd || drawerCustomStart}` : 'custom period';
+      default: return dateLabel;
+    }
+  };
 
   // Printable document ref
   const printRef = useRef<HTMLDivElement>(null);
@@ -365,9 +467,10 @@ export default function SalesTeamReports() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
         {/* Preset Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1 md:pb-0">
-          {(['today', 'week', 'month', 'quarter', 'year', 'all', 'custom'] as TimeframePreset[]).map(t => {
+          {(['today', 'yesterday', 'week', 'month', 'quarter', 'year', 'all', 'custom'] as TimeframePreset[]).map(t => {
             const labels: Record<TimeframePreset, string> = {
               today: 'Today',
+              yesterday: 'Yesterday',
               week: 'This Week',
               month: 'This Month',
               quarter: 'Quarter',
@@ -1225,15 +1328,15 @@ export default function SalesTeamReports() {
                       >
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">Total Leads</span>
                         <p className="text-base font-extrabold text-foreground mt-0.5">
-                          {currentSelectedRep ? currentSelectedRep.totalLeads : 0}
+                          {drawerStats ? drawerStats.totalLeads : currentSelectedRep ? currentSelectedRep.totalLeads : 0}
                         </p>
                         {currentSelectedRep && (
                           <div className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground mt-0.5">
-                            <span className="text-teal-400 font-semibold">{currentSelectedRep.selfAddedCount} self-added</span>
-                            {currentSelectedRep.assignedToMeCount > 0 && (
+                            <span className="text-teal-400 font-semibold">{drawerStats ? drawerStats.selfAddedCount : currentSelectedRep.selfAddedCount} self-added</span>
+                            {(drawerStats ? drawerStats.assignedToMeCount : currentSelectedRep.assignedToMeCount) > 0 && (
                               <>
                                 <span>•</span>
-                                <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedToMeCount} assigned</span>
+                                <span className="text-blue-400 font-semibold">{drawerStats ? drawerStats.assignedToMeCount : currentSelectedRep.assignedToMeCount} assigned</span>
                               </>
                             )}
                           </div>
@@ -1242,19 +1345,19 @@ export default function SalesTeamReports() {
                       <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">Leads Won</span>
                         <p className="text-base font-extrabold text-emerald-400 mt-0.5">
-                          {currentSelectedRep?.wonLeads || 0} ({currentSelectedRep?.conversionRate || 0}%)
+                          {drawerStats?.wonLeads ?? currentSelectedRep?.wonLeads ?? 0} ({drawerStats?.conversionRate ?? currentSelectedRep?.conversionRate ?? 0}%)
                         </p>
                       </div>
                       <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">Won Revenue</span>
                         <p className="text-base font-extrabold text-foreground mt-0.5">
-                          {(currentSelectedRep?.wonRevenue || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
+                          {(drawerStats?.wonRevenue ?? currentSelectedRep?.wonRevenue ?? 0).toFixed(3)} <span className="text-[10px]">OMR</span>
                         </p>
                       </div>
                       <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">Net Margin</span>
                         <p className="text-base font-extrabold text-purple-400 mt-0.5">
-                          {(currentSelectedRep?.netProfit || 0).toFixed(3)} <span className="text-[10px]">OMR</span>
+                          {(drawerStats?.netProfit ?? currentSelectedRep?.netProfit ?? 0).toFixed(3)} <span className="text-[10px]">OMR</span>
                         </p>
                       </div>
                     </div>
@@ -1282,7 +1385,9 @@ export default function SalesTeamReports() {
                         >
                           <div>
                             <span className="text-[10px] text-muted-foreground uppercase font-bold block">Leads Distributed</span>
-                            <span className="text-sm font-extrabold text-amber-400">{currentSelectedRep.assignedByMeCount} leads passed to team</span>
+                            <span className="text-sm font-extrabold text-amber-400">
+                              {drawerStats ? drawerStats.assignedByMeCount : currentSelectedRep.assignedByMeCount} leads passed to team
+                            </span>
                           </div>
                           <span className="text-xs text-muted-foreground font-bold">↗</span>
                         </div>
@@ -1299,17 +1404,27 @@ export default function SalesTeamReports() {
                           <div>
                             <span className="text-[10px] text-muted-foreground uppercase font-bold block">Jobs Assigned to Ops</span>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-sm font-extrabold text-cyan-400">{currentSelectedRep.assignedJobsCount} jobs</span>
-                              <span className="text-[10px] text-muted-foreground">({currentSelectedRep.assignedJobsTotalFee.toFixed(3)} OMR)</span>
+                              <span className="text-sm font-extrabold text-cyan-400">
+                                {drawerStats ? drawerStats.assignedJobsCount : currentSelectedRep.assignedJobsCount} jobs
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                ({(drawerStats ? drawerStats.assignedJobsTotalFee : currentSelectedRep.assignedJobsTotalFee).toFixed(3)} OMR)
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
-                              <span className="text-emerald-400 font-semibold">{currentSelectedRep.assignedJobsCompletedCount} done</span>
+                              <span className="text-emerald-400 font-semibold">
+                                {drawerStats ? drawerStats.assignedJobsCompletedCount : currentSelectedRep.assignedJobsCompletedCount} done
+                              </span>
                               <span>•</span>
-                              <span className="text-blue-400 font-semibold">{currentSelectedRep.assignedJobsInProgressCount} in ops</span>
-                              {currentSelectedRep.assignedJobsPoolCount > 0 && (
+                              <span className="text-blue-400 font-semibold">
+                                {drawerStats ? drawerStats.assignedJobsInProgressCount : currentSelectedRep.assignedJobsInProgressCount} in ops
+                              </span>
+                              {(drawerStats ? drawerStats.assignedJobsPoolCount : currentSelectedRep.assignedJobsPoolCount) > 0 && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-amber-400 font-semibold">{currentSelectedRep.assignedJobsPoolCount} in pool</span>
+                                  <span className="text-amber-400 font-semibold">
+                                    {drawerStats ? drawerStats.assignedJobsPoolCount : currentSelectedRep.assignedJobsPoolCount} in pool
+                                  </span>
                                 </>
                               )}
                             </div>
@@ -1398,40 +1513,75 @@ export default function SalesTeamReports() {
                 </div>
 
                 {/* Quick Date Filters inside Drawer */}
-                <div className="flex items-center justify-between gap-2 mt-3 pt-2">
-                  <div className="flex items-center gap-1.5 overflow-x-auto">
-                    <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 mr-1">
-                      <Filter size={11} className="text-muted-foreground" />
-                      <span>Filter:</span>
+                <div className="flex flex-col gap-2 mt-3 pt-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5">
+                      <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 mr-1 shrink-0">
+                        <Filter size={11} className="text-muted-foreground" />
+                        <span>Filter:</span>
+                      </span>
+                      {[
+                        { id: 'all', label: 'All Period' },
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: 'week', label: 'This Week' },
+                        { id: 'month', label: 'This Month' },
+                        { id: 'custom', label: 'Custom' },
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setDrawerDateFilter(p.id as any)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
+                            drawerDateFilter === p.id
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                      {activeRepTab === 'leads' && `${filteredAssignedLeads.length} leads`}
+                      {activeRepTab === 'distributed' && `${filteredDistributedLeads.length} distributed`}
+                      {activeRepTab === 'jobs' && `${filteredAssignedJobs.length} assigned job${filteredAssignedJobs.length === 1 ? '' : 's'}`}
+                      {activeRepTab === 'quotes' && `${filteredQuotations.length} quote${filteredQuotations.length === 1 ? '' : 's'}`}
+                      {activeRepTab === 'sales' && `${filteredSales.length} sale${filteredSales.length === 1 ? '' : 's'}`}
                     </span>
-                    {[
-                      { id: 'all', label: 'All Period' },
-                      { id: 'today', label: 'Today' },
-                      { id: 'week', label: 'This Week' },
-                      { id: 'month', label: 'This Month' },
-                    ].map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setDrawerDateFilter(p.id as any)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                          drawerDateFilter === p.id
-                            ? 'bg-primary text-primary-foreground shadow-sm'
-                            : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
                   </div>
 
-                  <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-                    {activeRepTab === 'leads' && `${filteredAssignedLeads.length} leads`}
-                    {activeRepTab === 'distributed' && `${filteredDistributedLeads.length} distributed`}
-                    {activeRepTab === 'jobs' && `${filteredAssignedJobs.length} assigned job${filteredAssignedJobs.length === 1 ? '' : 's'}`}
-                    {activeRepTab === 'quotes' && `${filteredQuotations.length} quote${filteredQuotations.length === 1 ? '' : 's'}`}
-                    {activeRepTab === 'sales' && `${filteredSales.length} sale${filteredSales.length === 1 ? '' : 's'}`}
-                  </span>
+                  {drawerDateFilter === 'custom' && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/40 flex-wrap text-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold">From:</span>
+                      <input
+                        type="date"
+                        value={drawerCustomStart}
+                        onChange={e => setDrawerCustomStart(e.target.value)}
+                        className="bg-muted/50 border border-border text-foreground text-[11px] rounded-lg px-2.5 py-1 outline-none focus:border-primary"
+                      />
+                      <span className="text-[10px] text-muted-foreground font-semibold">To:</span>
+                      <input
+                        type="date"
+                        value={drawerCustomEnd}
+                        onChange={e => setDrawerCustomEnd(e.target.value)}
+                        className="bg-muted/50 border border-border text-foreground text-[11px] rounded-lg px-2.5 py-1 outline-none focus:border-primary"
+                      />
+                      {(drawerCustomStart || drawerCustomEnd) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDrawerCustomStart('');
+                            setDrawerCustomEnd('');
+                          }}
+                          className="text-[10px] text-muted-foreground hover:text-foreground underline ml-1"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1444,7 +1594,7 @@ export default function SalesTeamReports() {
                       <div className="text-center py-10 space-y-2">
                         <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No leads found for this consultant {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No leads found for this consultant {drawerDateFilter !== 'all' ? `for ${getDrawerFilterLabel()}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (
@@ -1525,7 +1675,7 @@ export default function SalesTeamReports() {
                       <div className="text-center py-10 space-y-2">
                         <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No leads distributed by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No leads distributed by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${getDrawerFilterLabel()}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (
@@ -1616,7 +1766,7 @@ export default function SalesTeamReports() {
                       <div className="text-center py-10 space-y-2">
                         <FileText className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No formal quotations issued {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No formal quotations issued {drawerDateFilter !== 'all' ? `for ${getDrawerFilterLabel()}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (
@@ -1657,7 +1807,7 @@ export default function SalesTeamReports() {
                       <div className="text-center py-10 space-y-2">
                         <TrendingUp className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No closed sales recorded {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No closed sales recorded {drawerDateFilter !== 'all' ? `for ${getDrawerFilterLabel()}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (
@@ -1707,7 +1857,7 @@ export default function SalesTeamReports() {
                       <div className="text-center py-10 space-y-2">
                         <Briefcase className="w-8 h-8 mx-auto text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
-                          No operations work assigned by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${drawerDateFilter === 'today' ? 'today' : drawerDateFilter === 'week' ? 'this week' : 'this month'}` : `during ${dateLabel}`}.
+                          No operations work assigned by {currentSelectedRep?.fullName} {drawerDateFilter !== 'all' ? `for ${getDrawerFilterLabel()}` : `during ${dateLabel}`}.
                         </p>
                       </div>
                     ) : (

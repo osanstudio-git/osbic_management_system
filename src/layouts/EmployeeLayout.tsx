@@ -35,7 +35,8 @@ import {
    Landmark,
    DollarSign,
    Calendar,
-   Wallet
+   Wallet,
+   FileSpreadsheet
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -158,7 +159,10 @@ const EmployeeLayout: React.FC = () => {
 
   const navItems = [
     { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
-    ...(profile?.can_do_sales ? [{ key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' }] : []),
+    ...(profile?.can_do_sales ? [
+      { key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' },
+      { key: 'daily_sales_sheet', label: isRtl ? 'ورقة المبيعات اليومية' : 'Daily Sales Sheet', icon: FileSpreadsheet, path: '/employee/leads?dailySheet=true' }
+    ] : []),
     ...(isSalesHead ? [
       { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
     ] : []),
