@@ -982,14 +982,16 @@ export const useUpdateJobPayment = () => {
         if (updateError) throw updateError;
 
         // 2. Insert verified payment record into job_payments
+        const todayDateStr = now.slice(0, 10);
         const { error: pError } = await supabase
           .from('job_payments')
           .insert({
             job_id: jobId,
             amount: amount !== undefined ? amount : (type === 'advance' ? (Number(jobInfo.advance_due_amount) || 0) : (Number(jobInfo.remaining_due_amount) || 0)),
             payment_method: 'bank_transfer',
+            payment_date: todayDateStr,
             reference_number: `REC-${Date.now().toString().slice(-6)}`,
-            notes: `Confirmed via Financials Ledger. Receipt Auto-Generated.`,
+            notes: `[PAYMENT_DATE:${todayDateStr}]\nConfirmed via Financials Ledger. Receipt Auto-Generated.`,
             status: 'verified',
             verified_by: profile?.id,
             verified_at: now

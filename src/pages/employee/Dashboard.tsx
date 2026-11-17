@@ -6,7 +6,7 @@ import {
   Briefcase, CheckCircle2, 
   ArrowUpRight, Bell,
   ChevronRight, Activity, Zap, AlertCircle, Building2, User,
-  ShoppingBag, DollarSign
+  ShoppingBag, DollarSign, Clock, Wallet, FileText, BarChart4, CreditCard, Calendar
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useEmployeeJobs } from '../../hooks/shared/useJobs';
@@ -15,11 +15,14 @@ import { useProQueue } from '../../hooks/employee/useTimeline';
 import Skeleton from '../../components/ui/Skeleton';
 import { useNotifications } from '../../hooks/shared/useNotifications';
 import { useWalkinSales } from '../../hooks/employee/useWalkinSales';
-import { Clock } from 'lucide-react';
+import { useAccountsOverview } from '../../hooks/employee/useAccountsOverview';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import BranchOverviewDashboard from '../../components/employee/BranchOverviewDashboard';
 import TeamBirthdayBanner from '../../components/employee/TeamBirthdayBanner';
 import { UnifiedRecordSaleModal } from '../../components/employee/UnifiedRecordSaleModal';
+import { getPaymentReceivedDate } from '../../utils/paymentUtils';
 
 const weeklyData = [
   { day: 'Mon', tasks: 3 },
@@ -49,8 +52,9 @@ const EmployeeDashboard = () => {
   const canDoSales = profile?.can_do_sales ?? false;
   const canDoOps = profile?.can_do_ops ?? false;
   const isPro = profile?.is_pro ?? false;
+  const canDoAccounts = Boolean(profile?.can_do_accounts || profile?.department === 'accounts');
   const showModeSwitcher = canDoSales && canDoOps && !isPro;
-  const [mode, setMode] = useState<'sales' | 'ops' | 'pro'>('sales');
+  const [mode, setMode] = useState<'sales' | 'ops' | 'pro' | 'accounts'>('sales');
   const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
 
   useEffect(() => {
@@ -62,27 +66,54 @@ const EmployeeDashboard = () => {
         setMode(saved === 'ops' ? 'ops' : 'sales');
       } else if (canDoOps) {
         setMode('ops');
-      } else {
+      } else if (canDoSales) {
         setMode('sales');
         if (localStorage.getItem('employee_mode') === 'ops') {
           localStorage.setItem('employee_mode', 'sales');
         }
+      } else if (canDoAccounts) {
+        setMode('accounts');
+      } else {
+        setMode('sales');
       }
     }
-  }, [profile, canDoSales, canDoOps, isPro]);
+  }, [profile, canDoSales, canDoOps, isPro, canDoAccounts]);
 
-  // Redirect accounts-only staff to their dedicated portal
-  const isAccountsOnly = profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.is_pro;
-  useEffect(() => {
-    if (isAccountsOnly) {
-      navigate('/employee/accounts', { replace: true });
-    }
-  }, [isAccountsOnly, navigate]);
-
-  const handleModeChange = (newMode: 'sales' | 'ops' | 'pro') => {
+  const handleModeChange = (newMode: 'sales' | 'ops' | 'pro' | 'accounts') => {
     setMode(newMode);
     localStorage.setItem('employee_mode', newMode);
   };
+
+  // Accounts Mode Overview & Pending Verifications
+  const { data: accountsData } = useAccountsOverview();
+  const { data: pendingPaymentsList = [] } = useQuery({
+    queryKey: ['dashboard_pending_payments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_payments')
+        .select(`
+          id,
+          amount,
+          payment_method,
+          created_at,
+          payment_date,
+          notes,
+          job:jobs(job_code, client:profiles!client_id(full_name, company_name, phone)),
+          recorder:profiles!job_payments_recorded_by_fkey(full_name)
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return data || [];
+    },
+    enabled: canDoAccounts,
+  });
+
+  const totalBilled = accountsData?.reduce((sum, job) => sum + (Number(job.total_fee) || 0), 0) || 0;
+  const totalVerified = accountsData?.reduce((sum, job) => sum + (Number(job.advance_amount) || 0), 0) || 0;
+  const totalOutstanding = accountsData?.reduce((sum, job) => sum + Math.max(0, Number(job.remaining_amount) || 0), 0) || 0;
+  const pendingPaymentsCount = pendingPaymentsList.length;
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -212,7 +243,13 @@ const EmployeeDashboard = () => {
              <span>{new Date().toLocaleDateString(isRtl ? 'ar-OM' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
              <span className="text-muted-foreground/30">•</span>
              <span className="text-primary font-bold">
-               {mode === 'pro' ? (isRtl ? 'مساحة عمل المندوب (PRO)' : 'PRO Workspace') : mode === 'sales' ? (isRtl ? 'مساحة عمل المبيعات' : 'Sales Workspace') : (isRtl ? 'مساحة عمل العمليات' : 'Operations Workspace')}
+               {mode === 'pro' 
+                 ? (isRtl ? 'مساحة عمل المندوب (PRO)' : 'PRO Workspace') 
+                 : mode === 'sales' 
+                 ? (isRtl ? 'مساحة عمل المبيعات' : 'Sales Workspace') 
+                 : mode === 'ops'
+                 ? (isRtl ? 'مساحة عمل العمليات' : 'Operations Workspace')
+                 : (isRtl ? 'لوحة قيادة الحسابات والمالية' : 'Accounts & Finance Workspace')}
              </span>
            </p>
            <h1 className="text-2xl sm:text-3xl font-syne font-bold text-foreground tracking-tight">
@@ -256,7 +293,26 @@ const EmployeeDashboard = () => {
             </button>
           )}
 
-          {!isPro && (
+          {mode === 'accounts' && (
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                onClick={() => navigate('/employee/accounts')}
+                className="flex items-center gap-2 px-4 py-2 sm:py-1.5 bg-primary text-[#0A0F1E] rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 hover:opacity-90"
+              >
+                <Wallet size={15} />
+                <span>{isRtl ? 'سجل الحسابات الكامل' : 'Open Accounts Ledger'}</span>
+              </button>
+              <button
+                onClick={() => navigate('/employee/invoices')}
+                className="flex items-center gap-2 px-4 py-2 sm:py-1.5 bg-muted/60 hover:bg-muted text-foreground border border-border rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+              >
+                <FileText size={15} />
+                <span>{isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes'}</span>
+              </button>
+            </div>
+          )}
+
+          {!isPro && mode !== 'accounts' && (
             <button 
               onClick={() => navigate('/employee/my-jobs')}
               className="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-widest hover:text-primary transition-colors pb-1 mt-2 sm:mt-0 w-full justify-between sm:w-auto sm:justify-start"
@@ -330,6 +386,100 @@ const EmployeeDashboard = () => {
               </div>
               <div className="flex items-baseline gap-2">
                  <p className="text-4xl font-bold text-foreground tracking-tighter">85<span className="text-xl text-muted-foreground">%</span></p>
+              </div>
+           </div>
+        </div>
+      ) : mode === 'accounts' ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+           {/* Card 1: Total Billed */}
+           <div 
+             onClick={() => navigate('/employee/accounts')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-blue-500/30 transition-all cursor-pointer relative overflow-hidden"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <DollarSign size={16} className="text-blue-400 group-hover:scale-110 transition-transform" />
+                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'إجمالي الفواتير' : 'Total Billed'}
+                 </p>
+              </div>
+              <div>
+                 <div className="flex items-baseline gap-1">
+                   <p className="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-mono">{totalBilled.toFixed(3)}</p>
+                   <span className="text-[11px] text-muted-foreground font-bold">OMR</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                   {isRtl ? 'إجمالي الإيرادات المسجلة' : 'Revenue generated'}
+                 </p>
+              </div>
+           </div>
+
+           {/* Card 2: Verified Collected */}
+           <div 
+             onClick={() => navigate('/employee/accounts')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-emerald-500/30 transition-all cursor-pointer relative overflow-hidden"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <CheckCircle2 size={16} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                 <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'المبالغ المحققة' : 'Verified Paid'}
+                 </p>
+              </div>
+              <div>
+                 <div className="flex items-baseline gap-1">
+                   <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight font-mono">{totalVerified.toFixed(3)}</p>
+                   <span className="text-[11px] text-muted-foreground font-bold">OMR</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                   {isRtl ? 'مدفوعات مؤكدة ومدققة' : 'Collected & confirmed'}
+                 </p>
+              </div>
+           </div>
+
+           {/* Card 3: Pending Verification */}
+           <div 
+             onClick={() => navigate('/employee/accounts')}
+             className={`bg-transparent border rounded-xl p-4 sm:p-5 flex flex-col justify-between group transition-all cursor-pointer relative overflow-hidden ${
+               pendingPaymentsCount > 0 ? 'border-amber-500/50 bg-amber-500/5 hover:border-amber-400' : 'border-border/60 hover:border-border'
+             }`}
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <Clock size={16} className={pendingPaymentsCount > 0 ? 'text-amber-400 animate-pulse' : 'text-muted-foreground'} />
+                 <p className={`text-[10px] font-bold uppercase tracking-widest truncate ${pendingPaymentsCount > 0 ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                   {isRtl ? 'بانتظار التحقق' : 'Pending Verification'}
+                 </p>
+              </div>
+              <div>
+                 <div className="flex items-baseline gap-2">
+                   <p className={`text-2xl sm:text-3xl font-black tracking-tight ${pendingPaymentsCount > 0 ? 'text-amber-400' : 'text-foreground'}`}>
+                     {pendingPaymentsCount}
+                   </p>
+                   <span className="text-xs text-muted-foreground font-semibold">{isRtl ? 'سند' : 'payments'}</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                   {pendingPaymentsCount > 0 ? (isRtl ? 'تحتاج تدقيق محاسبي' : 'Action required in ledger') : (isRtl ? 'تم تدقيق كل السندات' : 'All up to date')}
+                 </p>
+              </div>
+           </div>
+
+           {/* Card 4: Total Outstanding Due */}
+           <div 
+             onClick={() => navigate('/employee/accounts')}
+             className="bg-transparent border border-border/60 rounded-xl p-4 sm:p-5 flex flex-col justify-between group hover:border-primary/40 transition-all cursor-pointer relative overflow-hidden"
+           >
+              <div className="flex items-center gap-2.5 mb-3">
+                 <Wallet size={16} className="text-primary group-hover:scale-110 transition-transform" />
+                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">
+                   {isRtl ? 'المتبقي المستحق' : 'Outstanding Due'}
+                 </p>
+              </div>
+              <div>
+                 <div className="flex items-baseline gap-1">
+                   <p className="text-2xl sm:text-3xl font-black text-primary tracking-tight font-mono">{totalOutstanding.toFixed(3)}</p>
+                   <span className="text-[11px] text-muted-foreground font-bold">OMR</span>
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                   {isRtl ? 'أرصدة غير محصلة' : 'Uncollected receivables'}
+                 </p>
               </div>
            </div>
         </div>
@@ -609,6 +759,101 @@ const EmployeeDashboard = () => {
             <div className="flex flex-col items-center justify-center py-20 border border-dashed border-border rounded-3xl bg-muted/5 text-center px-6">
               <Briefcase size={36} className="text-muted-foreground/30 mb-4" />
               <p className="text-sm text-muted-foreground font-medium">{isRtl ? 'لم يتم تعيين وظائف عمليات لك بعد' : 'No operations jobs assigned to you yet'}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode === 'accounts' && (
+        <div className="space-y-6 pt-8 border-t border-border/40 font-sans">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-2">
+              <Clock size={14} className="text-amber-400" />
+              {isRtl ? 'سندات الدفع بانتظار التحقق والاعتماد' : 'Payments Awaiting Verification'}
+              {pendingPaymentsCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  {pendingPaymentsCount}
+                </span>
+              )}
+            </h2>
+            <button
+              onClick={() => navigate('/employee/accounts')}
+              className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+            >
+              <span>{isRtl ? 'فتح سجل الحسابات الكامل' : 'Open Full Accounts Ledger'}</span>
+              <ChevronRight size={14} className={isRtl ? 'rotate-180' : ''} />
+            </button>
+          </div>
+
+          {pendingPaymentsList.length > 0 ? (
+            <div className="overflow-x-auto bg-card border border-border rounded-2xl w-full">
+              <table className="w-full text-left border-collapse whitespace-nowrap" dir={isRtl ? 'rtl' : 'ltr'}>
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/20 text-right">
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'رمز الملف' : 'Job Code'}</th>
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'العميل' : 'Client'}</th>
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'طريقة الدفع' : 'Payment Method'}</th>
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'المبلغ' : 'Amount'}</th>
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'التاريخ' : 'Date'}</th>
+                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 text-start">{isRtl ? 'الإجراء' : 'Action'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingPaymentsList.map((payment: any) => (
+                    <tr 
+                      key={payment.id} 
+                      onClick={() => navigate('/employee/accounts')}
+                      className="border-b border-border/40 hover:bg-muted/10 transition-colors cursor-pointer text-start"
+                    >
+                      <td className="p-4 text-sm font-mono font-bold text-primary">{payment.job?.job_code || 'JOB'}</td>
+                      <td className="p-4 text-sm text-foreground font-medium">{payment.job?.client?.full_name || 'Client'}</td>
+                      <td className="p-4 text-sm">
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-muted/60 border border-border text-foreground uppercase">
+                          {payment.payment_method || 'Payment'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm font-mono font-black text-emerald-400">
+                        {Number(payment.amount || 0).toFixed(3)} OMR
+                      </td>
+                      <td className="p-4 text-xs">
+                        {(() => {
+                          const { date } = getPaymentReceivedDate(payment);
+                          let formattedDate = 'N/A';
+                          try {
+                            formattedDate = format(new Date(date), 'dd MMM yyyy');
+                          } catch {
+                            formattedDate = String(date);
+                          }
+                          return (
+                            <div>
+                              <div className="font-bold text-emerald-400 flex items-center gap-1">
+                                <Calendar size={11} className="shrink-0" />
+                                {formattedDate}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                Rec: {format(new Date(payment.created_at), 'HH:mm')}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-4 text-sm">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 w-fit">
+                          <Clock size={10} /> {isRtl ? 'تدقيق' : 'Verify'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 border border-dashed border-border rounded-3xl bg-muted/5 text-center px-6">
+              <CheckCircle2 size={36} className="text-emerald-400/40 mb-3" />
+              <p className="text-sm font-bold text-foreground">{isRtl ? 'جميع سندات الدفع مدققة ومحدثة' : 'All Payments Verified & Up to Date'}</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                {isRtl ? 'لا توجد سندات دفع معلقة بانتظار الاعتماد المحاسبي حالياً.' : 'No pending payment receipts awaiting verification at this time.'}
+              </p>
             </div>
           )}
         </div>

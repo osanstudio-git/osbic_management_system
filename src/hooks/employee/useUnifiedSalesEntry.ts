@@ -395,7 +395,7 @@ export const useUnifiedSalesEntry = () => {
 
       // Record Payment in job_payments with Safe Fallback for Columns
       if (activeJobId && payload.amountReceived > 0) {
-        const auditTag = `[TRANSACTION_DATE:${txDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
+        const auditTag = `[PAYMENT_DATE:${txDate}] [TRANSACTION_DATE:${txDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
         const combinedNotes = payload.notes ? `${payload.notes}\n${auditTag}` : auditTag;
 
         const basePayment: any = {
@@ -536,7 +536,7 @@ export const useUnifiedSalesEntry = () => {
       const isFullyPaid = newRemaining <= 0;
 
       // 2. Insert into job_payments
-      const auditTag = `[REST_PAYMENT] [TRANSACTION_DATE:${payload.paymentDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
+      const auditTag = `[REST_PAYMENT] [PAYMENT_DATE:${payload.paymentDate}] [TRANSACTION_DATE:${payload.paymentDate}] [LOGGED_BY:${profile?.full_name || 'Sales'}]`;
       const combinedNotes = payload.notes ? `${payload.notes}\n${auditTag}` : auditTag;
 
       const basePayment: any = {

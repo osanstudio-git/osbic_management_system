@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { downloadReceipt } from '../../utils/invoiceGenerator';
 import { AllocationModal } from './AllocationModal';
 import { GovFeeVarianceModal } from './GovFeeVarianceModal';
+import { getPaymentReceivedDate, formatPaymentReceivedDate } from '../../utils/paymentUtils';
 
 const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
@@ -248,9 +249,16 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
         ...(firstProofUrl ? { proof_url: firstProofUrl } : {})
       } as any).select('*, profiles:recorded_by(full_name)').single();
 
-      // If proof_url column does not exist in database schema cache (PGRST204), retry without it
-      if (insertRes.error && (insertRes.error.code === 'PGRST204' || insertRes.error.message?.includes('proof_url'))) {
-        insertRes = await supabase.from('job_payments').insert(insertPayload).select('*, profiles:recorded_by(full_name)').single();
+      // If proof_url or payment_date column does not exist in database schema cache (PGRST204), retry gracefully
+      if (insertRes.error && (insertRes.error.code === 'PGRST204' || insertRes.error.message?.includes('proof_url') || insertRes.error.message?.includes('payment_date'))) {
+        insertRes = await supabase.from('job_payments').insert({
+          ...insertPayload,
+          payment_date: newPayment.date || undefined,
+        } as any).select('*, profiles:recorded_by(full_name)').single();
+
+        if (insertRes.error && (insertRes.error.code === 'PGRST204' || insertRes.error.message?.includes('payment_date'))) {
+          insertRes = await supabase.from('job_payments').insert(insertPayload).select('*, profiles:recorded_by(full_name)').single();
+        }
       }
 
       const { data, error } = insertRes;
@@ -859,7 +867,7 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest block mb-1.5 flex items-center gap-1">
-                        <Calendar size={12} className="text-primary" /> Payment Date
+                        <Calendar size={12} className="text-primary" /> Date Amount Received *
                       </label>
                       <input
                         type="date"
@@ -868,6 +876,9 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                         onChange={e => setNewPayment({ ...newPayment, date: e.target.value })}
                         className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs outline-none focus:border-primary text-foreground font-semibold"
                       />
+                      <span className="text-[9px] text-muted-foreground mt-0.5 block">
+                        Actual date amount was received / collected
+                      </span>
                     </div>
 
                     <div className={newPayment.method === 'cash' ? "sm:col-span-2" : ""}>
@@ -1186,12 +1197,17 @@ export const JobLedger = ({ job, onPaymentReceived }: { job: any, onPaymentRecei
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-muted-foreground flex items-center gap-2">
-                        <span>{new Date(payment.created_at).toLocaleDateString()}</span>
+                      <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-1.5">
+                        <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                          <Calendar size={11} className="shrink-0" />
+                          Received: {formatPaymentReceivedDate(payment, 'dd MMM yyyy')}
+                        </span>
+                        <span>•</span>
+                        <span>Rec: {format(new Date(payment.created_at), 'dd MMM, h:mm a')}</span>
                         {payment.reference_number && (
                           <>
                             <span>•</span>
-                            <span className="font-mono uppercase tracking-wider">Ref: {payment.reference_number}</span>
+                            <span className="font-mono uppercase tracking-wider text-primary">Ref: {payment.reference_number}</span>
                           </>
                         )}
                         {payment.profiles?.full_name && (

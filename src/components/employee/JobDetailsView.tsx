@@ -2546,6 +2546,7 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
   const [existingInvoice, setExistingInvoice] = useState<{ id: string; status: string } | null>(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedPayMode, setSelectedPayMode] = useState<'cash' | 'bank_transfer' | 'pos' | 'online'>('bank_transfer');
+  const [selectedPayDate, setSelectedPayDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [isCancelTaskModalOpen, setIsCancelTaskModalOpen] = useState(false);
 
@@ -2656,16 +2657,28 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
 
       // 3. Insert a verified payment record in job_payments if balance remains
       if (remainingToPay > 0) {
-        const { error: payErr } = await supabase.from('job_payments').insert({
+        const payNotes = `[PAYMENT_DATE:${selectedPayDate}]\nManually marked as paid via invoice actions`;
+        const basePayRecord: any = {
           job_id: job.id,
           amount: remainingToPay,
           payment_method: selectedPayMode,
-          notes: `Manually marked as paid via invoice actions`,
+          notes: payNotes,
           status: 'verified',
           recorded_by: profile?.id,
           verified_by: profile?.id,
           verified_at: new Date().toISOString()
-        });
+        };
+
+        let { error: payErr } = await supabase.from('job_payments').insert({
+          ...basePayRecord,
+          payment_date: selectedPayDate,
+        } as any);
+
+        if (payErr && (payErr.code === 'PGRST204' || payErr.message?.includes('payment_date'))) {
+          const res = await supabase.from('job_payments').insert(basePayRecord);
+          payErr = res.error;
+        }
+
         if (payErr) throw payErr;
       }
 
@@ -3258,6 +3271,20 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
                     <option value="pos">Card / POS</option>
                     <option value="online">Online Payment</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
+                    <Calendar size={12} className="text-primary" /> Date Amount Received *
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedPayDate}
+                    max={format(new Date(), 'yyyy-MM-dd')}
+                    onChange={(e) => setSelectedPayDate(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-primary transition-colors font-medium"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Specify the actual date when the payment was received / transferred.</p>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">

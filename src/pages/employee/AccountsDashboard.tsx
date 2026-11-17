@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone } from 'lucide-react';
+import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { useExpenses } from '../../hooks/employee/useExpenses';
 import { useAccountsOverview } from '../../hooks/employee/useAccountsOverview';
 import { useNavigate } from 'react-router-dom';
 import { downloadInvoice, downloadReceipt } from '../../utils/invoiceGenerator';
+import { getPaymentReceivedDate, formatPaymentReceivedDate } from '../../utils/paymentUtils';
 
 interface AccountsDashboardProps {
   hideHeader?: boolean;
@@ -648,13 +649,36 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            Client: <span className="text-foreground">{payment.job?.client?.full_name}</span>
+                            Client: <span className="text-foreground font-semibold">{payment.job?.client?.full_name}</span>
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Recorded by: {payment.recorder?.full_name} on {format(new Date(payment.created_at), 'MMM d, h:mm a')}
-                          </p>
+
+                          {/* Date Amount Received Highlight */}
+                          {(() => {
+                            const { date, isExplicit } = getPaymentReceivedDate(payment);
+                            let formattedDate = 'N/A';
+                            try {
+                              formattedDate = format(new Date(date), 'MMM d, yyyy');
+                            } catch {
+                              formattedDate = String(date);
+                            }
+                            return (
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-xs shadow-sm">
+                                  <Calendar size={13} className="text-emerald-400 shrink-0" />
+                                  <span>Date Received: <strong className="text-white underline decoration-emerald-500/50">{formattedDate}</strong></span>
+                                  {!isExplicit && (
+                                    <span className="text-[9px] text-emerald-400/70 font-normal ml-0.5">(System Recorded)</span>
+                                  )}
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  • Recorded by: <span className="text-foreground font-medium">{payment.recorder?.full_name || 'Staff'}</span> on {format(new Date(payment.created_at), 'MMM d, h:mm a')}
+                                </span>
+                              </div>
+                            );
+                          })()}
+
                           {payment.reference_number && (
-                            <p className="text-xs font-mono mt-1 text-primary">Ref: {payment.reference_number}</p>
+                            <p className="text-xs font-mono mt-1.5 text-primary">Ref: {payment.reference_number}</p>
                           )}
                           <button
                             onClick={() => handleViewPaymentProof(payment)}
@@ -808,11 +832,33 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            Client: <span className="text-foreground">{payment.job?.client?.full_name}</span>
+                            Client: <span className="text-foreground font-semibold">{payment.job?.client?.full_name}</span>
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            By: {payment.verifier?.full_name} on {payment.verified_at ? format(new Date(payment.verified_at), 'MMM d, h:mm a') : 'Unknown'}
-                          </p>
+                          {(() => {
+                            const { date } = getPaymentReceivedDate(payment);
+                            let formattedDate = 'N/A';
+                            try {
+                              formattedDate = format(new Date(date), 'MMM d, yyyy');
+                            } catch {
+                              formattedDate = String(date);
+                            }
+                            return (
+                              <div className="flex flex-wrap items-center gap-2 my-1">
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs">
+                                  <Calendar size={12} className="text-emerald-400 shrink-0" />
+                                  <span>Received: {formattedDate}</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  • Verified by: {payment.verifier?.full_name || 'Accounts'} on {payment.verified_at ? format(new Date(payment.verified_at), 'MMM d, h:mm a') : 'Unknown'}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                          {payment.recorder?.full_name && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Recorded by: {payment.recorder.full_name} on {format(new Date(payment.created_at), 'MMM d, h:mm a')}
+                            </p>
+                          )}
                           {payment.notes && payment.notes.includes('[REJECTED]') && (
                             <p className="text-xs mt-2 text-rose-400 bg-rose-500/10 p-2 rounded-lg italic border-l-2 border-rose-500">
                               {payment.notes.replace('[REJECTED]: ', 'Reason: ')}
@@ -1498,7 +1544,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                       <table className="w-full text-left">
                         <thead className="bg-muted/30">
                           <tr>
-                            <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date</th>
+                            <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date Received</th>
                             <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Amount</th>
                             <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Method</th>
                             <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ref #</th>
@@ -1507,15 +1553,28 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {jobDetailsTarget.payments?.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((payment: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-muted/10">
-                              <td className="px-4 py-3 text-sm text-foreground">
-                                {format(new Date(payment.created_at), 'MMM d, yyyy')}
-                                <div className="text-[10px] text-muted-foreground">{format(new Date(payment.created_at), 'h:mm a')}</div>
-                              </td>
-                              <td className="px-4 py-3 font-mono font-bold text-foreground">
-                                {Number(payment.amount).toFixed(3)}
-                              </td>
+                          {jobDetailsTarget.payments?.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((payment: any, idx: number) => {
+                            const { date } = getPaymentReceivedDate(payment);
+                            let formattedDate = 'N/A';
+                            try {
+                              formattedDate = format(new Date(date), 'MMM d, yyyy');
+                            } catch {
+                              formattedDate = String(date);
+                            }
+                            return (
+                              <tr key={idx} className="hover:bg-muted/10">
+                                <td className="px-4 py-3 text-sm text-foreground">
+                                  <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                                    <Calendar size={12} className="shrink-0" />
+                                    {formattedDate}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    Rec: {format(new Date(payment.created_at), 'MMM d, h:mm a')}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 font-mono font-bold text-foreground">
+                                  {Number(payment.amount).toFixed(3)}
+                                </td>
                               <td className="px-4 py-3">
                                 <span className="capitalize text-sm">{payment.payment_method?.replace('_', ' ') || 'Unknown'}</span>
                               </td>
@@ -1551,7 +1610,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                                 )}
                               </td>
                             </tr>
-                          ))}
+                          );
+                        })}
                         </tbody>
                       </table>
                     </div>
