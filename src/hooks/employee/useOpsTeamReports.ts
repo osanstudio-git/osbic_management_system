@@ -169,9 +169,10 @@ export const useOpsTeamReports = (
       }
       if (empError) throw empError;
 
-      // Filter employees who do ops work or lead ops
+      // Filter employees who do ops work or lead ops (Exclude Migrate division so Global Visa ops are isolated)
       const opsEmployees = (rawEmployees || []).filter(
-        e => e.can_do_ops || e.department === 'operations' || e.is_pro || (e as any).is_ops_head || e.is_manager
+        e => (e.can_do_ops || e.department === 'operations' || e.is_pro || (e as any).is_ops_head || e.is_manager) &&
+             e.department !== 'migrate' && !(e as any).is_migrate_specialist
       );
 
       const opsEmpIds = opsEmployees.map(e => e.id);

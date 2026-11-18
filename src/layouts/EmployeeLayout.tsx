@@ -183,6 +183,9 @@ const EmployeeLayout: React.FC = () => {
     // PRO queue — shown for PRO agents
     ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
+    ...(isManagerOrAdmin || profile?.department === 'migrate' || (profile as any)?.is_migrate_specialist ? [
+      { key: 'migrate_hub', label: isRtl ? 'الهجرة والتأشيرات الذهبية' : 'OSBIC Migrate Hub', icon: Globe, path: '/employee/migrate' }
+    ] : []),
     { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),

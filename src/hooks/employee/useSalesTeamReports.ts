@@ -179,10 +179,15 @@ export const useSalesTeamReports = (
       const { data: rawEmployees, error: empError } = await empQuery;
       if (empError) throw empError;
 
-      const allBranchEmpIds = (rawEmployees || []).map(e => e.id);
+      // Filter out Migrate division so Golden Visa sales do not mix into regular branch sales reports
+      const standardBranchEmployees = (rawEmployees || []).filter(
+        e => e.department !== 'migrate' && !(e as any).is_migrate_specialist
+      );
+
+      const allBranchEmpIds = standardBranchEmployees.map(e => e.id);
 
       // Filter employees who have sales duties or are sales heads
-      const salesEmployees = (rawEmployees || []).filter(
+      const salesEmployees = standardBranchEmployees.filter(
         e => e.can_do_sales || e.department === 'sales' || e.is_sales_head || e.is_manager
       );
 

@@ -44,6 +44,7 @@ import Audit from './pages/admin/Audit';
 import AdminMessages from './pages/admin/Messages';
 import Settings from './pages/admin/Settings';
 import AdminLeads from './pages/admin/AdminLeads';
+import MigrateReportDashboard from './pages/admin/MigrateReportDashboard';
 import MyJobs from './pages/employee/MyJobs';
 import EmployeeProfile from './pages/employee/Profile';
 import EmployeeRequests from './pages/employee/Requests';
@@ -484,6 +485,7 @@ function App() {
               <Route path="audit" element={<Audit />} />
               <Route path="settings" element={<Settings />} />
               <Route path="leads" element={<AdminLeads />} />
+              <Route path="migrate" element={<MigrateReportDashboard />} />
               <Route path="marketing" element={<MarketingHub />} />
               <Route path="b2b/proposals/new" element={<B2BProposalBuilder />} />
               <Route path="b2b/proposals/:id" element={<B2BProposalBuilder />} />
@@ -496,6 +498,7 @@ function App() {
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
+              <Route path="migrate" element={<MigrateReportDashboard />} />
             </Route>
 
             {/* Employee Portal */}
@@ -548,6 +551,7 @@ function App() {
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
+              <Route path="migrate" element={<MigrateReportDashboard />} />
             </Route>
 
             {/* Client Portal */}

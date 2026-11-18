@@ -8,10 +8,12 @@ import {
   CheckCircle2, AlertCircle, Clock, User, X, Coins,
   Upload, FileText, Eye, Download, Loader2, Layers,
   Shield, Phone, Activity, ChevronRight, Trash2, LockOpen, Lock, Sparkles, UserPlus, UserCheck,
-  Pencil, Check, Receipt
+  Pencil, Check, Receipt, Crown, Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JobLedger } from './JobLedger';
+import { GoldenVisaCommandCenter } from './GoldenVisaCommandCenter';
+import { GlobalVisaCommandCenter } from './GlobalVisaCommandCenter';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -2900,6 +2902,28 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
 
   if (!job) return null;
 
+  const isGoldenVisa = Boolean(
+    job.migrate_category === 'golden_visa' ||
+    job.golden_route ||
+    (job.service?.name_en || '').toLowerCase().includes('golden') ||
+    (job.service?.name_ar || '').includes('الذهبية') ||
+    (job.custom_name || '').toLowerCase().includes('golden') ||
+    profile?.migrate_specialty === 'golden_visa'
+  );
+
+  const isGlobalVisa = Boolean(
+    job.migrate_category === 'global_visa' ||
+    job.visa_category ||
+    (!isGoldenVisa && (
+      (job.service?.name_en || '').toLowerCase().includes('tourist') ||
+      (job.service?.name_en || '').toLowerCase().includes('visit') ||
+      (job.service?.name_en || '').toLowerCase().includes('schengen') ||
+      (job.custom_name || '').toLowerCase().includes('tourist') ||
+      (job.custom_name || '').toLowerCase().includes('schengen') ||
+      profile?.migrate_specialty === 'global_visa'
+    ))
+  );
+
   return (
     <div className="w-full min-w-0 flex flex-col h-full bg-background overflow-hidden">
       {/* Header Tabs */}
@@ -2972,6 +2996,45 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
               <span>Assigned by: <strong className="font-bold text-amber-300">{resolvedAssigner}</strong></span>
             </div>
           )}
+
+          {isGoldenVisa ? (
+            <div className="pb-3 hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-400">
+              <Crown size={12} className="text-amber-400" />
+              <span>Golden Visa Desk</span>
+            </div>
+          ) : isGlobalVisa ? (
+            <div className="pb-3 hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-500/15 border border-sky-500/30 text-sky-400">
+              <Globe size={12} className="text-sky-400" />
+              <span>Global Visa Desk</span>
+            </div>
+          ) : (
+            (profile?.role === 'admin' || profile?.department === 'migrate') && (
+              <div className="pb-3 hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={async () => {
+                    await supabase.from('jobs').update({ migrate_category: 'golden_visa' }).eq('id', job.id);
+                    loadData();
+                    import('react-hot-toast').then(t => t.default.success('Tagged as Golden Visa Investor file'));
+                  }}
+                  className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground hover:text-amber-400 transition-colors border border-border/50 px-2 py-0.5 rounded-full"
+                >
+                  <Crown size={11} />
+                  <span>+ Golden</span>
+                </button>
+                <button
+                  onClick={async () => {
+                    await supabase.from('jobs').update({ migrate_category: 'global_visa' }).eq('id', job.id);
+                    loadData();
+                    import('react-hot-toast').then(t => t.default.success('Tagged as Global Tourist Visa file'));
+                  }}
+                  className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground hover:text-sky-400 transition-colors border border-border/50 px-2 py-0.5 rounded-full"
+                >
+                  <Globe size={11} />
+                  <span>+ Global Visa</span>
+                </button>
+              </div>
+            )
+          )}
         </div>
       </div>
 
@@ -2993,6 +3056,24 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
           </div>
         ) : activeTab === 'operations' ? (
           <div className="w-full max-w-5xl mx-auto pb-12 space-y-6">
+            {/* Dedicated OSBIC MIGRATE Golden Visa Command Center */}
+            {isGoldenVisa && (
+              <GoldenVisaCommandCenter
+                job={job}
+                onUpdated={loadData}
+                canEdit={profile?.role === 'admin' || profile?.department === 'migrate' || profile?.can_do_ops || profile?.can_do_sales}
+              />
+            )}
+
+            {/* Dedicated OSBIC MIGRATE Global Tourist Visa Command Center */}
+            {isGlobalVisa && (
+              <GlobalVisaCommandCenter
+                job={job}
+                onUpdated={loadData}
+                canEdit={profile?.role === 'admin' || profile?.department === 'migrate' || profile?.can_do_ops || profile?.can_do_sales}
+              />
+            )}
+
             {/* Operations Bar */}
             <div className="bg-card border border-border p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1.5">

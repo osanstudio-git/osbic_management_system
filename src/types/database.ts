@@ -78,7 +78,9 @@ export interface Database {
         employee_code: string | null
         client_code: string | null
         is_manager: boolean | null
-        department: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | null
+        department: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | 'migrate' | null
+        is_migrate_specialist?: boolean | null
+        migrate_specialty?: 'golden_visa' | 'global_visa' | 'both' | null
         created_by: string | null
         created_at: string | null
         updated_at: string | null
@@ -180,6 +182,24 @@ export interface Database {
         ops_employee_id: string | null
         package_group_id: string | null
         custom_name: string | null
+        migrate_category?: 'golden_visa' | 'global_visa' | null
+        golden_route?: 'fixed_deposit' | 'itc_property' | 'omani_employees_50' | 'company_assets' | null
+        audit_report_required?: boolean | null
+        payment_terms?: '50_50' | 'full' | null
+        golden_approval_status?: 'pending' | 'approved' | 'rejected' | null
+        golden_approved_at?: string | null
+        id_card_status?: 'pending' | 'issued' | null
+        id_card_issued_at?: string | null
+        visa_category?: 'schengen_29' | 'usa_uk' | 'gcc_visit' | 'oman_family' | null
+        destination_country?: string | null
+        embassy_fee_mode?: 'paid_to_osbic' | 'client_direct' | 'at_embassy' | null
+        has_dummy_ticket?: boolean | null
+        has_dummy_hotel?: boolean | null
+        has_insurance?: boolean | null
+        travel_date?: string | null
+        embassy_outcome?: 'pending' | 'approved' | 'rejected' | null
+        embassy_rejection_reason?: string | null
+        lead_source_type?: 'social_ads' | 'reference' | 'branch_walkin' | 'direct' | null
       }, 'id' | 'created_at' | 'updated_at', 'status' | 'advance_percentage' | 'advance_paid' | 'remaining_paid' | 'expiry_reminder_60_sent' | 'expiry_reminder_30_sent'>
 
       job_payments: TableDef<{

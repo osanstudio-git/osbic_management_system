@@ -286,6 +286,7 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
         leadId: !manualClientMode && selectedClientOption?.type === 'lead' ? selectedClientOption.id : null,
         clientName,
         clientPhone: manualClientMode ? manualPhone : (selectedClientOption?.phone || ''),
+        clientEmail: manualClientMode ? undefined : (selectedClientOption?.email || undefined),
         companyName: manualClientMode ? manualCompany : (selectedClientOption?.companyName || ''),
         workType,
         workDescription,

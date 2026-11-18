@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { ensureClientProfile } from '../../utils/clientProvisioning';
 
 export interface ClientOrLeadOption {
   id: string;
@@ -39,6 +40,7 @@ export interface RecordNewSalePayload {
   leadId?: string | null;
   clientName: string;
   clientPhone?: string;
+  clientEmail?: string;
   companyName?: string;
   workType: string;
   workDescription?: string;
@@ -234,67 +236,20 @@ export const useUnifiedSalesEntry = () => {
   // ─── Mutation: Record New Sale (Backlog / Real-time) ──────────────────────
   const recordNewSaleMutation = useMutation({
     mutationFn: async (payload: RecordNewSalePayload) => {
-      let resolvedClientId = payload.clientId;
+      // Ensure a valid, non-null client_id exists in profiles (auto-provisions if lead or walk-in)
+      const resolvedClientId = await ensureClientProfile({
+        clientId: payload.clientId,
+        leadId: payload.leadId,
+        fullName: payload.clientName,
+        phone: payload.clientPhone,
+        email: payload.clientEmail,
+        companyName: payload.companyName,
+        branchId: profile?.branch_id,
+        createdBy: profile?.id,
+      });
 
-      // If client is a lead or quick-add, ensure a valid client_id exists
-      if (!resolvedClientId && payload.leadId) {
-        const { data: leadData } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('id', payload.leadId)
-          .single();
-
-        if (leadData) {
-          // Check if profile already exists with this phone
-          if (leadData.contact_phone) {
-            const { data: existingProf } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('phone', leadData.contact_phone)
-              .maybeSingle();
-
-            if (existingProf) {
-              resolvedClientId = existingProf.id;
-            }
-          }
-
-          // If still no client profile, create client profile from lead
-          if (!resolvedClientId) {
-            const { data: newProf, error: profErr } = await supabase
-              .from('profiles')
-              .insert({
-                role: 'client',
-                full_name: leadData.contact_name || payload.clientName,
-                phone: leadData.contact_phone || payload.clientPhone || null,
-                company_name: leadData.company_name || payload.companyName || null,
-                email: leadData.contact_email || null,
-              })
-              .select('id')
-              .single();
-
-            if (!profErr && newProf) {
-              resolvedClientId = newProf.id;
-            }
-          }
-        }
-      }
-
-      // If still no client_id (pure walk-in new customer), create profile
-      if (!resolvedClientId && payload.clientName.trim()) {
-        const { data: newProf, error: profErr } = await supabase
-          .from('profiles')
-          .insert({
-            role: 'client',
-            full_name: payload.clientName.trim(),
-            phone: payload.clientPhone?.trim() || null,
-            company_name: payload.companyName?.trim() || null,
-          })
-          .select('id')
-          .single();
-
-        if (!profErr && newProf) {
-          resolvedClientId = newProf.id;
-        }
+      if (!resolvedClientId) {
+        throw new Error(`Failed to resolve or create client profile for "${payload.clientName}".`);
       }
 
       // Upload proof if present

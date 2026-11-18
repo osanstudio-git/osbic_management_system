@@ -19,7 +19,9 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     fullName: '',
     email: '',
     phone: '',
-    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing',
+    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | 'migrate',
+    is_migrate_specialist: false,
+    migrate_specialty: 'golden_visa' as 'golden_visa' | 'global_visa' | 'both',
     notes: '',
     is_manager: false,
     can_do_sales: false,
@@ -58,7 +60,9 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         fullName: employee.full_name || '',
         email: employee.email || '',
         phone: employee.phone ? employee.phone.replace('+968 ', '') : '',
-        department: employee.department || 'operations',
+        department: (employee.department as any) || 'operations',
+        is_migrate_specialist: (employee as any).is_migrate_specialist || employee.department === 'migrate' || false,
+        migrate_specialty: (employee as any).migrate_specialty || 'golden_visa',
         notes: employee.notes || '',
         is_manager: employee.is_manager || false,
         can_do_sales: employee.can_do_sales || false,
@@ -143,6 +147,8 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         email: formData.email,
         phone: formData.phone ? `+968 ${formData.phone}` : null,
         department: formData.department,
+        is_migrate_specialist: formData.department === 'migrate' || formData.is_migrate_specialist,
+        migrate_specialty: formData.department === 'migrate' ? formData.migrate_specialty : null,
         is_manager: formData.is_manager,
         can_do_sales: formData.can_do_sales,
         is_sales_head: formData.is_sales_head,
@@ -254,17 +260,45 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">Department *</label>
                     <select
                       value={formData.department}
-                      onChange={(e) => setFormData({ ...formData, department: e.target.value as any })}
+                      onChange={(e) => {
+                        const dept = e.target.value as any;
+                        setFormData({
+                          ...formData,
+                          department: dept,
+                          is_migrate_specialist: dept === 'migrate'
+                        });
+                      }}
                       className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors cursor-pointer"
                     >
                       <option value="operations" className="bg-[#0A0F1E]">Operations</option>
                       <option value="sales" className="bg-[#0A0F1E]">Sales</option>
+                      <option value="migrate" className="bg-[#0A0F1E]">OSBIC MIGRATE (Golden & Global Visa)</option>
                       <option value="hr" className="bg-[#0A0F1E]">HR & Administration</option>
                       <option value="marketing" className="bg-[#0A0F1E]">Marketing</option>
                       <option value="accounts" className="bg-[#0A0F1E]">Accounts</option>
                       <option value="pro" className="bg-[#0A0F1E]">PRO</option>
                     </select>
                   </div>
+
+                  {formData.department === 'migrate' && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl space-y-2">
+                      <label className="block text-xs font-bold text-amber-400 uppercase tracking-widest">
+                        Migrate Specialization *
+                      </label>
+                      <select
+                        value={formData.migrate_specialty}
+                        onChange={(e) => setFormData({ ...formData, migrate_specialty: e.target.value as any })}
+                        className="w-full bg-[#0A0F1E] border border-amber-500/40 rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-400"
+                      >
+                        <option value="golden_visa">Golden Visa Specialist (Sales + Ops for 10-Yr Investor)</option>
+                        <option value="global_visa">Global Visa Specialist (Tourist, Schengen, US/UK, GCC)</option>
+                        <option value="both">All Migrate (Both Golden & Global Visas)</option>
+                      </select>
+                      <p className="text-[10px] text-amber-300/70">
+                        Note: Migrate specialists are automatically isolated from standard sales/ops branch reports.
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">Branch *</label>

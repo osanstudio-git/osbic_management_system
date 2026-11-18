@@ -25,7 +25,9 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
     phone: '',
     countryCode: '+968',
     customCountryCode: '',
-    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr',
+    department: 'operations' as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | 'migrate',
+    is_migrate_specialist: false,
+    migrate_specialty: 'golden_visa' as 'golden_visa' | 'global_visa' | 'both',
     notes: '',
     services: [] as string[],
     avatarFile: null as File | null,
@@ -84,6 +86,8 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
         phone: formData.phone ? `${finalCountryCode} ${formData.phone}` : undefined,
         password: generatedPassword,
         department: formData.department,
+        is_migrate_specialist: formData.department === 'migrate' || formData.is_migrate_specialist,
+        migrate_specialty: formData.department === 'migrate' ? formData.migrate_specialty : null,
         avatar_file: formData.avatarFile,
         branch_id: formData.branchId || null,
         company_name: formData.companyName || null,
@@ -254,13 +258,14 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                           <select
                             value={formData.department}
                             onChange={(e) => {
-                              const dept = e.target.value as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr';
+                              const dept = e.target.value as 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | 'migrate';
                               setFormData({
                                 ...formData,
                                 department: dept,
-                                can_do_sales: dept === 'sales',
+                                is_migrate_specialist: dept === 'migrate',
+                                can_do_sales: dept === 'sales' || dept === 'migrate',
                                 can_do_marketing: dept === 'marketing',
-                                can_do_ops: dept === 'operations',
+                                can_do_ops: dept === 'operations' || dept === 'migrate',
                                 can_do_accounts: dept === 'accounts',
                                 is_pro: dept === 'pro'
                               });
@@ -269,12 +274,33 @@ const CreateEmployeeSlideOver = ({ isOpen, onClose }: Props) => {
                           >
                             <option value="operations" className="bg-[#0A0F1E]">Operations</option>
                             <option value="sales" className="bg-[#0A0F1E]">Sales</option>
+                            <option value="migrate" className="bg-[#0A0F1E]">OSBIC MIGRATE (Golden & Global Visa)</option>
                             <option value="hr" className="bg-[#0A0F1E]">HR & Administration</option>
                             <option value="marketing" className="bg-[#0A0F1E]">Marketing</option>
                             <option value="accounts" className="bg-[#0A0F1E]">Accounts</option>
                             <option value="pro" className="bg-[#0A0F1E]">PRO</option>
                           </select>
                         </div>
+
+                        {formData.department === 'migrate' && (
+                          <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl space-y-2">
+                            <label className="block text-xs font-bold text-amber-400 uppercase tracking-widest">
+                              Migrate Specialization *
+                            </label>
+                            <select
+                              value={formData.migrate_specialty}
+                              onChange={(e) => setFormData({ ...formData, migrate_specialty: e.target.value as any })}
+                              className="w-full bg-[#0A0F1E] border border-amber-500/40 rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-400"
+                            >
+                              <option value="golden_visa">Golden Visa Specialist (Sales + Ops for 10-Yr Investor)</option>
+                              <option value="global_visa">Global Visa Specialist (Tourist, Schengen, US/UK, GCC)</option>
+                              <option value="both">All Migrate (Both Golden & Global Visas)</option>
+                            </select>
+                            <p className="text-[10px] text-amber-300/70">
+                              Note: Migrate specialists are automatically isolated from standard sales/ops branch reports.
+                            </p>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-1.5">Branch *</label>
