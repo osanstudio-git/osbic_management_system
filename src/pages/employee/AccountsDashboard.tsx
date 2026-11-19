@@ -179,7 +179,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
   };
 
   const submitVerify = async () => {
-    if (!verifyTarget) return;
+    if (!verifyTarget || !profile?.id) return;
     try {
       // 1. Update payment status to verified
       const { error: verifyErr } = await supabase
@@ -242,7 +242,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           .eq('job_id', verifyTarget.job_id);
       }
 
-      toast.success('Payment verified successfully. Operations unlocked.');
+      toast.success('Payment verified successfully.');
       setVerifyModalOpen(false);
       invalidateAll();
     } catch (err: any) {
@@ -257,7 +257,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
   };
 
   const submitReject = async () => {
-    if (!rejectTargetId) return;
+    if (!rejectTargetId || !profile?.id) return;
     if (!rejectReason.trim()) {
       toast.error("Please provide a reason for rejection");
       return;
@@ -704,7 +704,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                             onClick={() => openVerifyModal(payment)}
                             className="flex-1 md:flex-none px-6 py-2 bg-emerald-500 text-emerald-950 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
                           >
-                            <CheckCircle2 className="w-4 h-4" /> Verify & Unlock
+                            <CheckCircle2 className="w-4 h-4" /> Verify Payment
                           </button>
                         </div>
                       </div>
@@ -1378,7 +1378,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   onClick={submitVerify}
                   className="flex-1 px-4 py-3 bg-emerald-500 text-emerald-950 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-105 transition-colors flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 size={16} /> Confirm & Unlock
+                  <CheckCircle2 size={16} /> Confirm & Verify
                 </button>
               </div>
             </motion.div>

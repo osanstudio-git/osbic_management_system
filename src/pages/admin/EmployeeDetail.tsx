@@ -72,7 +72,7 @@ const EmployeeDetail = () => {
     </div>
   );
 
-  const emp = employee as any;
+  const emp = employee as any;  
   const isEmployeeActive = emp.is_active !== false;
   const jobs = emp.jobs || [];
   const activeJobsList = jobs.filter((j: any) => j.status === 'active');

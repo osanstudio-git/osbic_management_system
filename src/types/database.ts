@@ -81,6 +81,7 @@ export interface Database {
         department: 'sales' | 'operations' | 'accounts' | 'pro' | 'marketing' | 'hr' | 'migrate' | null
         is_migrate_specialist?: boolean | null
         migrate_specialty?: 'golden_visa' | 'global_visa' | 'both' | null
+        availability_status?: 'available' | 'on-work' | 'offline' | null
         created_by: string | null
         created_at: string | null
         updated_at: string | null

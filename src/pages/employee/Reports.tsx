@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,7 +19,10 @@ import {
   Compass,
   TrendingUp,
   User,
-  FileSpreadsheet
+  FileSpreadsheet,
+  X,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { DailySalesSheetModal } from '../../components/employee/DailySalesSheetModal';
 import { clsx, type ClassValue } from 'clsx';
@@ -30,6 +34,7 @@ function cn(...inputs: ClassValue[]) {
 import { format, subDays, startOfWeek, startOfMonth, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
 export default function EmployeeReports() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
@@ -41,6 +46,7 @@ export default function EmployeeReports() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDailySheetOpen, setIsDailySheetOpen] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<any | null>(null);
   const [jobScope, setJobScope] = useState<'all' | 'handled' | 'assigned'>('all');
   const [leadScope, setLeadScope] = useState<'all' | 'handled' | 'distributed'>('all');
 
@@ -54,10 +60,16 @@ export default function EmployeeReports() {
         .select(`
           *,
           job:jobs!job_id(
+            id,
             job_code,
+            custom_name,
             total_fee,
             ministry_fee,
             work_fee,
+            advance_amount,
+            remaining_amount,
+            advance_paid,
+            remaining_paid,
             employee_id,
             sales_employee_id,
             status,
@@ -177,12 +189,14 @@ export default function EmployeeReports() {
         matchesSearch = 
           item.job?.job_code?.toLowerCase().includes(searchLower) ||
           item.job?.client?.full_name?.toLowerCase().includes(searchLower) ||
+          item.job?.custom_name?.toLowerCase().includes(searchLower) ||
           item.job?.service?.name_en?.toLowerCase().includes(searchLower) ||
           item.reference_number?.toLowerCase().includes(searchLower);
       } else if (reportType === 'jobs') {
         matchesSearch = 
           item.job_code?.toLowerCase().includes(searchLower) ||
           item.client?.full_name?.toLowerCase().includes(searchLower) ||
+          item.custom_name?.toLowerCase().includes(searchLower) ||
           item.service?.name_en?.toLowerCase().includes(searchLower);
       } else {
         // Sales report type filtering (works for both Lead and Quotation models)
@@ -352,7 +366,7 @@ export default function EmployeeReports() {
           format(new Date(p.created_at), 'yyyy-MM-dd HH:mm'),
           p.job?.job_code || 'N/A',
           p.job?.client?.full_name || 'N/A',
-          p.job?.service?.name_en || 'N/A',
+          p.job?.custom_name || p.job?.service?.name_en || 'N/A',
           p.payment_method?.toUpperCase() || 'N/A',
           p.reference_number || 'N/A',
           p.amount?.toFixed(3) || '0.000',
@@ -423,7 +437,7 @@ export default function EmployeeReports() {
         j.started_at ? format(new Date(j.started_at), 'yyyy-MM-dd HH:mm') : 'N/A',
         j.job_code || 'N/A',
         j.client?.full_name || 'N/A',
-        j.service?.name_en || 'N/A',
+        j.custom_name || j.service?.name_en || 'N/A',
         j.total_fee?.toFixed(3) || '0.000',
         j.work_fee?.toFixed(3) || '0.000',
         j.ministry_fee?.toFixed(3) || '0.000',
@@ -1060,7 +1074,7 @@ export default function EmployeeReports() {
                     
                     {reportType === 'payments' ? (
                       <>
-                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border text-start text-right">{isRtl ? 'ربح الوظيفة' : 'Job Profit'}</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border text-start text-right">{isRtl ? 'الأرقام المالية للصفقة' : 'Deal Financials'}</th>
                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border text-start text-right">{isRtl ? 'مبلغ الدفعة' : 'Payment Amount'}</th>
                       </>
                     ) : (
@@ -1105,9 +1119,10 @@ export default function EmployeeReports() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         key={item.id} 
+                        onClick={() => setSelectedDetailItem(item)}
                         className={cn(
-                          "border-b border-border/50 transition-colors group text-start",
-                          isItemCancelled ? "opacity-60 bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-muted/20"
+                          "border-b border-border/50 transition-colors group text-start cursor-pointer",
+                          isItemCancelled ? "opacity-60 bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-primary/5"
                         )}
                       >
                         <td className="p-4">
@@ -1131,9 +1146,14 @@ export default function EmployeeReports() {
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-foreground">
                               {reportType === 'payments' 
-                                ? (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) 
-                                : (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en)}
+                                ? (item.job?.custom_name || (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) || 'Service') 
+                                : (item.custom_name || (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en) || 'Service')}
                             </span>
+                            {reportType === 'payments' && item.job?.custom_name && item.job?.service?.name_en && item.job.custom_name !== item.job.service.name_en && (
+                              <span className="text-[10px] text-muted-foreground/70">
+                                {item.job.service.name_en}
+                              </span>
+                            )}
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[10px] font-mono text-muted-foreground">
                                 {reportType === 'payments' ? item.job?.job_code : item.job_code}
@@ -1166,23 +1186,47 @@ export default function EmployeeReports() {
                         {reportType === 'payments' ? (
                           <>
                             <td className="p-4 text-right">
-                              <div className="flex flex-col items-end">
-                                <span className={cn(
-                                  "text-sm font-bold",
-                                  isItemCancelled ? "line-through text-muted-foreground/60" : "text-amber-500"
-                                )}>
-                                  {item.job?.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {isRtl ? 'الحد الأدنى للرسوم:' : 'Min Fee:'} {item.job?.ministry_fee?.toFixed(3) || '0.000'}
-                                </span>
-                              </div>
+                              {(() => {
+                                const jobTotalFee = Number(item.job?.total_fee || 0);
+                                const jobWorkFee = Number(item.job?.work_fee || 0);
+                                const jobMinistryFee = Number(item.job?.ministry_fee || 0);
+                                const pAmount = Number(item.amount || 0);
+                                const proportionalProfit = jobTotalFee > 0 ? (pAmount / jobTotalFee) * jobWorkFee : jobWorkFee;
+                                return (
+                                  <div className="flex flex-col items-end">
+                                    {/* Realized profit for this specific payment */}
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">
+                                        {isRtl ? 'ربح الدفعة:' : 'Payment Profit:'}
+                                      </span>
+                                      <span className={cn(
+                                        "text-sm font-bold font-mono",
+                                        isItemCancelled ? "line-through text-muted-foreground/60" : "text-emerald-400"
+                                      )}>
+                                        +{proportionalProfit.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                                      </span>
+                                    </div>
+                                    {/* Deal Totals breakdown */}
+                                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                                      <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
+                                        {isRtl ? 'ربح المعاملة:' : 'Deal Profit:'} {jobWorkFee.toFixed(3)}
+                                      </span>
+                                      <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
+                                        {isRtl ? 'رسوم حكومية:' : 'Gov Fee:'} {jobMinistryFee.toFixed(3)}
+                                      </span>
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground/70 mt-0.5 font-mono">
+                                      {isRtl ? 'إجمالي الصفقة:' : 'Deal Total:'} {jobTotalFee.toFixed(3)} OMR
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end">
                                 <span className={cn(
-                                  "text-sm font-bold",
-                                  isItemCancelled ? "line-through text-muted-foreground" : "text-emerald-500"
+                                  "text-sm font-bold font-mono",
+                                  isItemCancelled ? "line-through text-muted-foreground" : "text-foreground"
                                 )}>
                                   {item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
                                 </span>
@@ -1191,9 +1235,20 @@ export default function EmployeeReports() {
                                     {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
                                   </span>
                                 ) : (
-                                  <span className="text-[9px] uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full mt-1">
-                                    {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
-                                  </span>
+                                  <div className="flex flex-col items-end gap-1 mt-1">
+                                    {item.job?.remaining_paid ? (
+                                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                        {isRtl ? 'مسدد بالكامل 100%' : '100% Fully Settled'}
+                                      </span>
+                                    ) : item.job?.advance_paid ? (
+                                      <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                        {isRtl ? 'عربون / سلفة' : 'Advance Payment'}
+                                      </span>
+                                    ) : null}
+                                    <span className="text-[9px] uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                      {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -1268,14 +1323,26 @@ export default function EmployeeReports() {
                       : item.status === 'cancelled';
 
                     return (
-                    <div key={item.id} className={cn("bg-card border rounded-xl p-4 shadow-sm flex flex-col gap-3 text-start", isItemCancelled ? "border-rose-500/30 opacity-70 bg-rose-500/5" : "border-border")}>
+                    <div 
+                      key={item.id} 
+                      onClick={() => setSelectedDetailItem(item)}
+                      className={cn(
+                        "bg-card border rounded-xl p-4 shadow-sm flex flex-col gap-3 text-start cursor-pointer transition-all hover:border-primary/40", 
+                        isItemCancelled ? "border-rose-500/30 opacity-70 bg-rose-500/5" : "border-border"
+                      )}
+                    >
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-foreground truncate">
                             {reportType === 'payments' 
-                              ? (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) 
-                              : (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en)}
+                              ? (item.job?.custom_name || (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) || 'Service') 
+                              : (item.custom_name || (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en) || 'Service')}
                           </div>
+                          {reportType === 'payments' && item.job?.custom_name && item.job?.service?.name_en && item.job.custom_name !== item.job.service.name_en && (
+                            <div className="text-[10px] text-muted-foreground/70 truncate">
+                              {item.job.service.name_en}
+                            </div>
+                          )}
                           <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-widest font-mono truncate">
                             {reportType === 'payments' ? item.job?.job_code : item.job_code}
                           </div>
@@ -1319,15 +1386,28 @@ export default function EmployeeReports() {
                         {reportType === 'payments' ? (
                           <>
                             <div>
-                              <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'ربح الوظيفة' : 'Job Profit'}</div>
-                              <div className={cn("text-xs font-bold", isItemCancelled ? "line-through text-muted-foreground/60" : "text-amber-500")}>
-                                {item.job?.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
+                              <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'ربح الدفعة' : 'Payment Profit'}</div>
+                              {(() => {
+                                const jobTotalFee = Number(item.job?.total_fee || 0);
+                                const jobWorkFee = Number(item.job?.work_fee || 0);
+                                const pAmount = Number(item.amount || 0);
+                                const proportionalProfit = jobTotalFee > 0 ? (pAmount / jobTotalFee) * jobWorkFee : jobWorkFee;
+                                return (
+                                  <div className={cn("text-xs font-bold font-mono", isItemCancelled ? "line-through text-muted-foreground/60" : "text-emerald-400")}>
+                                    +{proportionalProfit.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                                  </div>
+                                );
+                              })()}
+                              <div className="text-[9px] text-muted-foreground mt-0.5 font-mono">
+                                {isRtl ? 'ربح الصفقة:' : 'Deal Profit:'} {item.job?.work_fee?.toFixed(3) || '0.000'}
                               </div>
-                              <div className="text-[9px] text-muted-foreground mt-0.5">{isRtl ? 'الأدنى:' : 'Min:'} {item.job?.ministry_fee?.toFixed(3) || '0.000'}</div>
+                              <div className="text-[9px] text-muted-foreground mt-0.5 font-mono">
+                                {isRtl ? 'رسوم حكومية:' : 'Gov Fee:'} {item.job?.ministry_fee?.toFixed(3) || '0.000'}
+                              </div>
                             </div>
                             <div className={isRtl ? 'text-left' : 'text-right'}>
-                              <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'الدفعة' : 'Payment'}</div>
-                              <div className={cn("text-xs font-bold", isItemCancelled ? "line-through text-muted-foreground" : "text-emerald-500")}>
+                              <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'مبلغ الدفعة' : 'Payment Amount'}</div>
+                              <div className={cn("text-xs font-bold font-mono", isItemCancelled ? "line-through text-muted-foreground" : "text-foreground")}>
                                 {item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
                               </div>
                               {isItemCancelled ? (
@@ -1335,8 +1415,19 @@ export default function EmployeeReports() {
                                   {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
                                 </div>
                               ) : (
-                                <div className="inline-block text-[8px] uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded mt-0.5">
-                                  {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                                <div className="flex flex-col items-end gap-1 mt-1">
+                                  {item.job?.remaining_paid ? (
+                                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                                      {isRtl ? 'مسدد 100%' : '100% Settled'}
+                                    </span>
+                                  ) : item.job?.advance_paid ? (
+                                    <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                                      {isRtl ? 'عربون' : 'Advance'}
+                                    </span>
+                                  ) : null}
+                                  <div className="inline-block text-[8px] uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                    {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1383,6 +1474,193 @@ export default function EmployeeReports() {
         isOpen={isDailySheetOpen}
         onClose={() => setIsDailySheetOpen(false)}
       />
+
+      {/* Deal Financial Breakdown Modal */}
+      {selectedDetailItem && (() => {
+        const isPayment = reportType === 'payments';
+        const job = isPayment ? selectedDetailItem.job : selectedDetailItem;
+        const jobCode = job?.job_code || 'JOB';
+        const clientName = job?.client?.full_name || 'Client';
+        const serviceTitle = job?.custom_name || job?.service?.name_en || 'Service';
+        const totalFee = Number(job?.total_fee || 0);
+        const ministryFee = Number(job?.ministry_fee || 0);
+        const workFee = Number(job?.work_fee || 0);
+        const totalPaid = Number(job?.advance_amount || 0);
+        const balanceDue = Math.max(0, totalFee - totalPaid);
+        const isCancelled = job?.status === 'cancelled' || selectedDetailItem.status === 'cancelled';
+        const proportionalProfit = isPayment && totalFee > 0 ? (Number(selectedDetailItem.amount || 0) / totalFee) * workFee : workFee;
+
+        return (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto"
+              dir={isRtl ? 'rtl' : 'ltr'}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                      {jobCode}
+                    </span>
+                    <span className={cn(
+                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                      isCancelled ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                      job?.status === 'completed' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                      "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                    )}>
+                      {job?.status || 'Active'}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-syne font-bold text-foreground mt-2">
+                    {serviceTitle}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                    <User size={13} className="shrink-0" />
+                    <span>{isRtl ? 'العميل:' : 'Client:'} {clientName}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedDetailItem(null)}
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Deal Totals Summary */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                  {isRtl ? 'الأرقام المالية الإجمالية للصفقة' : 'Overall Deal Financial Breakdown'}
+                </p>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="bg-muted/30 border border-border/60 rounded-xl p-3 text-center">
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground block truncate">
+                      {isRtl ? 'إجمالي الصفقة' : 'Deal Total'}
+                    </span>
+                    <span className="text-base font-black font-mono text-foreground mt-1 block">
+                      {totalFee.toFixed(3)}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">OMR</span>
+                  </div>
+
+                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 text-center">
+                    <span className="text-[9px] uppercase font-bold text-blue-400 block truncate">
+                      {isRtl ? 'رسوم حكومية' : 'Gov Fee'}
+                    </span>
+                    <span className="text-base font-black font-mono text-blue-400 mt-1 block">
+                      {ministryFee.toFixed(3)}
+                    </span>
+                    <span className="text-[9px] text-blue-400/80">OMR</span>
+                  </div>
+
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 text-center">
+                    <span className="text-[9px] uppercase font-bold text-amber-400 block truncate">
+                      {isRtl ? 'ربح الشركة' : 'Net Profit'}
+                    </span>
+                    <span className="text-base font-black font-mono text-amber-400 mt-1 block">
+                      {workFee.toFixed(3)}
+                    </span>
+                    <span className="text-[9px] text-amber-400/80">OMR</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Progress */}
+              <div className="bg-muted/20 border border-border/50 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-muted-foreground">
+                    {isRtl ? 'حالة السداد والتحصيل' : 'Settlement Status'}
+                  </span>
+                  <span className="font-mono font-bold text-foreground">
+                    {totalPaid.toFixed(3)} / {totalFee.toFixed(3)} OMR
+                  </span>
+                </div>
+                <div className="w-full bg-muted/40 h-2 rounded-full overflow-hidden border border-border/40">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      balanceDue <= 0 ? "bg-emerald-500" : "bg-primary"
+                    )}
+                    style={{ width: `${totalFee > 0 ? Math.min(100, (totalPaid / totalFee) * 100) : 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground pt-1">
+                  <span className={balanceDue <= 0 ? "text-emerald-400 font-bold" : ""}>
+                    {balanceDue <= 0 ? (isRtl ? 'مسدد بالكامل 100%' : '100% Fully Settled') : (isRtl ? `المتبقي: ${balanceDue.toFixed(3)} OMR` : `Remaining: ${balanceDue.toFixed(3)} OMR`)}
+                  </span>
+                  <span>
+                    {totalFee > 0 ? `${((totalPaid / totalFee) * 100).toFixed(0)}% Collected` : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Specific Payment Section if viewed from Paid Report */}
+              {isPayment && (
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                      <CreditCard size={13} />
+                      {isRtl ? 'تفاصيل هذه الدفعة المحددة' : 'Selected Payment Installment'}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                      +{proportionalProfit.toFixed(3)} OMR Profit Share
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">{isRtl ? 'المبلغ المستلم:' : 'Amount Received:'}</span>
+                      <span className="font-mono font-black text-foreground text-sm">{Number(selectedDetailItem.amount || 0).toFixed(3)} OMR</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">{isRtl ? 'طريقة الدفع:' : 'Payment Mode:'}</span>
+                      <span className="font-semibold uppercase text-foreground">{selectedDetailItem.payment_method?.replace('_', ' ')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">{isRtl ? 'تاريخ السداد الفعلي:' : 'Payment Received Date:'}</span>
+                      <span className="font-medium text-foreground">{selectedDetailItem.payment_date ? format(new Date(selectedDetailItem.payment_date), 'dd MMM yyyy') : format(new Date(selectedDetailItem.created_at), 'dd MMM yyyy')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">{isRtl ? 'الرقم المرجعي:' : 'Reference / Cheque:'}</span>
+                      <span className="font-mono text-foreground">{selectedDetailItem.reference_number || (isRtl ? 'لا يوجد' : 'None')}</span>
+                    </div>
+                  </div>
+                  {selectedDetailItem.notes && (
+                    <div className="text-[11px] text-muted-foreground bg-card/60 p-2.5 rounded-lg border border-border/40">
+                      <span className="font-bold text-foreground block mb-0.5">{isRtl ? 'الملاحظات:' : 'Notes:'}</span>
+                      {selectedDetailItem.notes}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-between gap-3 pt-2">
+                {job?.id && (
+                  <button
+                    onClick={() => {
+                      setSelectedDetailItem(null);
+                      navigate(`/employee/tasks?jobId=${job.id}`);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold transition-all"
+                  >
+                    <ExternalLink size={14} />
+                    <span>{isRtl ? 'فتح المعاملة في مساحة العمل' : 'Open in Workspace'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedDetailItem(null)}
+                  className="px-4 py-2 bg-muted/60 hover:bg-muted text-foreground rounded-xl text-xs font-bold transition-colors ml-auto"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

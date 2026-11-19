@@ -82,10 +82,11 @@ const EmployeeLayout: React.FC = () => {
   }, [profile]);
 
   const toggleAvailability = async () => {
+    if (!profile?.id) return;
     const newStatus = availability === 'available' ? 'on-work' : 'available';
     setAvailability(newStatus);
     try {
-      await supabase.from('profiles').update({ availability_status: newStatus }).eq('id', profile?.id);
+      await supabase.from('profiles').update({ availability_status: newStatus }).eq('id', profile.id);
       toast.success(newStatus === 'available' ? (isRtl ? 'تم تحديد حالتك كمتاح لتلقي المهام' : 'You are now marked as Available for tasks') : (isRtl ? 'تم تحديد حالتك كقيد العمل' : 'You are now marked as On-Work'));
     } catch (err) {
       toast.error(isRtl ? 'فشل تحديث الحالة' : 'Failed to update status');
@@ -289,6 +290,7 @@ const EmployeeLayout: React.FC = () => {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/employee'}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium",

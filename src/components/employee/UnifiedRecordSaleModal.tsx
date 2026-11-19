@@ -943,6 +943,51 @@ export const UnifiedRecordSaleModal: React.FC<Props> = ({
                       </button>
                     </div>
 
+                    {/* Explicit Date of Amount Received Input */}
+                    <div className="mt-3 p-3 rounded-xl bg-background border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Calendar size={13} className="text-emerald-400" />
+                          <span>Date of Amount Received *</span>
+                        </label>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          When client paid the funds (reflects directly in Accounts ledger)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          required
+                          value={transactionDate}
+                          onChange={e => setTransactionDate(e.target.value)}
+                          max={format(new Date(), 'yyyy-MM-dd')}
+                          className="px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-foreground text-xs font-bold font-mono focus:border-emerald-400 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTransactionDate(format(new Date(), 'yyyy-MM-dd'))}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                            transactionDate === format(new Date(), 'yyyy-MM-dd')
+                              ? 'bg-emerald-500 text-emerald-950'
+                              : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTransactionDate(format(subDays(new Date(), 1), 'yyyy-MM-dd'))}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                            transactionDate === format(subDays(new Date(), 1), 'yyyy-MM-dd')
+                              ? 'bg-emerald-500 text-emerald-950'
+                              : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Yesterday
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground">Amount Received (OMR) *</label>

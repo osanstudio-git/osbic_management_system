@@ -107,10 +107,12 @@ export const GoldenVisaCommandCenter: React.FC<GoldenVisaCommandCenterProps> = (
   };
 
   const handleUpdateIdCardStatus = async (newStatus: IdCardStatus) => {
-    // Blocker check: if 50/50 and remaining amount not paid, block ID Card completion
+    // Soft confirmation: if 50/50 and remaining amount not verified, prompt staff without hard-blocking workflow
     if (newStatus === 'issued' && isRestPaymentPending) {
-      toast.error('Cannot mark ID Card as Issued: Remaining 50% balance must be collected & verified first!');
-      return;
+      const confirmOverride = window.confirm(
+        `Financial Notice: Remaining balance (${remainingAmount.toFixed(3)} OMR) is not yet verified by Accounts.\n\nProceed to mark the 10-Year Resident ID Card as issued?`
+      );
+      if (!confirmOverride) return;
     }
 
     try {
@@ -121,6 +123,11 @@ export const GoldenVisaCommandCenter: React.FC<GoldenVisaCommandCenterProps> = (
       };
       if (newStatus === 'issued') {
         updates.id_card_issued_at = new Date().toISOString();
+        if (isRestPaymentPending) {
+          updates.notes = job.notes 
+            ? `${job.notes}\n[AUDIT: ID Card issued with remaining ${remainingAmount.toFixed(3)} OMR pending accounts verification]`
+            : `[AUDIT: ID Card issued with remaining ${remainingAmount.toFixed(3)} OMR pending accounts verification]`;
+        }
       }
 
       const { error } = await supabase
@@ -221,24 +228,25 @@ export const GoldenVisaCommandCenter: React.FC<GoldenVisaCommandCenterProps> = (
         </div>
       </div>
 
-      {/* 50/50 Payment Rest Blocker Alert */}
+      {/* 50/50 Payment Rest Status Advisory */}
       {isRestPaymentBlockerActive && (
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-4 rounded-2xl bg-rose-500/10 border-2 border-rose-500/40 text-rose-300 flex items-start gap-3.5"
+          className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex items-start gap-3.5"
         >
-          <AlertCircle size={22} className="text-rose-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div className="font-bold text-sm text-rose-200 uppercase tracking-wide flex items-center gap-2">
-              <span>Rest Amount (50%) Collection Required Before Resident ID</span>
-              <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-mono">
-                Due: {remainingAmount.toFixed(3)} OMR
+          <Clock size={20} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1">
+            <div className="font-bold text-sm text-amber-200 uppercase tracking-wide flex items-center justify-between flex-wrap gap-2">
+              <span className="flex items-center gap-2">
+                <span>Remaining 50% Balance Pending Collection</span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono">
+                  Due: {remainingAmount.toFixed(3)} OMR
+                </span>
               </span>
             </div>
-            <p className="text-xs text-rose-300/80 leading-relaxed">
-              Oman Government approval has been achieved (1–3 day milestone)! Under OSBIC Migrate 50/50 payment policy,
-              the remaining 50% balance must be collected and verified before scheduling the investor's 10-Year Resident ID card issuance.
+            <p className="text-xs text-amber-300/80 leading-relaxed">
+              Government approval milestone reached. Remaining balance of {remainingAmount.toFixed(3)} OMR is pending verification with the accounts team. Operations may proceed with ID card processing while accounting tracks settlement.
             </p>
           </div>
         </motion.div>
@@ -480,8 +488,7 @@ export const GoldenVisaCommandCenter: React.FC<GoldenVisaCommandCenterProps> = (
               <select
                 value={idCardStatus}
                 onChange={(e) => canEdit && handleUpdateIdCardStatus(e.target.value as IdCardStatus)}
-                disabled={isRestPaymentBlockerActive}
-                className="w-full bg-card border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground font-semibold focus:border-primary outline-none disabled:opacity-50"
+                className="w-full bg-card border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground font-semibold focus:border-primary outline-none"
               >
                 <option value="pending">⏳ ID Card Pending</option>
                 <option value="issued">✓ ID Card Issued (565 OMR)</option>
