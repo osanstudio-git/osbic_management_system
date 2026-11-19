@@ -1,9 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Megaphone,
@@ -17,55 +15,54 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  Calendar,
   Layers,
   Sparkles,
-  Zap,
   Activity,
-  ArrowUpRight,
-  Info,
   Phone,
   Mail,
   Copy,
   Check,
   RefreshCw,
-  SlidersHorizontal,
-  ChevronRight,
   ShieldCheck,
   Building2,
-  AlertCircle,
   LayoutGrid,
-  List,
   Table as TableIcon,
-  Send,
-  Share2,
-  Smartphone,
-  Eye,
   UserCheck,
-  X
+  X,
+  Ban,
+  Award,
+  ThumbsUp,
+  ThumbsDown,
+  UserX,
+  PhoneMissed,
+  AlertTriangle
 } from 'lucide-react';
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfYear, startOfDay, endOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
-import { type Lead } from '../../hooks/shared/useLeads';
+import {
+  checkOmanVisaEligibility,
+  DISQUALIFICATION_REASONS
+} from '../../lib/omanVisaRestrictions';
 
 export default function MarketingHub() {
   const { profile } = useAuth();
-  const { i18n } = useTranslation();
-  const isRtl = i18n.dir() === 'rtl';
-  const navigate = useNavigate();
 
   // Time & Filter states
   const [timeFilter, setTimeFilter] = useState<'all' | 'today' | '7days' | '30days' | 'year' | 'custom'>('30days');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
+  const [customStartDate] = useState('');
+  const [customEndDate] = useState('');
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [qualityFilter, setQualityFilter] = useState<'all' | 'quality_lead' | 'disqualified' | 'visa_ban' | 'no_response' | 'unreviewed'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [streamViewMode, setStreamViewMode] = useState<'grid' | 'table'>('grid');
-  const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'live_feed' | 'sales_team' | 'sales_sla'>('overview');
-  const [assigningLeadId, setAssigningLeadId] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Lead Quality & Disqualification Modal / Dropdown state
+  const [activeDisqualifyLead, setActiveDisqualifyLead] = useState<any | null>(null);
+  const [selectedDisqualifyReason, setSelectedDisqualifyReason] = useState<string>('oman_visa_ban');
+  const [isUpdatingQuality, setIsUpdatingQuality] = useState(false);
 
   // Realtime state
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
@@ -75,23 +72,18 @@ export default function MarketingHub() {
   // Meta Webhook Details Modal
   const [showMetaWebhookModal, setShowMetaWebhookModal] = useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
-  const [webhookTestResult, setWebhookTestResult] = useState<'success' | 'error' | null>(null);
 
   const handleTestMetaWebhook = async () => {
     setIsTestingWebhook(true);
-    setWebhookTestResult(null);
     try {
       const res = await fetch('https://wyzwpmwspvksgkmesaah.supabase.co/functions/v1/meta-lead-webhook?hub.mode=subscribe&hub.verify_token=osbic_meta_verify_secret_2026&hub.challenge=VERIFIED_200');
       const text = await res.text();
       if (res.ok && text.includes('VERIFIED_200')) {
-        setWebhookTestResult('success');
         toast.success('Meta Webhook Handshake Verified! Status 200 OK');
       } else {
-        setWebhookTestResult('error');
         toast.error(`Verification returned: ${res.status} ${text}`);
       }
     } catch {
-      setWebhookTestResult('error');
       toast.error('Network check failed');
     } finally {
       setIsTestingWebhook(false);
@@ -189,12 +181,92 @@ export default function MarketingHub() {
 
       // Invalidate queries to refresh view
       queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
-      setAssigningLeadId(null);
     } catch (err: any) {
       console.error('Failed to assign lead:', err);
       toast.error(err.message || 'Failed to assign lead');
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  // 1c. 1-Click Lead Quality & Disqualification Handler
+  const handleUpdateLeadQuality = async (
+    leadId: string,
+    qualityStatus: 'quality_lead' | 'disqualified' | 'unreviewed',
+    reason?: string | null
+  ) => {
+    try {
+      setIsUpdatingQuality(true);
+      const updates: any = {
+        quality_status: qualityStatus,
+        disqualification_reason: qualityStatus === 'disqualified' ? (reason || 'other') : null,
+        disqualified_at: qualityStatus === 'disqualified' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('leads')
+        .update(updates)
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      toast.success(
+        qualityStatus === 'quality_lead'
+          ? 'Marked as ⭐ Quality Lead'
+          : qualityStatus === 'disqualified'
+          ? `🚫 Lead Disqualified (${DISQUALIFICATION_REASONS.find(r => r.key === reason)?.labelEn || 'Excluded'})`
+          : 'Lead reset to Unreviewed'
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
+      setActiveDisqualifyLead(null);
+    } catch (err: any) {
+      console.error('Failed to update lead quality:', err);
+      toast.error(err.message || 'Failed to update quality status');
+    } finally {
+      setIsUpdatingQuality(false);
+    }
+  };
+
+  // 1d. 1-Click Call & Connection Status Handler
+  const handleUpdateCallStatus = async (leadId: string, newCallStatus: string) => {
+    try {
+      const now = new Date().toISOString();
+      const targetLead = leads?.find(l => l.id === leadId);
+      
+      const updates: any = {
+        call_status: newCallStatus,
+        updated_at: now,
+      };
+
+      // If first call recorded and no first_called_at timestamp exists, calculate speed-to-lead
+      if (!targetLead?.first_called_at && targetLead?.created_at) {
+        updates.first_called_at = now;
+        const leadCreatedMs = new Date(targetLead.created_at).getTime();
+        const calledMs = new Date(now).getTime();
+        const diffMins = Math.max(1, Math.round((calledMs - leadCreatedMs) / (1000 * 60)));
+        updates.speed_to_lead_mins = diffMins;
+      }
+
+      // If call status indicates no response or invalid number, set helper disqualification flags
+      if (newCallStatus === 'wrong_number' && !targetLead?.quality_status) {
+        updates.quality_status = 'disqualified';
+        updates.disqualification_reason = 'wrong_number';
+      }
+
+      const { error } = await supabase
+        .from('leads')
+        .update(updates)
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      toast.success(`Call status updated: ${newCallStatus}`);
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
+    } catch (err: any) {
+      console.error('Failed to update call status:', err);
+      toast.error(err.message || 'Failed to update call status');
     }
   };
 
@@ -298,6 +370,74 @@ export default function MarketingHub() {
     return list;
   }, [leads, timeFilter, customStartDate, customEndDate]);
 
+  // Helper to determine Oman visa compliance & quality classification for any lead
+  const getLeadIntelligence = useMemo(() => {
+    return (lead: any) => {
+      const visaCheck = checkOmanVisaEligibility(lead);
+      const hasRestrictedCountry = visaCheck.isRestricted;
+      const explicitDisqualified = lead.quality_status === 'disqualified' || Boolean(lead.disqualification_reason);
+      const explicitQuality = lead.quality_status === 'quality_lead';
+      const isLostOrCancelled = lead.status === 'lost' || lead.status === 'cancelled';
+      const isCallUnanswered = lead.call_status === 'no_answer' || lead.call_status === 'wrong_number' || lead.disqualification_reason === 'no_answer';
+      const isWrongNumber = lead.call_status === 'wrong_number' || lead.disqualification_reason === 'wrong_number';
+      const isSalesActive = ['interested', 'qualified', 'quoted', 'negotiating', 'converted'].includes(lead.status);
+
+      let effectiveStatus: 'quality_lead' | 'disqualified' | 'visa_ban' | 'no_response' | 'unreviewed' = 'unreviewed';
+
+      if (explicitQuality) {
+        effectiveStatus = 'quality_lead';
+      } else if (hasRestrictedCountry && visaCheck.severity === 'banned') {
+        effectiveStatus = 'visa_ban';
+      } else if (explicitDisqualified || isLostOrCancelled) {
+        effectiveStatus = isCallUnanswered ? 'no_response' : 'disqualified';
+      } else if (isCallUnanswered || isWrongNumber) {
+        effectiveStatus = 'no_response';
+      } else if (isSalesActive && !hasRestrictedCountry) {
+        effectiveStatus = 'quality_lead';
+      }
+
+      return {
+        visaCheck,
+        hasRestrictedCountry,
+        effectiveStatus,
+        isQuality: effectiveStatus === 'quality_lead',
+        isBanned: effectiveStatus === 'visa_ban' || hasRestrictedCountry,
+        isNoResponse: effectiveStatus === 'no_response',
+        isDisqualified: effectiveStatus === 'disqualified' || effectiveStatus === 'visa_ban',
+      };
+    };
+  }, []);
+
+  // Quality Counts for Tab Badges & Radar
+  const qualityCounts = useMemo(() => {
+    const counts = {
+      all: baseTimeFilteredLeads.length,
+      quality_lead: 0,
+      visa_ban: 0,
+      no_response: 0,
+      disqualified: 0,
+      unreviewed: 0,
+    };
+
+    const restrictedCountriesMap: Record<string, number> = {};
+
+    for (const l of baseTimeFilteredLeads) {
+      const intel = getLeadIntelligence(l);
+      if (intel.effectiveStatus === 'quality_lead') counts.quality_lead++;
+      else if (intel.effectiveStatus === 'visa_ban') counts.visa_ban++;
+      else if (intel.effectiveStatus === 'no_response') counts.no_response++;
+      else if (intel.effectiveStatus === 'disqualified') counts.disqualified++;
+      else counts.unreviewed++;
+
+      if (intel.hasRestrictedCountry && intel.visaCheck.rule) {
+        const cName = intel.visaCheck.rule.name;
+        restrictedCountriesMap[cName] = (restrictedCountriesMap[cName] || 0) + 1;
+      }
+    }
+
+    return { counts, restrictedCountriesMap };
+  }, [baseTimeFilteredLeads, getLeadIntelligence]);
+
   // Dynamic Channel Counts for Tab Badges
   const channelCounts = useMemo(() => {
     const counts = {
@@ -328,10 +468,11 @@ export default function MarketingHub() {
     return counts;
   }, [baseTimeFilteredLeads]);
 
-  // Filtered Leads based on Channel & Search Term
+  // Filtered Leads based on Channel, Quality Status & Search Term
   const filteredLeads = useMemo(() => {
     let list = baseTimeFilteredLeads;
 
+    // 1. Channel Filter
     if (channelFilter !== 'all') {
       list = list.filter(l => {
         const raw = (l.utm_source || l.lead_sources?.name || '').toLowerCase();
@@ -351,6 +492,20 @@ export default function MarketingHub() {
       });
     }
 
+    // 2. Quality Filter
+    if (qualityFilter !== 'all') {
+      list = list.filter(l => {
+        const intel = getLeadIntelligence(l);
+        if (qualityFilter === 'quality_lead') return intel.effectiveStatus === 'quality_lead';
+        if (qualityFilter === 'visa_ban') return intel.effectiveStatus === 'visa_ban' || intel.hasRestrictedCountry;
+        if (qualityFilter === 'no_response') return intel.effectiveStatus === 'no_response';
+        if (qualityFilter === 'disqualified') return intel.effectiveStatus === 'disqualified' || intel.effectiveStatus === 'visa_ban';
+        if (qualityFilter === 'unreviewed') return intel.effectiveStatus === 'unreviewed';
+        return true;
+      });
+    }
+
+    // 3. Search Term Filter
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       list = list.filter(l =>
@@ -358,6 +513,7 @@ export default function MarketingHub() {
         l.company_name?.toLowerCase().includes(term) ||
         l.contact_phone?.includes(term) ||
         l.contact_email?.toLowerCase().includes(term) ||
+        l.nationality?.toLowerCase().includes(term) ||
         l.utm_campaign?.toLowerCase().includes(term) ||
         l.utm_term?.toLowerCase().includes(term) ||
         l.lead_code?.toLowerCase().includes(term)
@@ -365,17 +521,22 @@ export default function MarketingHub() {
     }
 
     return list;
-  }, [baseTimeFilteredLeads, channelFilter, searchTerm]);
+  }, [baseTimeFilteredLeads, channelFilter, qualityFilter, searchTerm, getLeadIntelligence]);
 
   // Aggregate Funnel Metrics
   const stats = useMemo(() => {
     const totalLeads = filteredLeads.length;
-    const contacted = filteredLeads.filter(l => l.status !== 'new').length;
+    const contacted = filteredLeads.filter(l => l.status !== 'new' || Boolean(l.call_status)).length;
     const qualified = filteredLeads.filter(l => ['interested', 'qualified', 'quoted', 'negotiating', 'converted'].includes(l.status)).length;
     const quoted = filteredLeads.filter(l => ['quoted', 'negotiating', 'converted'].includes(l.status)).length;
     const converted = filteredLeads.filter(l => l.status === 'converted').length;
 
-    // Attributed Revenue from quotes/jobs linked to these leads
+    // Quality breakdown
+    const qualityCount = filteredLeads.filter(l => getLeadIntelligence(l).isQuality).length;
+    const visaBanCount = filteredLeads.filter(l => getLeadIntelligence(l).hasRestrictedCountry).length;
+    const noResponseCount = filteredLeads.filter(l => getLeadIntelligence(l).isNoResponse).length;
+
+    // Attributed Revenue & Net Profit from closed jobs
     const leadIds = new Set(filteredLeads.map(l => l.id));
     const clientIds = new Set(filteredLeads.map(l => l.client_id).filter(Boolean));
 
@@ -383,12 +544,13 @@ export default function MarketingHub() {
       .filter(q => q.lead_id && leadIds.has(q.lead_id))
       .reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
 
-    const closedRevenue = (jobs || [])
-      .filter(j => j.client_id && clientIds.has(j.client_id) && j.status !== 'cancelled')
-      .reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+    const closedJobs = (jobs || []).filter(j => j.client_id && clientIds.has(j.client_id) && j.status !== 'cancelled');
+    const closedRevenue = closedJobs.reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+    const closedProfit = closedJobs.reduce((sum, j) => sum + (Number(j.work_fee) || 0), 0);
 
     const conversionRate = totalLeads > 0 ? ((converted / totalLeads) * 100).toFixed(1) : '0.0';
     const qualifiedRate = totalLeads > 0 ? ((qualified / totalLeads) * 100).toFixed(1) : '0.0';
+    const qualityRate = totalLeads > 0 ? ((qualityCount / totalLeads) * 100).toFixed(1) : '0.0';
 
     return {
       totalLeads,
@@ -396,22 +558,30 @@ export default function MarketingHub() {
       qualified,
       quoted,
       converted,
+      qualityCount,
+      visaBanCount,
+      noResponseCount,
       quotesTotalValue,
       closedRevenue,
+      closedProfit,
       conversionRate,
-      qualifiedRate
+      qualifiedRate,
+      qualityRate,
     };
-  }, [filteredLeads, quotations, jobs]);
+  }, [filteredLeads, quotations, jobs, getLeadIntelligence]);
 
-  // Campaign Breakdown
+  // Campaign Breakdown with Quality % & Profit Attribution
   const campaignAttribution = useMemo(() => {
     const groups: Record<string, {
       name: string;
       source: string;
       leadsCount: number;
+      qualityCount: number;
+      visaBanCount: number;
       quotedCount: number;
       wonCount: number;
       revenue: number;
+      profit: number;
     }> = {};
 
     const clientIdsMap = new Map(filteredLeads.filter(l => l.client_id).map(l => [l.client_id, l]));
@@ -419,19 +589,26 @@ export default function MarketingHub() {
     for (const lead of filteredLeads) {
       const campaignKey = lead.utm_campaign || lead.lead_sources?.name || 'Direct / Organic';
       const sourceName = lead.utm_source || lead.lead_sources?.name || 'Website';
+      const intel = getLeadIntelligence(lead);
 
       if (!groups[campaignKey]) {
         groups[campaignKey] = {
           name: campaignKey,
           source: sourceName,
           leadsCount: 0,
+          qualityCount: 0,
+          visaBanCount: 0,
           quotedCount: 0,
           wonCount: 0,
-          revenue: 0
+          revenue: 0,
+          profit: 0,
         };
       }
 
       groups[campaignKey].leadsCount += 1;
+      if (intel.isQuality) groups[campaignKey].qualityCount += 1;
+      if (intel.hasRestrictedCountry) groups[campaignKey].visaBanCount += 1;
+
       if (['quoted', 'negotiating', 'converted'].includes(lead.status)) {
         groups[campaignKey].quotedCount += 1;
       }
@@ -440,7 +617,7 @@ export default function MarketingHub() {
       }
     }
 
-    // Add Revenue from closed jobs
+    // Add Revenue and Service Profit from closed jobs
     if (jobs) {
       for (const job of jobs) {
         if (job.client_id && clientIdsMap.has(job.client_id) && job.status !== 'cancelled') {
@@ -448,13 +625,14 @@ export default function MarketingHub() {
           const campaignKey = matchedLead?.utm_campaign || matchedLead?.lead_sources?.name || 'Direct / Organic';
           if (groups[campaignKey]) {
             groups[campaignKey].revenue += (Number(job.total_fee) || 0);
+            groups[campaignKey].profit += (Number(job.work_fee) || 0);
           }
         }
       }
     }
 
     return Object.values(groups).sort((a, b) => b.leadsCount - a.leadsCount);
-  }, [filteredLeads, jobs]);
+  }, [filteredLeads, jobs, getLeadIntelligence]);
 
   // Channel Distribution (Google vs Meta vs Website vs WhatsApp)
   const channelDistribution = useMemo(() => {
@@ -674,10 +852,10 @@ export default function MarketingHub() {
           <p className="text-[10px] text-muted-foreground">Active client files created</p>
         </div>
 
-        {/* Attributed Revenue */}
+        {/* Attributed Revenue & Profit */}
         <div className="p-4 rounded-2xl bg-card border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent shadow-sm space-y-1">
           <div className="flex items-center justify-between text-primary">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Attributed Revenue</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Closed Revenue & Profit</span>
             <TrendingUp size={14} />
           </div>
           <div className="flex items-baseline gap-1">
@@ -686,8 +864,126 @@ export default function MarketingHub() {
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">OMR</span>
           </div>
-          <p className="text-[10px] text-muted-foreground">Direct ad campaign return</p>
+          <p className="text-[10px] text-emerald-400 font-semibold truncate">
+            Net Profit: {stats.closedProfit > 0 ? stats.closedProfit.toFixed(0) : '0'} OMR
+          </p>
         </div>
+      </div>
+
+      {/* OMAN LAW VISA COMPLIANCE & LEAD QUALITY RADAR */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-red-500/10 via-amber-500/5 to-emerald-500/10 border border-border/80 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold font-syne text-foreground">
+                  Oman Visa Law & Lead Quality Radar
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  ROP & MOL Live Compliance
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Automated detection of banned nationalities (ROP suspensions), invalid numbers, and marketing ad budget leakage
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setActiveTab('live_feed'); setQualityFilter('visa_ban'); }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                qualityCounts.counts.visa_ban > 0 
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 animate-pulse'
+                  : 'bg-muted/40 text-muted-foreground border border-border'
+              }`}
+            >
+              <Ban size={13} />
+              <span>Restricted Leads: {qualityCounts.counts.visa_ban}</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('live_feed'); setQualityFilter('quality_lead'); }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1.5"
+            >
+              <Award size={13} />
+              <span>Quality: {qualityCounts.counts.quality_lead}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Breakdown Micro-Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="p-3 bg-card/60 border border-border/60 rounded-2xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Quality Leads Ratio</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-xl font-bold font-syne text-emerald-400">{qualityCounts.counts.quality_lead}</span>
+              <span className="text-xs font-mono font-bold text-muted-foreground">
+                ({stats.totalLeads > 0 ? Math.round((qualityCounts.counts.quality_lead / stats.totalLeads) * 100) : 0}%)
+              </span>
+            </div>
+            <p className="text-[10px] text-emerald-500 font-medium">Eligible for Oman setup</p>
+          </div>
+
+          <div className="p-3 bg-card/60 border border-border/60 rounded-2xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block flex items-center gap-1">
+              <Ban size={11} /> Oman Visa Bans
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-xl font-bold font-syne text-red-400">{qualityCounts.counts.visa_ban}</span>
+              <span className="text-xs font-mono font-bold text-muted-foreground">
+                ({stats.totalLeads > 0 ? Math.round((qualityCounts.counts.visa_ban / stats.totalLeads) * 100) : 0}%)
+              </span>
+            </div>
+            <p className="text-[10px] text-red-400/80 font-medium">ROP suspended countries</p>
+          </div>
+
+          <div className="p-3 bg-card/60 border border-border/60 rounded-2xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block flex items-center gap-1">
+              <PhoneMissed size={11} /> No Response / Invalid
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-xl font-bold font-syne text-amber-400">{qualityCounts.counts.no_response}</span>
+              <span className="text-xs font-mono font-bold text-muted-foreground">
+                ({stats.totalLeads > 0 ? Math.round((qualityCounts.counts.no_response / stats.totalLeads) * 100) : 0}%)
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground font-medium">Ringing / wrong number</p>
+          </div>
+
+          <div className="p-3 bg-card/60 border border-border/60 rounded-2xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Unreviewed Queue</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-xl font-bold font-syne text-foreground">{qualityCounts.counts.unreviewed}</span>
+              <span className="text-xs font-mono font-bold text-muted-foreground">leads</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground font-medium">Awaiting qualification rating</p>
+          </div>
+        </div>
+
+        {/* Ad Targeting Leak Warning Banner (Active when restricted country leads exist) */}
+        {qualityCounts.counts.visa_ban > 0 && (
+          <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/25 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-red-300">
+                  ⚠️ Ad Targeting Leak Detected: {qualityCounts.counts.visa_ban} leads from restricted nationalities ({Object.keys(qualityCounts.restrictedCountriesMap).join(', ')})
+                </p>
+                <p className="text-muted-foreground text-[11px] mt-0.5">
+                  Under current Oman ROP regulations, new investor and employment visas are suspended for these regions. Generating these leads burns ad spend with 0% setup viability.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+              <span className="px-2.5 py-1 rounded-xl bg-red-500/20 text-red-200 text-[10px] font-bold uppercase tracking-wider">
+                Action: Exclude in Meta/Google Ads
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* WEBHOOK & INGESTION HEALTH STATUS CARDS */}
@@ -844,22 +1140,26 @@ export default function MarketingHub() {
                     <th className="py-3 px-4">Campaign Name</th>
                     <th className="py-3 px-4">Source / Medium</th>
                     <th className="py-3 px-4 text-center">Inbound Leads</th>
+                    <th className="py-3 px-4 text-center">⭐ Quality Leads</th>
+                    <th className="py-3 px-4 text-center">🚫 Visa Ban (Leak)</th>
                     <th className="py-3 px-4 text-center">Quotes Built</th>
                     <th className="py-3 px-4 text-center">Jobs Won</th>
-                    <th className="py-3 px-4 text-center">Conversion %</th>
+                    <th className="py-3 px-4 text-center">Close Rate</th>
                     <th className="py-3 px-4 text-right">Revenue (OMR)</th>
+                    <th className="py-3 px-4 text-right">Net Profit (OMR)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40 font-medium">
                   {campaignAttribution.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={10} className="py-8 text-center text-muted-foreground">
                         No campaign attribution records found for this timeframe.
                       </td>
                     </tr>
                   ) : (
                     campaignAttribution.map((camp, idx) => {
                       const conv = camp.leadsCount > 0 ? ((camp.wonCount / camp.leadsCount) * 100).toFixed(1) : '0.0';
+                      const qualityPct = camp.leadsCount > 0 ? Math.round((camp.qualityCount / camp.leadsCount) * 100) : 0;
                       return (
                         <tr key={idx} className="hover:bg-muted/20 transition-colors">
                           <td className="py-3.5 px-4">
@@ -873,6 +1173,22 @@ export default function MarketingHub() {
                           <td className="py-3.5 px-4 text-center font-bold text-foreground">
                             {camp.leadsCount}
                           </td>
+                          {/* Quality Leads */}
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              {camp.qualityCount} ({qualityPct}%)
+                            </span>
+                          </td>
+                          {/* Visa Ban Targeting Leak */}
+                          <td className="py-3.5 px-4 text-center">
+                            {camp.visaBanCount > 0 ? (
+                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center justify-center gap-1 mx-auto w-fit" title="Ad targeting leak: Nationality restricted by Oman ROP">
+                                <Ban size={10} /> {camp.visaBanCount} Restricted
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground/60">—</span>
+                            )}
+                          </td>
                           <td className="py-3.5 px-4 text-center font-bold text-indigo-500">
                             {camp.quotedCount}
                           </td>
@@ -885,7 +1201,10 @@ export default function MarketingHub() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-right font-mono font-bold text-primary">
-                            {camp.revenue > 0 ? `${camp.revenue.toFixed(3)} OMR` : '—'}
+                            {camp.revenue > 0 ? `${camp.revenue.toFixed(3)}` : '—'}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
+                            {camp.profit > 0 ? `${camp.profit.toFixed(3)}` : '—'}
                           </td>
                         </tr>
                       );
@@ -999,6 +1318,83 @@ export default function MarketingHub() {
             </button>
           </div>
 
+          {/* QUALITY & VISA RADAR FILTER PILLS */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mr-1 shrink-0">
+              Quality Filter:
+            </span>
+            <button
+              onClick={() => setQualityFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                qualityFilter === 'all'
+                  ? 'bg-foreground text-background border-foreground font-black'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All Statuses ({qualityCounts.counts.all})
+            </button>
+
+            <button
+              onClick={() => setQualityFilter('quality_lead')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 border ${
+                qualityFilter === 'quality_lead'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-emerald-400 hover:border-emerald-500/40'
+              }`}
+            >
+              <Award size={12} className={qualityFilter === 'quality_lead' ? 'text-white' : 'text-emerald-400'} />
+              <span>⭐ Quality Leads ({qualityCounts.counts.quality_lead})</span>
+            </button>
+
+            <button
+              onClick={() => setQualityFilter('visa_ban')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 border ${
+                qualityFilter === 'visa_ban'
+                  ? 'bg-red-600 text-white border-red-500 shadow-sm shadow-red-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-red-400 hover:border-red-500/40'
+              }`}
+            >
+              <Ban size={12} className={qualityFilter === 'visa_ban' ? 'text-white' : 'text-red-400'} />
+              <span>🚫 Oman Visa Ban ({qualityCounts.counts.visa_ban})</span>
+            </button>
+
+            <button
+              onClick={() => setQualityFilter('no_response')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 border ${
+                qualityFilter === 'no_response'
+                  ? 'bg-amber-600 text-white border-amber-500 shadow-sm shadow-amber-500/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-amber-400 hover:border-amber-500/40'
+              }`}
+            >
+              <PhoneMissed size={12} className={qualityFilter === 'no_response' ? 'text-white' : 'text-amber-400'} />
+              <span>📵 No Response ({qualityCounts.counts.no_response})</span>
+            </button>
+
+            <button
+              onClick={() => setQualityFilter('disqualified')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 border ${
+                qualityFilter === 'disqualified'
+                  ? 'bg-rose-700 text-white border-rose-600 shadow-sm shadow-rose-600/20'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-rose-400 hover:border-rose-500/40'
+              }`}
+            >
+              <UserX size={12} className={qualityFilter === 'disqualified' ? 'text-white' : 'text-rose-400'} />
+              <span>❌ Disqualified ({qualityCounts.counts.disqualified})</span>
+            </button>
+
+            <button
+              onClick={() => setQualityFilter('unreviewed')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 border ${
+                qualityFilter === 'unreviewed'
+                  ? 'bg-muted text-foreground border-border'
+                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Clock size={12} />
+              <span>⏳ Unreviewed ({qualityCounts.counts.unreviewed})</span>
+            </button>
+          </div>
+
           {/* SEARCH & VIEW SWITCHER BAR */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
@@ -1069,27 +1465,61 @@ export default function MarketingHub() {
                 const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
                 const isGoogle = rawSrc.includes('google') || Boolean(lead.gclid);
                 const isMeta = rawSrc.includes('meta') || rawSrc.includes('facebook') || rawSrc.includes('instagram') || Boolean(lead.fbclid || lead.leadgen_id);
-                const assignedStaff = salesStaff?.find(s => s.id === lead.assigned_to);
+                const intel = getLeadIntelligence(lead);
+                const matchedJob = jobs?.find(j => j.client_id && j.client_id === lead.client_id && j.status !== 'cancelled');
 
                 return (
                   <div
                     key={lead.id}
-                    className="bg-card border border-border/70 rounded-2xl p-4 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
+                    className={`bg-card border rounded-2xl p-4 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-3.5 ${
+                      intel.hasRestrictedCountry
+                        ? 'border-red-500/40 bg-red-500/5'
+                        : intel.effectiveStatus === 'quality_lead'
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : 'border-border/70'
+                    }`}
                   >
                     <div className="space-y-2.5">
+                      {/* Header with Lead Code & Status */}
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase">{lead.lead_code || 'INBOUND'}</span>
-                          <h4 className="text-sm font-bold text-foreground">{lead.contact_name}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase">{lead.lead_code || 'INBOUND'}</span>
+                            {lead.nationality && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-muted text-foreground">
+                                🌍 {lead.nationality}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-foreground mt-0.5">{lead.contact_name}</h4>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                          lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
                           lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
+                          'bg-muted text-muted-foreground'
+                        }`}>
                           {lead.status}
                         </span>
                       </div>
 
+                      {/* Oman Visa Restriction Warning Box */}
+                      {intel.hasRestrictedCountry && (
+                        <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-[11px] text-red-200">
+                            <Ban size={12} className="shrink-0 text-red-400" />
+                            <span>{intel.visaCheck.statusBadgeText}</span>
+                          </div>
+                          <p className="text-[10px] text-red-300/90 leading-tight">
+                            {intel.visaCheck.ropNotice}
+                          </p>
+                          <div className="pt-1 text-[9px] text-red-400 font-semibold flex items-center gap-1">
+                            <AlertTriangle size={10} />
+                            <span>Marketing Action: Exclude country in Meta/Google Ad targeting</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contact Info */}
                       <div className="space-y-1 text-xs text-muted-foreground">
                         {lead.company_name && (
                           <p className="flex items-center gap-1.5 text-foreground font-semibold">
@@ -1113,11 +1543,12 @@ export default function MarketingHub() {
 
                       {/* Attribution Badges */}
                       <div className="pt-2 border-t border-border/40 flex flex-wrap gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+                          isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                           isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                            isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                              'bg-primary/10 text-primary border-primary/20'
-                          }`}>
+                          isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          'bg-primary/10 text-primary border-primary/20'
+                        }`}>
                           {lead.utm_source || lead.lead_sources?.name || 'Website'}
                         </span>
                         {lead.utm_campaign && (
@@ -1142,6 +1573,70 @@ export default function MarketingHub() {
                         )}
                       </div>
 
+                      {/* Lead Quality Rating & 1-Click Evaluation */}
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                          Lead Quality:
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {lead.quality_status === 'quality_lead' ? (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                              <Award size={10} /> Quality Lead
+                            </span>
+                          ) : lead.quality_status === 'disqualified' || intel.hasRestrictedCountry ? (
+                            <span
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1 truncate max-w-[140px]"
+                              title={lead.disqualification_reason || intel.visaCheck.statusBadgeText}
+                            >
+                              <UserX size={10} />
+                              {lead.disqualification_reason
+                                ? (DISQUALIFICATION_REASONS.find(r => r.key === lead.disqualification_reason)?.labelEn || lead.disqualification_reason)
+                                : 'Visa Ban'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-muted text-muted-foreground">
+                              Unreviewed
+                            </span>
+                          )}
+
+                          <button
+                            onClick={() => handleUpdateLeadQuality(lead.id, 'quality_lead')}
+                            className="p-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/20 transition-all cursor-pointer"
+                            title="Mark as Quality Lead"
+                          >
+                            <ThumbsUp size={11} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveDisqualifyLead(lead);
+                              setSelectedDisqualifyReason(intel.hasRestrictedCountry ? 'oman_visa_ban' : 'no_answer');
+                            }}
+                            className="p-1 rounded-md bg-red-500/10 hover:bg-red-500/25 text-red-400 border border-red-500/20 transition-all cursor-pointer"
+                            title="Disqualify / Wrong Lead (Select Reason)"
+                          >
+                            <ThumbsDown size={11} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Call / Outreach Status Selector */}
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                          Call Outreach:
+                        </span>
+                        <select
+                          value={lead.call_status || 'pending'}
+                          onChange={(e) => handleUpdateCallStatus(lead.id, e.target.value)}
+                          className="bg-muted/40 border border-border rounded-lg px-2 py-0.5 text-[10px] font-semibold text-foreground outline-none cursor-pointer max-w-[160px]"
+                        >
+                          <option value="pending">⚪ Pending 1st Call</option>
+                          <option value="connected">🟢 Connected (Spoke)</option>
+                          <option value="whatsapp_sent">🟢 WhatsApp Engaged</option>
+                          <option value="no_answer">🟡 Called - No Answer</option>
+                          <option value="wrong_number">🔴 Invalid / Wrong No.</option>
+                        </select>
+                      </div>
+
                       {/* Consultant Assignment Dropdown */}
                       <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
@@ -1151,10 +1646,11 @@ export default function MarketingHub() {
                           value={lead.assigned_to || ''}
                           disabled={isAssigning}
                           onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
-                          className={`w-full max-w-[180px] bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${lead.assigned_to
-                            ? 'border-border text-foreground font-semibold'
-                            : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
-                            }`}
+                          className={`w-full max-w-[180px] bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
+                            lead.assigned_to
+                              ? 'border-border text-foreground font-semibold'
+                              : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                          }`}
                         >
                           <option value="">⚡ Unassigned (Assign)</option>
                           {(salesStaff || []).map(staff => (
@@ -1164,6 +1660,16 @@ export default function MarketingHub() {
                           ))}
                         </select>
                       </div>
+
+                      {/* Converted Job Revenue & Profit Attribution */}
+                      {matchedJob && (
+                        <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[10px] font-mono">
+                          <span className="text-muted-foreground font-sans font-semibold">Won Job Attribution:</span>
+                          <span className="font-bold text-primary">
+                            Rev: {Number(matchedJob.total_fee || 0).toFixed(0)} OMR · <span className="text-emerald-400">Profit: {Number(matchedJob.work_fee || 0).toFixed(0)} OMR</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Quick Action Footer */}
@@ -1196,11 +1702,12 @@ export default function MarketingHub() {
                     <tr>
                       <th className="py-3 px-4">Lead / Date</th>
                       <th className="py-3 px-4">Contact Person</th>
-                      <th className="py-3 px-4">Contact Info</th>
-                      <th className="py-3 px-4">Source Channel</th>
-                      <th className="py-3 px-4">Campaign / Attribution</th>
+                      <th className="py-3 px-4">Nationality & Visa Law</th>
+                      <th className="py-3 px-4 text-center">Quality Rating</th>
+                      <th className="py-3 px-4">Call / Outreach</th>
+                      <th className="py-3 px-4">Source & Campaign</th>
                       <th className="py-3 px-4">Assigned Consultant</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Status / Revenue</th>
                       <th className="py-3 px-4 text-right">Quick Action</th>
                     </tr>
                   </thead>
@@ -1215,9 +1722,11 @@ export default function MarketingHub() {
                       const isWebsite = rawSrc.includes('setup.osbic') || rawSrc.includes('website') || Boolean(lead.landing_page_url);
                       const isGoogle = rawSrc.includes('google') || Boolean(lead.gclid);
                       const isMeta = rawSrc.includes('meta') || rawSrc.includes('facebook') || rawSrc.includes('instagram') || Boolean(lead.fbclid || lead.leadgen_id);
+                      const intel = getLeadIntelligence(lead);
+                      const matchedJob = jobs?.find(j => j.client_id && j.client_id === lead.client_id && j.status !== 'cancelled');
 
                       return (
-                        <tr key={lead.id} className="hover:bg-muted/20 transition-colors">
+                        <tr key={lead.id} className={`hover:bg-muted/20 transition-colors ${intel.hasRestrictedCountry ? 'bg-red-500/5' : ''}`}>
                           {/* Lead / Date */}
                           <td className="py-3 px-4">
                             <div className="font-mono text-[11px] font-bold text-primary">{lead.lead_code || 'INBOUND'}</div>
@@ -1233,39 +1742,90 @@ export default function MarketingHub() {
                                 <span className="truncate max-w-[150px]">{lead.company_name}</span>
                               </div>
                             )}
+                            <div className="text-[10px] font-mono text-muted-foreground mt-0.5">{lead.contact_phone || '—'}</div>
                           </td>
 
-                          {/* Contact Info */}
-                          <td className="py-3 px-4 font-mono text-[11px]">
-                            <div className="text-foreground">{lead.contact_phone || '—'}</div>
-                            <div className="text-[10px] text-muted-foreground font-sans truncate max-w-[150px]">{lead.contact_email || ''}</div>
-                          </td>
-
-                          {/* Source Channel */}
+                          {/* Nationality & Oman Visa Compliance */}
                           <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            <div className="font-semibold text-foreground text-[11px]">
+                              {lead.nationality || (lead.contact_phone ? `Phone: ${lead.contact_phone.substring(0, 4)}...` : 'Unknown')}
+                            </div>
+                            {intel.hasRestrictedCountry ? (
+                              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-lg text-[9px] font-bold bg-red-500/15 text-red-400 border border-red-500/30" title={intel.visaCheck.ropNotice}>
+                                <Ban size={9} /> {intel.visaCheck.statusBadgeText}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-lg text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle2 size={9} /> Eligible / Open
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Quality Rating */}
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {lead.quality_status === 'quality_lead' ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                  <Award size={10} /> Quality
+                                </span>
+                              ) : lead.quality_status === 'disqualified' || intel.hasRestrictedCountry ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1" title={lead.disqualification_reason || 'Excluded'}>
+                                  <UserX size={10} /> Disqualified
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-muted text-muted-foreground">
+                                  Unreviewed
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleUpdateLeadQuality(lead.id, 'quality_lead')}
+                                className="p-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/20 cursor-pointer"
+                                title="Mark as Quality Lead"
+                              >
+                                <ThumbsUp size={10} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDisqualifyLead(lead);
+                                  setSelectedDisqualifyReason(intel.hasRestrictedCountry ? 'oman_visa_ban' : 'no_answer');
+                                }}
+                                className="p-1 rounded-md bg-red-500/10 hover:bg-red-500/25 text-red-400 border border-red-500/20 cursor-pointer"
+                                title="Disqualify (Choose Reason)"
+                              >
+                                <ThumbsDown size={10} />
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Call / Outreach Status Dropdown */}
+                          <td className="py-3 px-4">
+                            <select
+                              value={lead.call_status || 'pending'}
+                              onChange={(e) => handleUpdateCallStatus(lead.id, e.target.value)}
+                              className="bg-muted/40 border border-border rounded-lg px-2 py-1 text-[10px] font-semibold text-foreground outline-none cursor-pointer"
+                            >
+                              <option value="pending">⚪ Pending Call</option>
+                              <option value="connected">🟢 Connected</option>
+                              <option value="whatsapp_sent">🟢 WhatsApp</option>
+                              <option value="no_answer">🟡 No Answer</option>
+                              <option value="wrong_number">🔴 Invalid No.</option>
+                            </select>
+                          </td>
+
+                          {/* Source & Campaign */}
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              isGoogle ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                               isMeta ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                                isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                  'bg-primary/10 text-primary border-primary/20'
-                              }`}>
+                              isWebsite ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                              'bg-primary/10 text-primary border-primary/20'
+                            }`}>
                               {lead.utm_source || lead.lead_sources?.name || 'Website'}
                             </span>
-                            {lead.referral_name && (
-                              <div className="text-[9px] text-purple-400 font-bold mt-1">Ref: {lead.referral_name}</div>
-                            )}
-                          </td>
-
-                          {/* Campaign / Attribution */}
-                          <td className="py-3 px-4">
-                            {lead.utm_campaign ? (
-                              <div className="text-foreground font-semibold text-[11px]">🎯 {lead.utm_campaign}</div>
-                            ) : (
-                              <span className="text-muted-foreground text-[11px]">Direct Form</span>
-                            )}
-                            {(lead.gclid || lead.fbclid) && (
-                              <span className="inline-block mt-0.5 text-[9px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                {lead.gclid ? 'Google Click ID' : 'Meta Click ID'}
-                              </span>
+                            {lead.utm_campaign && (
+                              <div className="text-[10px] text-muted-foreground font-semibold mt-0.5 truncate max-w-[130px]">
+                                🎯 {lead.utm_campaign}
+                              </div>
                             )}
                           </td>
 
@@ -1275,10 +1835,11 @@ export default function MarketingHub() {
                               value={lead.assigned_to || ''}
                               disabled={isAssigning}
                               onChange={(e) => handleAssignLead(lead.id, e.target.value || null)}
-                              className={`bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${lead.assigned_to
-                                ? 'border-border text-foreground font-semibold'
-                                : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
-                                }`}
+                              className={`bg-muted/40 border rounded-lg px-2 py-1 text-[11px] font-medium outline-none transition-colors ${
+                                lead.assigned_to
+                                  ? 'border-border text-foreground font-semibold'
+                                  : 'border-amber-500/40 text-amber-400 bg-amber-500/5 font-bold'
+                              }`}
                             >
                               <option value="">⚡ Unassigned</option>
                               {(salesStaff || []).map(staff => (
@@ -1289,17 +1850,23 @@ export default function MarketingHub() {
                             </select>
                           </td>
 
-                          {/* Status */}
+                          {/* Status / Revenue */}
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              lead.status === 'new' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
                               lead.status === 'converted' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                'bg-muted text-muted-foreground'
-                              }`}>
+                              'bg-muted text-muted-foreground'
+                            }`}>
                               {lead.status}
                             </span>
+                            {matchedJob && (
+                              <div className="text-[9px] font-mono text-emerald-400 font-bold mt-1">
+                                +{Number(matchedJob.work_fee || 0).toFixed(0)} OMR Profit
+                              </div>
+                            )}
                           </td>
 
-                          {/* Actions */}
+                          {/* Quick Action */}
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end">
                               {waUrl ? (
@@ -1615,6 +2182,125 @@ export default function MarketingHub() {
                 >
                   Close
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* LEAD DISQUALIFICATION & REASON PICKER MODAL */}
+      <AnimatePresence>
+        {activeDisqualifyLead && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => setActiveDisqualifyLead(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center font-bold text-sm">
+                    <UserX size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Disqualify Lead / Flag Non-Viable</h3>
+                    <p className="text-[10px] text-muted-foreground">
+                      Lead: <span className="text-foreground font-semibold">{activeDisqualifyLead.contact_name}</span> ({activeDisqualifyLead.contact_phone || 'No phone'})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveDisqualifyLead(null)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Check if Lead Matches Oman Visa Restriction */}
+              {(() => {
+                const visaCheck = checkOmanVisaEligibility(activeDisqualifyLead);
+                if (!visaCheck.isRestricted) return null;
+                return (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-red-300">
+                      <Ban size={13} className="text-red-400" />
+                      <span>Oman ROP Restriction Alert: {visaCheck.statusBadgeText}</span>
+                    </div>
+                    <p className="text-[10px] text-red-200/90 leading-relaxed">
+                      {visaCheck.ropNotice}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Reason Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground block">
+                  Select Disqualification Reason:
+                </label>
+                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                  {DISQUALIFICATION_REASONS.map(reason => {
+                    const isSelected = selectedDisqualifyReason === reason.key;
+                    return (
+                      <div
+                        key={reason.key}
+                        onClick={() => setSelectedDisqualifyReason(reason.key)}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-3 ${
+                          isSelected
+                            ? 'bg-red-500/10 border-red-500/40 text-foreground shadow-sm'
+                            : 'bg-muted/30 border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                          isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-muted-foreground/40'
+                        }`}>
+                          {isSelected && <Check size={10} />}
+                        </div>
+                        <div>
+                          <div className="font-bold flex items-center gap-1.5">
+                            <span>{reason.labelEn}</span>
+                            <span className="text-[10px] text-muted-foreground font-normal">({reason.labelAr})</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                            {reason.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <button
+                  onClick={() => handleUpdateLeadQuality(activeDisqualifyLead.id, 'unreviewed')}
+                  className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  Reset to Unreviewed
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveDisqualifyLead(null)}
+                    className="px-3.5 py-2 text-xs font-bold text-muted-foreground hover:bg-muted rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleUpdateLeadQuality(activeDisqualifyLead.id, 'disqualified', selectedDisqualifyReason)}
+                    disabled={isUpdatingQuality}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Ban size={13} />
+                    <span>Confirm Disqualification</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

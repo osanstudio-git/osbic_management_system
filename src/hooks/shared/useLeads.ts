@@ -17,6 +17,9 @@ export interface Lead {
   assigned_to?: string;
   assigned_by?: string;
   status: 'new' | 'contacted' | 'interested' | 'on_progress' | 'qualified' | 'quoted' | 'negotiating' | 'converted' | 'cancelled' | 'lost' | 'on_hold';
+  quality_status?: 'unreviewed' | 'quality_lead' | 'disqualified' | null;
+  disqualification_reason?: string | null;
+  speed_to_lead_mins?: number | null;
   lost_reason?: string;
   next_follow_up_at?: string;
   follow_up_notes?: string;
@@ -441,6 +444,7 @@ export const useUpdateLead = () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'leads'] });
       queryClient.invalidateQueries({ queryKey: ['marketing', 'leads'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing', 'inbound_leads'] });
       queryClient.invalidateQueries({ queryKey: ['daily_sales_sheet'] });
       queryClient.invalidateQueries({ queryKey: ['lead', data.id] });
     }
