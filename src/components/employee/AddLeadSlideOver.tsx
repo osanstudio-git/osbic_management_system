@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CheckCircle, ArrowRight, ArrowLeft, ChevronDown, Users, 
   Calendar, Briefcase, Sparkles, AlertTriangle, UserCheck, 
-  Building2, Phone, Clock, Loader2, ShieldAlert, Boxes
+  Building2, Phone, Clock, Loader2, ShieldAlert, Boxes, FileText
 } from 'lucide-react';
 import { useLeads, useCreateLead, useCheckDuplicateLead } from '../../hooks/shared/useLeads';
 import { useAdminServices } from '../../hooks/admin/useAdminServices';
@@ -595,7 +595,7 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                         <option value="" className="bg-card text-foreground">-- Select Interested Service (Optional) --</option>
                         {servicesList?.filter(s => s.is_active !== false).map(svc => (
                           <option key={svc.id} value={svc.id} className="bg-card text-foreground">
-                            {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''} • {((Number(svc.work_fee) || 0) + (Number(svc.ministry_fee) || 0)).toFixed(3)} OMR
+                            {svc.name_en} {svc.name_ar ? `(${svc.name_ar})` : ''}
                           </option>
                         ))}
                       </select>
@@ -610,19 +610,14 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                           className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors text-sm cursor-pointer"
                         >
                           <option value="" className="bg-card text-foreground">-- Select Business Package (Optional) --</option>
-                          {packagesList?.filter(p => p.is_active !== false).map(pkg => {
-                            const pkgPrice = pkg.fixed_price != null 
-                              ? Number(pkg.fixed_price)
-                              : (pkg.services?.reduce((sum: number, s: any) => sum + (Number(s.service?.work_fee) || 0) + (Number(s.service?.ministry_fee) || 0), 0) || 0) * (1 - (pkg.discount_percentage || 0) / 100);
-                            return (
-                              <option key={pkg.id} value={pkg.id} className="bg-card text-foreground">
-                                📦 {pkg.name_en} {pkg.name_ar ? `(${pkg.name_ar})` : ''} {pkgPrice > 0 ? `• ${pkgPrice.toFixed(3)} OMR` : ''}
-                              </option>
-                            );
-                          })}
+                          {packagesList?.filter(p => p.is_active !== false).map(pkg => (
+                            <option key={pkg.id} value={pkg.id} className="bg-card text-foreground">
+                              📦 {pkg.name_en} {pkg.name_ar ? `(${pkg.name_ar})` : ''}
+                            </option>
+                          ))}
                         </select>
 
-                        {/* Selected Package Badge & Info Card */}
+                        {/* Selected Package Info Card */}
                         {chosenPackage && (
                           <motion.div
                             initial={{ opacity: 0, y: 3 }}
@@ -640,11 +635,9 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                                 </p>
                               </div>
                             </div>
-                            {packageCalculatedPrice > 0 && (
-                              <span className="font-mono font-bold text-amber-400 bg-card px-2.5 py-1 rounded-lg border border-amber-500/30 text-xs shrink-0">
-                                {packageCalculatedPrice.toFixed(3)} OMR
-                              </span>
-                            )}
+                            <span className="font-medium text-amber-400/90 bg-card px-2.5 py-1 rounded-lg border border-amber-500/30 text-[11px] shrink-0">
+                              Package Bundle
+                            </span>
                           </motion.div>
                         )}
                       </div>
@@ -730,6 +723,21 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
                       <p className="text-[11px] text-muted-foreground">The person who referred this lead to you</p>
                     </motion.div>
                   )}
+
+                  {/* Notes / Remarks Field in Step 1 */}
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <FileText size={14} className="text-primary" />
+                      <span>Notes / Remarks (Optional)</span>
+                    </label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Add any lead requirements, client notes, or conversation details..."
+                      rows={3}
+                      className="w-full bg-white/5 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors resize-none text-sm"
+                    />
+                  </div>
                 </div>
               ) : (
                 /* STEP 2: OPTIONAL */
@@ -796,33 +804,53 @@ export default function AddLeadSlideOver({ isOpen, onClose }: Props) {
               {step === 1 ? (
                 <>
                   <button
+                    type="button"
                     onClick={onClose}
-                    className="px-6 py-3 rounded-xl border border-border text-foreground font-bold hover:bg-white/5 transition-colors"
+                    className="px-5 py-3 rounded-xl border border-border text-foreground font-bold hover:bg-white/5 transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleNext}
                     disabled={duplicateCheck?.hasPhoneDuplicate}
-                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 font-semibold transition-colors text-xs sm:text-sm flex items-center gap-1.5"
+                    title="Add company, email, follow-up date"
                   >
-                    <span>{duplicateCheck?.hasPhoneDuplicate ? 'Duplicate Phone (Blocked)' : 'Next step'}</span>
-                    <ArrowRight size={16} />
+                    <span>More Details</span>
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={createLeadMutation.isPending || duplicateCheck?.hasPhoneDuplicate}
+                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                  >
+                    {createLeadMutation.isPending ? (
+                      'Creating Lead...'
+                    ) : (
+                      <>
+                        <CheckCircle size={16} />
+                        <span>Submit Lead</span>
+                      </>
+                    )}
                   </button>
                 </>
               ) : (
                 <>
                   <button
+                    type="button"
                     onClick={() => setStep(1)}
-                    className="px-6 py-3 rounded-xl border border-border text-foreground font-bold hover:bg-white/5 transition-colors flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl border border-border text-foreground font-bold hover:bg-white/5 transition-colors flex items-center gap-2 text-sm"
                   >
                     <ArrowLeft size={16} />
                     <span>Back</span>
                   </button>
                   <button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={createLeadMutation.isPending}
-                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-primary text-[#0A0F1E] font-bold rounded-xl py-3 hover:bg-primary/90 transition-colors shadow-lg shadow-gold/20 flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
                   >
                     {createLeadMutation.isPending ? (
                       'Creating Lead...'

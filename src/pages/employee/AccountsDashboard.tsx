@@ -444,8 +444,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'overview'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <LayoutDashboard size={16} /> Master Ledger
@@ -453,8 +453,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('payments')}
             className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'payments'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <RefreshCw size={16} /> Verifications
@@ -465,8 +465,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('sales_report')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'sales_report'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <Users size={16} /> Sales Performance
@@ -474,8 +474,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('receivables')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'receivables'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <Wallet size={16} /> Receivables Aging
@@ -483,8 +483,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('govt_fees')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'govt_fees'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <Building2 size={16} /> Govt Fees Paid
@@ -492,8 +492,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('financials')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'financials'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <BarChart4 size={16} /> Financial Statements
@@ -501,8 +501,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('expenses')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'expenses'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <FileText size={16} /> Audits
@@ -513,8 +513,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           <button
             onClick={() => setActiveTab('history')}
             className={`px-4 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'history'
-                ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
           >
             <History size={16} /> Verified History
@@ -597,8 +597,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                  'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                              job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
                               }`}>
                               {job.status}
                             </span>
@@ -984,8 +984,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   <button
                     onClick={() => setReceivablesSubTab('due')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${receivablesSubTab === 'due'
-                        ? 'bg-amber-500 text-black shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-amber-500 text-black shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     Outstanding Balances Due ({receivablesJobs.length})
@@ -993,8 +993,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   <button
                     onClick={() => setReceivablesSubTab('surplus')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${receivablesSubTab === 'surplus'
-                        ? 'bg-emerald-500 text-white shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     Client Surplus & Refunds Due ({surplusJobs.length})
@@ -1575,43 +1575,43 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                                 <td className="px-4 py-3 font-mono font-bold text-foreground">
                                   {Number(payment.amount).toFixed(3)}
                                 </td>
-                              <td className="px-4 py-3">
-                                <span className="capitalize text-sm">{payment.payment_method?.replace('_', ' ') || 'Unknown'}</span>
-                              </td>
-                              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                                {payment.reference_number || '-'}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${payment.status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' :
+                                <td className="px-4 py-3">
+                                  <span className="capitalize text-sm">{payment.payment_method?.replace('_', ' ') || 'Unknown'}</span>
+                                </td>
+                                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                  {payment.reference_number || '-'}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${payment.status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' :
                                     payment.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
                                       'bg-rose-500/10 text-rose-500'
-                                  }`}>
-                                  {payment.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {payment.status === 'verified' && (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); downloadReceipt(jobDetailsTarget, payment, 'view'); }}
-                                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                      title="View Receipt"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); downloadReceipt(jobDetailsTarget, payment, 'download'); }}
-                                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                      title="Download Receipt"
-                                    >
-                                      <Download className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                    }`}>
+                                    {payment.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  {payment.status === 'verified' && (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); downloadReceipt(jobDetailsTarget, payment, 'view'); }}
+                                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                        title="View Receipt"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); downloadReceipt(jobDetailsTarget, payment, 'download'); }}
+                                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                        title="Download Receipt"
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
