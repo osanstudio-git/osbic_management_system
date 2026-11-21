@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   X, Calendar, Coins, User, UserCheck, FileText, 
-  CheckCircle2, AlertCircle, Loader2, Edit3, ShieldAlert
+  CheckCircle2, AlertCircle, Loader2, Edit3, ShieldAlert, Briefcase
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -28,6 +28,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
   // Editable Form Fields
   const [clientId, setClientId] = useState('');
   const [salesEmployeeId, setSalesEmployeeId] = useState('');
+  const [opsEmployeeId, setOpsEmployeeId] = useState('');
   const [customName, setCustomName] = useState('');
   const [startedDate, setStartedDate] = useState('');
   const [completedDate, setCompletedDate] = useState('');
@@ -48,7 +49,23 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
     // Initialize values from job
     setClientId(job.client_id || '');
     setSalesEmployeeId(job.sales_employee_id || job.assigned_by || '');
+    setOpsEmployeeId(job.ops_employee_id || '');
     setCustomName(job.custom_name || job.service_name || '');
+    
+    // In case job.ops_employee_id is not populated on master job record, inspect job_services
+    if (!job.ops_employee_id && job.id) {
+      supabase
+        .from('job_services')
+        .select('ops_employee_id')
+        .eq('job_id', job.id)
+        .not('ops_employee_id', 'is', null)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0 && data[0]?.ops_employee_id) {
+            setOpsEmployeeId(data[0].ops_employee_id);
+          }
+        });
+    }
     
     const sDate = job.started_date || job.started_at || job.created_at;
     setStartedDate(sDate ? sDate.split('T')[0] : '');
@@ -67,7 +84,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
       try {
         const [{ data: clientList }, { data: staffList }] = await Promise.all([
           supabase.from('profiles').select('id, full_name, phone, client_code').eq('role', 'client').order('full_name'),
-          supabase.from('profiles').select('id, full_name, role').in('role', ['admin', 'employee']).order('full_name')
+          supabase.from('profiles').select('id, full_name, role, department').in('role', ['admin', 'employee']).order('full_name')
         ]);
         if (clientList) setClients(clientList);
         if (staffList) setStaff(staffList);
@@ -114,6 +131,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
       const jobUpdate: any = {
         client_id: clientId,
         sales_employee_id: salesEmployeeId || null,
+        ops_employee_id: opsEmployeeId || null,
         assigned_by: salesEmployeeId || job.assigned_by || profile?.id,
         custom_name: customName.trim(),
         work_fee: numWorkFee,
@@ -148,7 +166,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
         work_fee: numWorkFee,
         ministry_fee: numGovFee,
         total_fee: calculatedTotal,
-        client_id: clientId
+        client_id: clientId,
+        ops_employee_id: opsEmployeeId || null
       };
       if (job.status === 'completed' && completedIso) {
         serviceUpdate.completed_at = completedIso;
@@ -161,6 +180,24 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
         .from('job_services')
         .update(serviceUpdate)
         .eq('job_id', job.id);
+
+      // Notify ops employee if newly assigned or reassigned
+      if (opsEmployeeId && opsEmployeeId !== job.ops_employee_id) {
+        try {
+          await supabase.from('notifications').insert({
+            recipient_id: opsEmployeeId,
+            sender_id: profile?.id || null,
+            job_id: job.id,
+            type: 'action_required',
+            title_en: `Task Assigned to You: ${job.job_code || ''}`,
+            title_ar: `تم تعيين معاملة إليك: ${job.job_code || ''}`,
+            body_en: `${profile?.full_name || 'Staff'} assigned/reassigned task (${job.job_code || ''}) to you.`,
+            body_ar: `قام ${profile?.full_name || 'أحد الموظفين'} بتحويل المعاملة (${job.job_code || ''}) إليك.`
+          });
+        } catch (notifErr) {
+          console.warn('Could not send ops notification:', notifErr);
+        }
+      }
 
       // 3. Cascade update to invoices
       await supabase
@@ -237,8 +274,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
-          {/* Section 1: Client & Sales Assignment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Section 1: Client & Team Assignment */}
+          <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <User size={13} className="text-primary" />
@@ -248,7 +285,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 required
-                className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all"
+                className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all cursor-pointer"
               >
                 <option value="">-- Select Client --</option>
                 {clients.map((cli) => (
@@ -259,23 +296,63 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
               </select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <UserCheck size={13} className="text-amber-400" />
-                <span>Assigned Sales Rep</span>
-              </label>
-              <select
-                value={salesEmployeeId}
-                onChange={(e) => setSalesEmployeeId(e.target.value)}
-                className="w-full bg-muted/30 border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all"
-              >
-                <option value="">-- Unassigned / Direct --</option>
-                {staff.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.role})
-                  </option>
-                ))}
-              </select>
+            {/* Sales Rep vs Operations Specialist Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* 1. Sales Rep (Lead Generation / Commission) */}
+              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <UserCheck size={13} />
+                    <span>Assigned Sales Rep</span>
+                  </label>
+                  <span className="text-[9px] text-amber-400 font-bold uppercase tracking-wider bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    Sales Credit
+                  </span>
+                </div>
+                <select
+                  value={salesEmployeeId}
+                  onChange={(e) => setSalesEmployeeId(e.target.value)}
+                  className="w-full bg-background/60 border border-amber-500/30 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all cursor-pointer"
+                >
+                  <option value="">-- Unassigned / Direct --</option>
+                  {staff.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} {emp.department ? `(${emp.department})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Credited with bringing the deal. Used for sales reports and commissions.
+                </p>
+              </div>
+
+              {/* 2. Operations Specialist (Task Execution / Ministry Work) */}
+              <div className="p-3 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                    <Briefcase size={13} />
+                    <span>Assigned Ops Employee</span>
+                  </label>
+                  <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                    Work Execution
+                  </span>
+                </div>
+                <select
+                  value={opsEmployeeId}
+                  onChange={(e) => setOpsEmployeeId(e.target.value)}
+                  className="w-full bg-background/60 border border-blue-500/30 focus:border-blue-400 rounded-xl px-3 py-2 text-xs text-foreground outline-none transition-all cursor-pointer"
+                >
+                  <option value="">-- Unassigned (No Ops Specialist) --</option>
+                  {staff.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} {emp.department ? `(${emp.department})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Ops/PRO employee doing the work. Reassign here if stuck under sales.
+                </p>
+              </div>
             </div>
           </div>
 
