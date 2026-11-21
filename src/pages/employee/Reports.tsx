@@ -22,7 +22,9 @@ import {
   FileSpreadsheet,
   X,
   CreditCard,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { DailySalesSheetModal } from '../../components/employee/DailySalesSheetModal';
 import { clsx, type ClassValue } from 'clsx';
@@ -49,6 +51,12 @@ export default function EmployeeReports() {
   const [selectedDetailItem, setSelectedDetailItem] = useState<any | null>(null);
   const [jobScope, setJobScope] = useState<'all' | 'handled' | 'assigned'>('all');
   const [leadScope, setLeadScope] = useState<'all' | 'handled' | 'distributed'>('all');
+  const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+
+  const toggleExpandJob = (jobId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedJobs(prev => ({ ...prev, [jobId]: !prev[jobId] }));
+  };
 
   // 1. Fetch Payments Data
   const { data: payments, isLoading: isLoadingPayments } = useQuery({
@@ -310,6 +318,75 @@ export default function EmployeeReports() {
       return !isJobCancelled && !isPaymentCancelled;
     });
   }, [filteredPayments]);
+
+  // Group payments by Job/Client for cleaner reporting UI and zero-duplication view
+  const groupedJobPayments = useMemo(() => {
+    if (reportType !== 'payments') return [];
+
+    const groupsMap = new Map<string, {
+      jobId: string;
+      job: any;
+      client: any;
+      payments: any[];
+      totalPaid: number;
+      dealTotalFee: number;
+      dealWorkFee: number;
+      dealMinistryFee: number;
+      realizedProfit: number;
+      latestDate: string;
+      latestPaymentDate: string;
+      isAllCancelled: boolean;
+      status: string;
+    }>();
+
+    filteredPayments.forEach(p => {
+      const groupKey = p.job_id || p.job?.id || p.id;
+      const pAmount = Number(p.amount || 0);
+      const isCancelled = p.job?.status === 'cancelled' || p.status === 'cancelled' || p.status === 'voided' || p.status === 'refunded';
+      
+      const jobTotalFee = Number(p.job?.total_fee || 0);
+      const jobWorkFee = Number(p.job?.work_fee || 0);
+      const jobMinistryFee = Number(p.job?.ministry_fee || 0);
+      const paymentProfit = (!isCancelled && jobTotalFee > 0) ? (pAmount / jobTotalFee) * jobWorkFee : (isCancelled ? 0 : jobWorkFee);
+      const dateToUse = (p.payment_date || p.created_at);
+
+      if (!groupsMap.has(groupKey)) {
+        groupsMap.set(groupKey, {
+          jobId: groupKey,
+          job: p.job,
+          client: p.job?.client || p.client,
+          payments: [p],
+          totalPaid: isCancelled ? 0 : pAmount,
+          dealTotalFee: jobTotalFee,
+          dealWorkFee: jobWorkFee,
+          dealMinistryFee: jobMinistryFee,
+          realizedProfit: paymentProfit,
+          latestDate: p.created_at,
+          latestPaymentDate: dateToUse,
+          isAllCancelled: isCancelled,
+          status: p.job?.status || 'active',
+        });
+      } else {
+        const existing = groupsMap.get(groupKey)!;
+        existing.payments.push(p);
+        if (!isCancelled) {
+          existing.totalPaid += pAmount;
+          existing.realizedProfit += paymentProfit;
+        }
+        if (new Date(p.created_at) > new Date(existing.latestDate)) {
+          existing.latestDate = p.created_at;
+        }
+        if (new Date(dateToUse) > new Date(existing.latestPaymentDate)) {
+          existing.latestPaymentDate = dateToUse;
+        }
+        if (!isCancelled) {
+          existing.isAllCancelled = false;
+        }
+      }
+    });
+
+    return Array.from(groupsMap.values()).sort((a, b) => new Date(b.latestPaymentDate).getTime() - new Date(a.latestPaymentDate).getTime());
+  }, [filteredPayments, reportType]);
 
   // Calculations for Payments (strictly based on active payments)
   const totalCollected = activePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -1097,7 +1174,7 @@ export default function EmployeeReports() {
                         </div>
                       </td>
                     </tr>
-                  ) : (reportType === 'payments' ? filteredPayments.length === 0 : filteredJobs.length === 0) ? (
+                  ) : (reportType === 'payments' ? groupedJobPayments.length === 0 : filteredJobs.length === 0) ? (
                     <tr>
                       <td colSpan={6} className="p-16 text-center text-muted-foreground">
                         <div className="flex flex-col items-center gap-3">
@@ -1108,11 +1185,229 @@ export default function EmployeeReports() {
                         </div>
                       </td>
                     </tr>
+                  ) : reportType === 'payments' ? (
+                    groupedJobPayments.map((group) => {
+                      const isExpanded = !!expandedJobs[group.jobId];
+                      const hasMultiple = group.payments.length > 1;
+                      const mainJob = group.job;
+                      const isItemCancelled = group.isAllCancelled;
+                      const totalPaid = group.totalPaid;
+                      const dealTotalFee = group.dealTotalFee || totalPaid;
+                      const dealWorkFee = group.dealWorkFee;
+                      const dealMinistryFee = group.dealMinistryFee;
+                      const isFullySettled = mainJob?.remaining_paid || (dealTotalFee > 0 && totalPaid >= dealTotalFee);
+
+                      return (
+                        <React.Fragment key={group.jobId}>
+                          <motion.tr 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            onClick={() => {
+                              if (hasMultiple) {
+                                toggleExpandJob(group.jobId);
+                              } else {
+                                setSelectedDetailItem(group.payments[0]);
+                              }
+                            }}
+                            className={cn(
+                              "border-b border-border/50 transition-colors group text-start cursor-pointer",
+                              isItemCancelled ? "opacity-60 bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-primary/5",
+                              isExpanded && "bg-primary/[0.04]"
+                            )}
+                          >
+                            {/* Date Column */}
+                            <td className="p-4">
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {hasMultiple && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => toggleExpandJob(group.jobId, e)}
+                                      className="p-1 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors shrink-0"
+                                      title={isExpanded ? 'Collapse' : 'Expand payments'}
+                                    >
+                                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                    </button>
+                                  )}
+                                  <span className="text-sm font-bold text-foreground">
+                                    {format(new Date(group.latestPaymentDate), isRtl ? 'dd LLL yyyy' : 'dd MMM yyyy')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
+                                    {format(new Date(group.latestDate), 'HH:mm')}
+                                  </span>
+                                  {hasMultiple && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                      {group.payments.length} {isRtl ? 'دفعات' : 'payments'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Service Details */}
+                            <td className="p-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-foreground">
+                                  {mainJob?.custom_name || (isRtl ? (mainJob?.service?.name_ar || mainJob?.service?.name_en) : mainJob?.service?.name_en) || 'Service'}
+                                </span>
+                                {mainJob?.custom_name && mainJob?.service?.name_en && mainJob.custom_name !== mainJob.service.name_en && (
+                                  <span className="text-[10px] text-muted-foreground/70">
+                                    {mainJob.service.name_en}
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                  {mainJob?.job_code || 'JOB'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Client */}
+                            <td className="p-4">
+                              <span className="text-sm font-medium text-foreground">
+                                {group.client?.full_name || 'Client'}
+                              </span>
+                            </td>
+
+                            {/* Deal Financials / Profit */}
+                            <td className="p-4 text-right">
+                              <div className="flex flex-col items-end">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">
+                                    {isRtl ? 'ربح المعاملة:' : 'Job Profit:'}
+                                  </span>
+                                  <span className={cn(
+                                    "text-sm font-bold font-mono",
+                                    isItemCancelled ? "line-through text-muted-foreground/60" : "text-emerald-400"
+                                  )}>
+                                    +{dealWorkFee.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                                  {dealMinistryFee > 0 && (
+                                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
+                                      {isRtl ? 'رسوم حكومية:' : 'Gov Fee:'} {dealMinistryFee.toFixed(3)}
+                                    </span>
+                                  )}
+                                  <span className="bg-muted/40 text-muted-foreground border border-border px-1.5 py-0.5 rounded font-mono font-medium">
+                                    {isRtl ? 'إجمالي الصفقة:' : 'Total:'} {dealTotalFee.toFixed(3)} OMR
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Payment Amount */}
+                            <td className="p-4 text-right">
+                              <div className="flex flex-col items-end">
+                                <span className={cn(
+                                  "text-sm font-bold font-mono",
+                                  isItemCancelled ? "line-through text-muted-foreground" : "text-foreground"
+                                )}>
+                                  {totalPaid.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                                </span>
+                                {isItemCancelled ? (
+                                  <span className="text-[9px] uppercase tracking-wider text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full mt-1 font-bold">
+                                    {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col items-end gap-1 mt-1">
+                                    {isFullySettled ? (
+                                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                        {isRtl ? 'مسدد بالكامل 100%' : '100% Fully Settled'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                        {isRtl ? 'عربون / سلفة' : 'Advance Payment'}
+                                      </span>
+                                    )}
+                                    {hasMultiple && (
+                                      <span className="text-[9px] text-primary font-bold cursor-pointer hover:underline">
+                                        {isExpanded ? (isRtl ? '▲ إخفاء الدفعات' : '▲ Hide Installments') : (isRtl ? '▼ عرض الدفعتين' : `▼ View ${group.payments.length} Payments`)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Job Status */}
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                                getStatusStyle(group.status)
+                              }`}>
+                                {getStatusIcon(group.status)}
+                                {group.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : group.status === 'active' || group.status === 'in_progress' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'ملغي' : group.status)}
+                              </span>
+                            </td>
+                          </motion.tr>
+
+                          {/* Expanded Nested Sub-Rows for multiple installments */}
+                          {hasMultiple && isExpanded && (
+                            <tr className="bg-primary/[0.02] border-b border-border/80">
+                              <td colSpan={6} className="p-3 pl-8 sm:pl-12">
+                                <div className="p-3.5 rounded-xl bg-card border border-primary/20 space-y-2.5 shadow-sm">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
+                                      <CreditCard size={13} />
+                                      <span>{isRtl ? `تفاصيل دفعات (${mainJob?.job_code || ''}) المجمعة لهذا العميل:` : `Breakdown of ${group.payments.length} Payments for ${group.client?.full_name || 'Client'}:`}</span>
+                                    </p>
+                                    <span className="text-[10px] font-mono text-muted-foreground font-semibold">
+                                      {isRtl ? 'المجموع:' : 'Sum:'} {totalPaid.toFixed(3)} OMR
+                                    </span>
+                                  </div>
+                                  <div className="divide-y divide-border/50">
+                                    {group.payments.map((p: any, idx: number) => {
+                                      const pAmt = Number(p.amount || 0);
+                                      const isPCancelled = p.status === 'cancelled' || p.status === 'voided' || p.status === 'refunded';
+                                      return (
+                                        <div 
+                                          key={p.id}
+                                          onClick={() => setSelectedDetailItem(p)}
+                                          className="py-2.5 px-2 flex items-center justify-between text-xs hover:bg-white/5 rounded-lg cursor-pointer transition-colors"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-bold">
+                                              #{idx + 1}
+                                            </span>
+                                            <div>
+                                              <span className="font-bold text-foreground">
+                                                {format(new Date(p.payment_date || p.created_at), 'dd MMM yyyy • HH:mm')}
+                                              </span>
+                                              <span className="text-[10px] text-muted-foreground block capitalize font-mono">
+                                                {p.payment_method?.replace('_', ' ') || 'Payment'}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-3">
+                                            <span className={cn(
+                                              "font-mono font-bold text-sm",
+                                              isPCancelled ? "line-through text-muted-foreground" : "text-emerald-400"
+                                            )}>
+                                              +{pAmt.toFixed(3)} OMR
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="text-[10px] text-primary hover:underline font-bold"
+                                            >
+                                              {isRtl ? 'التفاصيل' : 'Details'} →
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   ) : (
-                    (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => {
-                      const isItemCancelled = reportType === 'payments'
-                        ? (item.job?.status === 'cancelled' || item.status === 'cancelled' || item.status === 'voided' || item.status === 'refunded')
-                        : item.status === 'cancelled';
+                    filteredJobs.map((item: any) => {
+                      const isItemCancelled = item.status === 'cancelled';
 
                       return (
                       <motion.tr 
@@ -1128,171 +1423,79 @@ export default function EmployeeReports() {
                         <td className="p-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-foreground flex items-center gap-1.5 flex-wrap">
-                              {format(new Date((reportType === 'payments' && item.payment_date) ? item.payment_date : item.created_at), isRtl ? 'dd LLL yyyy' : 'dd MMM yyyy')}
-                              {reportType === 'payments' && item.payment_date && item.payment_date !== item.created_at.slice(0, 10) && (
-                                <span className="px-1.5 py-0.2 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-bold rounded">
-                                  Backlog
-                                </span>
-                              )}
+                              {format(new Date(item.created_at), isRtl ? 'dd LLL yyyy' : 'dd MMM yyyy')}
                             </span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
-                              {reportType === 'payments' && item.payment_date && item.payment_date !== item.created_at.slice(0, 10)
-                                ? `Logged: ${format(new Date(item.created_at), 'dd MMM HH:mm')}`
-                                : format(new Date(item.created_at), 'HH:mm')}
+                              {format(new Date(item.created_at), 'HH:mm')}
                             </span>
                           </div>
                         </td>
                         <td className="p-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-foreground">
-                              {reportType === 'payments' 
-                                ? (item.job?.custom_name || (isRtl ? (item.job?.service?.name_ar || item.job?.service?.name_en) : item.job?.service?.name_en) || 'Service') 
-                                : (item.custom_name || (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en) || 'Service')}
+                              {item.custom_name || (isRtl ? (item.service?.name_ar || item.service?.name_en) : item.service?.name_en) || 'Service'}
                             </span>
-                            {reportType === 'payments' && item.job?.custom_name && item.job?.service?.name_en && item.job.custom_name !== item.job.service.name_en && (
-                              <span className="text-[10px] text-muted-foreground/70">
-                                {item.job.service.name_en}
-                              </span>
-                            )}
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[10px] font-mono text-muted-foreground">
-                                {reportType === 'payments' ? item.job?.job_code : item.job_code}
+                                {item.job_code}
                               </span>
-                              {reportType === 'jobs' && (
-                                item.employee_id === user?.id || item.ops_employee_id === user?.id ? (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                    {isRtl ? 'أقوم بتنفيذه' : 'Handling (Self)'}
-                                  </span>
-                                ) : item.ops_specialist?.full_name ? (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
-                                    <Briefcase size={10} />
-                                    <span>{isRtl ? 'مسند إلى:' : 'Assigned to Ops:'} {item.ops_specialist.full_name}</span>
-                                  </span>
-                                ) : (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
-                                    {isRtl ? 'في مجمع المهام المفتوح' : 'In Open Task Pool'}
-                                  </span>
-                                )
+                              {item.employee_id === user?.id || item.ops_employee_id === user?.id ? (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  {isRtl ? 'أقوم بتنفيذه' : 'Handling (Self)'}
+                                </span>
+                              ) : item.ops_specialist?.full_name ? (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
+                                  <Briefcase size={10} />
+                                  <span>{isRtl ? 'مسند إلى:' : 'Assigned to Ops:'} {item.ops_specialist.full_name}</span>
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                                  {isRtl ? 'في مجمع المهام المفتوح' : 'In Open Task Pool'}
+                                </span>
                               )}
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
                           <span className="text-sm font-medium text-foreground">
-                            {reportType === 'payments' ? (item.job?.client?.full_name) : (item.client?.full_name)}
+                            {item.client?.full_name}
                           </span>
                         </td>
                         
-                        {reportType === 'payments' ? (
-                          <>
-                            <td className="p-4 text-right">
-                              {(() => {
-                                const jobTotalFee = Number(item.job?.total_fee || 0);
-                                const jobWorkFee = Number(item.job?.work_fee || 0);
-                                const jobMinistryFee = Number(item.job?.ministry_fee || 0);
-                                const pAmount = Number(item.amount || 0);
-                                const proportionalProfit = jobTotalFee > 0 ? (pAmount / jobTotalFee) * jobWorkFee : jobWorkFee;
-                                return (
-                                  <div className="flex flex-col items-end">
-                                    {/* Realized profit for this specific payment */}
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">
-                                        {isRtl ? 'ربح الدفعة:' : 'Payment Profit:'}
-                                      </span>
-                                      <span className={cn(
-                                        "text-sm font-bold font-mono",
-                                        isItemCancelled ? "line-through text-muted-foreground/60" : "text-emerald-400"
-                                      )}>
-                                        +{proportionalProfit.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
-                                      </span>
-                                    </div>
-                                    {/* Deal Totals breakdown */}
-                                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                                      <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
-                                        {isRtl ? 'ربح المعاملة:' : 'Deal Profit:'} {jobWorkFee.toFixed(3)}
-                                      </span>
-                                      <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
-                                        {isRtl ? 'رسوم حكومية:' : 'Gov Fee:'} {jobMinistryFee.toFixed(3)}
-                                      </span>
-                                    </div>
-                                    <div className="text-[9px] text-muted-foreground/70 mt-0.5 font-mono">
-                                      {isRtl ? 'إجمالي الصفقة:' : 'Deal Total:'} {jobTotalFee.toFixed(3)} OMR
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </td>
-                            <td className="p-4 text-right">
-                              <div className="flex flex-col items-end">
-                                <span className={cn(
-                                  "text-sm font-bold font-mono",
-                                  isItemCancelled ? "line-through text-muted-foreground" : "text-foreground"
-                                )}>
-                                  {item.amount?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
-                                </span>
-                                {isItemCancelled ? (
-                                  <span className="text-[9px] uppercase tracking-wider text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full mt-1 font-bold">
-                                    {isRtl ? 'ملغي • مستبعد' : 'Cancelled • Excluded'}
-                                  </span>
-                                ) : (
-                                  <div className="flex flex-col items-end gap-1 mt-1">
-                                    {item.job?.remaining_paid ? (
-                                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                                        {isRtl ? 'مسدد بالكامل 100%' : '100% Fully Settled'}
-                                      </span>
-                                    ) : item.job?.advance_paid ? (
-                                      <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                                        {isRtl ? 'عربون / سلفة' : 'Advance Payment'}
-                                      </span>
-                                    ) : null}
-                                    <span className="text-[9px] uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                                      {item.payment_method === 'online' ? (isRtl ? 'إلكتروني' : 'online') : item.payment_method === 'bank_transfer' ? (isRtl ? 'تحويل بنكي' : 'bank_transfer') : item.payment_method}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            {/* Service Fee */}
-                            <td className="p-4 text-right">
-                              <div className="flex flex-col items-end">
-                                <span className="text-sm font-bold text-amber-500">
-                                  {item.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">{isRtl ? 'رسوم الخدمة' : 'Service Fee'}</span>
-                              </div>
-                            </td>
-                            {/* Ministry Fee */}
-                            <td className="p-4 text-right">
-                              <div className="flex flex-col items-end">
-                                <span className="text-sm font-bold text-blue-400">
-                                  {item.ministry_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">{isRtl ? 'حكومية' : 'Ministry'}</span>
-                              </div>
-                            </td>
-                            <td className="p-4 text-center">
-                              {item.remaining_paid ? (
-                                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">{isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}</span>
-                              ) : item.advance_paid ? (
-                                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">{isRtl ? 'مدفوع مقدماً' : 'Advance Paid'}</span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">{isRtl ? 'غير مدفوع' : 'Unpaid'}</span>
-                              )}
-                            </td>
-                          </>
-                        )}
+                        {/* Service Fee */}
+                        <td className="p-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-amber-500">
+                              {item.work_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">{isRtl ? 'رسوم الخدمة' : 'Service Fee'}</span>
+                          </div>
+                        </td>
+                        {/* Ministry Fee */}
+                        <td className="p-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-blue-400">
+                              {item.ministry_fee?.toFixed(3) || '0.000'} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">{isRtl ? 'حكومية' : 'Ministry'}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          {item.remaining_paid ? (
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">{isRtl ? 'مدفوع بالكامل' : 'Fully Paid'}</span>
+                          ) : item.advance_paid ? (
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">{isRtl ? 'مدفوع مقدماً' : 'Advance Paid'}</span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">{isRtl ? 'غير مدفوع' : 'Unpaid'}</span>
+                          )}
+                        </td>
                         
                         <td className="p-4 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                            getStatusStyle(reportType === 'payments' ? item.job?.status : item.status)
+                            getStatusStyle(item.status)
                           }`}>
-                            {getStatusIcon(reportType === 'payments' ? item.job?.status : item.status)}
-                            {reportType === 'payments' 
-                              ? (item.job?.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : item.job?.status === 'active' || item.job?.status === 'in_progress' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'ملغي' : item.job?.status))
-                              : (item.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : item.status === 'active' || item.status === 'in_progress' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'ملغي' : item.status))}
+                            {getStatusIcon(item.status)}
+                            {item.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : item.status === 'active' || item.status === 'in_progress' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'ملغي' : item.status)}
                           </span>
                         </td>
                       </motion.tr>
@@ -1309,18 +1512,141 @@ export default function EmployeeReports() {
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     <span className="text-sm">{isRtl ? 'جاري تحميل التقرير...' : 'Loading report...'}</span>
                   </div>
-                ) : (reportType === 'payments' ? filteredPayments.length === 0 : filteredJobs.length === 0) ? (
+                ) : (reportType === 'payments' ? groupedJobPayments.length === 0 : filteredJobs.length === 0) ? (
                   <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed border-border">
                     <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                       <AlertCircle size={24} className="text-muted-foreground/50" />
                     </div>
                     <p className="text-sm">{isRtl ? 'لم يتم العثور على سجلات لهذه الفترة.' : 'No records found for this period.'}</p>
                   </div>
+                ) : reportType === 'payments' ? (
+                  groupedJobPayments.map((group) => {
+                    const isExpanded = !!expandedJobs[group.jobId];
+                    const hasMultiple = group.payments.length > 1;
+                    const mainJob = group.job;
+                    const isItemCancelled = group.isAllCancelled;
+                    const totalPaid = group.totalPaid;
+                    const dealTotalFee = group.dealTotalFee || totalPaid;
+                    const dealWorkFee = group.dealWorkFee;
+                    const isFullySettled = mainJob?.remaining_paid || (dealTotalFee > 0 && totalPaid >= dealTotalFee);
+
+                    return (
+                      <div 
+                        key={group.jobId}
+                        className={cn(
+                          "bg-card border rounded-2xl p-4 shadow-sm flex flex-col gap-3 text-start transition-all", 
+                          isItemCancelled ? "border-rose-500/30 opacity-70 bg-rose-500/5" : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-foreground truncate">
+                              {mainJob?.custom_name || (isRtl ? (mainJob?.service?.name_ar || mainJob?.service?.name_en) : mainJob?.service?.name_en) || 'Service'}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-widest font-mono truncate">
+                              {mainJob?.job_code || 'JOB'}
+                            </div>
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                            getStatusStyle(group.status)
+                          }`}>
+                            {getStatusIcon(group.status)}
+                            {group.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : group.status === 'active' || group.status === 'in_progress' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'ملغي' : group.status)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-xs text-foreground bg-muted/30 px-3 py-2 rounded-xl border border-border/50">
+                          <User size={13} className="text-muted-foreground shrink-0" />
+                          <span className="font-medium truncate">
+                            {group.client?.full_name || 'Client'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+                          <div>
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'ربح المعاملة' : 'Job Profit'}</div>
+                            <div className={cn("text-sm font-bold font-mono", isItemCancelled ? "line-through text-muted-foreground/60" : "text-emerald-400")}>
+                              +{dealWorkFee.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </div>
+                            <div className="text-[9px] text-muted-foreground mt-0.5 font-mono">
+                              {isRtl ? 'إجمالي الصفقة:' : 'Deal Total:'} {dealTotalFee.toFixed(3)} OMR
+                            </div>
+                          </div>
+                          <div className={isRtl ? 'text-left' : 'text-right'}>
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">{isRtl ? 'إجمالي المقبوض' : 'Total Collected'}</div>
+                            <div className={cn("text-sm font-bold font-mono", isItemCancelled ? "line-through text-muted-foreground" : "text-foreground")}>
+                              {totalPaid.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </div>
+                            <div className="flex flex-col items-end gap-1 mt-1">
+                              {isFullySettled ? (
+                                <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                  {isRtl ? 'مسدد 100%' : '100% Settled'}
+                                </span>
+                              ) : (
+                                <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                  {isRtl ? 'عربون / سلفة' : 'Advance'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Multiple installments breakdown on mobile */}
+                        {hasMultiple ? (
+                          <div className="pt-2 border-t border-border/40 space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandJob(group.jobId)}
+                              className="w-full flex items-center justify-between text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-xl transition-colors"
+                            >
+                              <span>{isRtl ? `عرض تفاصيل (${group.payments.length}) دفعات` : `View ${group.payments.length} Payments Breakdown`}</span>
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+
+                            {isExpanded && (
+                              <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 space-y-2 divide-y divide-border/40">
+                                {group.payments.map((p: any, idx: number) => (
+                                  <div 
+                                    key={p.id}
+                                    onClick={() => setSelectedDetailItem(p)}
+                                    className="pt-2 first:pt-0 flex items-center justify-between text-xs cursor-pointer"
+                                  >
+                                    <div>
+                                      <div className="font-bold text-foreground">
+                                        #{idx + 1} • {format(new Date(p.payment_date || p.created_at), 'dd MMM yyyy')}
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground font-mono">
+                                        {format(new Date(p.created_at), 'HH:mm')} • {p.payment_method?.replace('_', ' ') || 'Payment'}
+                                      </span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-mono font-bold text-emerald-400">
+                                        +{Number(p.amount || 0).toFixed(3)} OMR
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="pt-2 border-t border-border/40 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDetailItem(group.payments[0])}
+                              className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                            >
+                              <span>{isRtl ? 'تفاصيل المعاملة' : 'View Financial Dossier'}</span>
+                              <span>→</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
-                  (reportType === 'payments' ? filteredPayments : filteredJobs).map((item: any) => {
-                    const isItemCancelled = reportType === 'payments'
-                      ? (item.job?.status === 'cancelled' || item.status === 'cancelled' || item.status === 'voided' || item.status === 'refunded')
-                      : item.status === 'cancelled';
+                  filteredJobs.map((item: any) => {
+                    const isItemCancelled = item.status === 'cancelled';
 
                     return (
                     <div 

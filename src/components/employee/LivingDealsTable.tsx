@@ -174,6 +174,19 @@ const getStatusBadgeClass = (status?: string) => {
           updates.conversion_date = format(new Date(), 'yyyy-MM-dd');
           updates.status = 'converted';
         }
+      } else if (field === 'call_status') {
+        const lead = leads.find(l => l.id === leadId);
+        const normVal = (value || '').toString().trim().toLowerCase();
+        if (normVal === '1st call done' || normVal.includes('whatsapp') || normVal.includes('watsapp')) {
+          if (!lead?.status || lead.status === 'new') {
+            updates.status = 'contacted';
+          }
+        } else if (normVal === 'not interested' || normVal === 'invalid number') {
+          if (lead?.status !== 'converted') {
+            updates.status = 'lost';
+            updates.second_followup_status = 'Lost';
+          }
+        }
       } else if (field === 'second_followup_status') {
         const lead = leads.find(l => l.id === leadId);
         if (value === 'Quoted') {
@@ -220,7 +233,7 @@ const getStatusBadgeClass = (status?: string) => {
     }
   };
 
-  const openWhatsApp = (phone?: string, name?: string) => {
+  const openWhatsApp = (phone?: string, name?: string, leadId?: string) => {
     if (!phone) {
       toast.error('No phone number available');
       return;
@@ -242,6 +255,14 @@ const getStatusBadgeClass = (status?: string) => {
     }
     const message = encodeURIComponent(`Hello ${name || 'Sir/Madam'}, greeting from OSBIC Business Solutions. How can we assist you today?`);
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${message}`, '_blank', 'noopener,noreferrer');
+
+    // Automatically sync lead call status and contact status if new
+    if (leadId) {
+      const lead = leads.find(l => l.id === leadId);
+      if (lead && (!lead.status || lead.status === 'new')) {
+        handleInlineSave(leadId, 'call_status', 'Connected Through Watsapp');
+      }
+    }
   };
 
   return (
@@ -497,7 +518,7 @@ const getStatusBadgeClass = (status?: string) => {
                         {(lead.contact_phone || lead.contact_whatsapp) && (
                           <>
                             <button
-                              onClick={() => openWhatsApp(lead.contact_whatsapp || lead.contact_phone, lead.contact_name)}
+                              onClick={() => openWhatsApp(lead.contact_whatsapp || lead.contact_phone, lead.contact_name, lead.id)}
                               className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                               title="1-Click WhatsApp"
                             >
@@ -505,6 +526,11 @@ const getStatusBadgeClass = (status?: string) => {
                             </button>
                             <a
                               href={`tel:${lead.contact_phone || lead.contact_whatsapp}`}
+                              onClick={() => {
+                                if (!lead.status || lead.status === 'new') {
+                                  handleInlineSave(lead.id, 'call_status', '1st Call Done');
+                                }
+                              }}
                               className="p-1 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
                               title="Call Phone"
                             >

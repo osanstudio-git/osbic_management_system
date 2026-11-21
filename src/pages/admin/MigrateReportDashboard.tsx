@@ -4,18 +4,55 @@ import {
   Globe, Crown, Plane, DollarSign, Users, Building2, TrendingUp,
   ShieldCheck, FileText, CheckCircle2, AlertTriangle, AlertCircle,
   Calendar, Search, Filter, ArrowUpRight, Clock, MapPin, Ticket,
-  Download, RefreshCw, ChevronRight, Eye, Briefcase
+  Download, RefreshCw, ChevronRight, Eye, Briefcase, MessageSquare, Phone
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { AddMigrateJobModal } from '../../components/employee/AddMigrateJobModal';
 
 export default function MigrateReportDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'golden' | 'global' | 'attribution'>('overview');
   const [timePreset, setTimePreset] = useState<'all' | 'month' | 'week' | 'today'>('month');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalCategory, setAddModalCategory] = useState<'golden_visa' | 'global_visa'>('golden_visa');
+
+  const openWhatsApp = (phone?: string, name?: string) => {
+    if (!phone) {
+      toast.error('No phone number available');
+      return;
+    }
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      toast.error('Invalid phone number');
+      return;
+    }
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.slice(2);
+    if (cleanPhone.length === 8) cleanPhone = '968' + cleanPhone;
+    else if (cleanPhone.length === 9 && cleanPhone.startsWith('0')) cleanPhone = '968' + cleanPhone.slice(1);
+
+    const message = encodeURIComponent(`Hello ${name || 'Sir/Madam'}, greeting from OSBIC MIGRATE (Golden & Global Visa Division). How can we assist you today?`);
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${message}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleUpdateJobField = async (jobId: string, updates: Record<string, any>) => {
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', jobId);
+
+      if (error) throw error;
+      toast.success('Updated');
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Update failed');
+    }
+  };
 
   // Fetch all Migrate division jobs
   const { data: allJobs = [], isLoading, refetch, isRefetching } = useQuery({
@@ -25,7 +62,7 @@ export default function MigrateReportDashboard() {
         .from('jobs')
         .select(`
           *,
-          client:profiles!client_id(full_name, company_name, phone, email),
+          client:profiles!client_id(full_name, company_name, phone, whatsapp, email),
           branch:branches!branch_id(name),
           sales_rep:profiles!sales_employee_id(full_name, branch_id, branches:branch_id(name)),
           ops_rep:profiles!ops_employee_id(full_name),
@@ -186,6 +223,31 @@ export default function MigrateReportDashboard() {
 
         {/* Timeframe & Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Action Buttons to Add Migrate Files */}
+          <button
+            type="button"
+            onClick={() => {
+              setAddModalCategory('golden_visa');
+              setIsAddModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+          >
+            <Crown size={14} />
+            <span>+ New Golden Visa</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAddModalCategory('global_visa');
+              setIsAddModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+          >
+            <Plane size={14} />
+            <span>+ New Global Visa</span>
+          </button>
+
           <div className="bg-card border border-border p-1 rounded-xl flex items-center gap-1 text-xs font-semibold">
             {(['month', 'week', 'today', 'all'] as const).map((preset) => (
               <button
@@ -352,7 +414,12 @@ export default function MigrateReportDashboard() {
                     color: 'text-purple-400 bg-purple-500/10'
                   }
                 ].map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-xl bg-background border border-border/60 flex items-center justify-between">
+                  <div 
+                    key={idx} 
+                    onClick={() => setActiveTab('golden')}
+                    className="p-3 rounded-xl bg-background border border-border/60 flex items-center justify-between cursor-pointer hover:border-amber-400/40 hover:bg-amber-500/[0.03] transition-all"
+                    title="Click to view Golden Visa Register"
+                  >
                     <span className="text-xs font-semibold text-foreground">{item.stage}</span>
                     <span className={`text-xs font-bold font-mono px-2.5 py-0.5 rounded-full ${item.color}`}>
                       {item.count} files
@@ -395,7 +462,12 @@ export default function MigrateReportDashboard() {
                     color: 'text-rose-400 bg-rose-500/10'
                   }
                 ].map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-xl bg-background border border-border/60 flex items-center justify-between">
+                  <div 
+                    key={idx} 
+                    onClick={() => setActiveTab('global')}
+                    className="p-3 rounded-xl bg-background border border-border/60 flex items-center justify-between cursor-pointer hover:border-sky-400/40 hover:bg-sky-500/[0.03] transition-all"
+                    title="Click to view Global Visa Register"
+                  >
                     <span className="text-xs font-semibold text-foreground">{item.stage}</span>
                     <span className={`text-xs font-bold font-mono px-2.5 py-0.5 rounded-full ${item.color}`}>
                       {item.count} files
@@ -438,15 +510,42 @@ export default function MigrateReportDashboard() {
                     return (
                       <tr
                         key={job.id}
-                        onClick={() => navigate(`/admin/jobs/${job.id}`)}
-                        className="hover:bg-muted/10 transition-colors cursor-pointer group"
+                        className="hover:bg-muted/10 transition-colors group"
                       >
-                        <td className="px-5 py-4 font-mono font-bold text-primary group-hover:underline">
+                        <td 
+                          onClick={() => navigate(`/admin/jobs/${job.id}`)}
+                          className="px-5 py-4 font-mono font-bold text-primary group-hover:underline cursor-pointer"
+                        >
                           {job.job_code}
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-bold text-foreground">{job.client?.full_name || 'Investor'}</div>
-                          <div className="text-[10px] text-muted-foreground">{job.client?.phone || '-'}</div>
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                            <span>{job.client?.phone || '-'}</span>
+                            {job.client?.phone && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openWhatsApp(job.client?.whatsapp || job.client?.phone, job.client?.full_name);
+                                  }}
+                                  className="p-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                  title="1-Click WhatsApp"
+                                >
+                                  <MessageSquare size={11} />
+                                </button>
+                                <a
+                                  href={`tel:${job.client?.phone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+                                  title="Call Phone"
+                                >
+                                  <Phone size={11} />
+                                </a>
+                              </>
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <span className="capitalize font-semibold text-foreground">
@@ -470,23 +569,40 @@ export default function MigrateReportDashboard() {
                             {job.remaining_paid ? '✓ Fully Paid' : `Due: ${Number(job.remaining_amount || 0).toFixed(3)}`}
                           </div>
                         </td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            job.golden_approval_status === 'approved'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
-                            {job.golden_approval_status || 'Pending'}
-                          </span>
+                        <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                          <select
+                            value={job.golden_approval_status || 'pending'}
+                            onChange={e => handleUpdateJobField(job.id, { 
+                              golden_approval_status: e.target.value,
+                              ...(e.target.value === 'approved' ? { golden_approved_at: new Date().toISOString() } : {})
+                            })}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border ${
+                              job.golden_approval_status === 'approved'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            }`}
+                          >
+                            <option value="pending" className="bg-card text-foreground">Gov Pending</option>
+                            <option value="approved" className="bg-card text-foreground">Gov Approved</option>
+                            <option value="rejected" className="bg-card text-foreground">Gov Rejected</option>
+                          </select>
                         </td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            job.id_card_status === 'issued'
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {job.id_card_status === 'issued' ? 'Issued' : 'Pending'}
-                          </span>
+                        <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                          <select
+                            value={job.id_card_status || 'pending'}
+                            onChange={e => handleUpdateJobField(job.id, { 
+                              id_card_status: e.target.value,
+                              ...(e.target.value === 'issued' ? { id_card_issued_at: new Date().toISOString() } : {})
+                            })}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border ${
+                              job.id_card_status === 'issued'
+                                ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                                : 'bg-muted text-muted-foreground border-border'
+                            }`}
+                          >
+                            <option value="pending" className="bg-card text-foreground">Card Pending</option>
+                            <option value="issued" className="bg-card text-foreground">Card Issued (10-Yr)</option>
+                          </select>
                         </td>
                         <td className="px-5 py-4 text-right font-mono font-bold text-emerald-400">
                           {Number(job.total_fee || 0).toFixed(3)}
@@ -530,15 +646,42 @@ export default function MigrateReportDashboard() {
                   globalJobs.map((job: any) => (
                     <tr
                       key={job.id}
-                      onClick={() => navigate(`/admin/jobs/${job.id}`)}
-                      className="hover:bg-muted/10 transition-colors cursor-pointer group"
+                      className="hover:bg-muted/10 transition-colors group"
                     >
-                      <td className="px-5 py-4 font-mono font-bold text-sky-400 group-hover:underline">
+                      <td 
+                        onClick={() => navigate(`/admin/jobs/${job.id}`)}
+                        className="px-5 py-4 font-mono font-bold text-sky-400 group-hover:underline cursor-pointer"
+                      >
                         {job.job_code}
                       </td>
                       <td className="px-5 py-4">
                         <div className="font-bold text-foreground">{job.client?.full_name || 'Applicant'}</div>
-                        <div className="text-[10px] text-muted-foreground">{job.client?.phone || '-'}</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                          <span>{job.client?.phone || '-'}</span>
+                          {job.client?.phone && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openWhatsApp(job.client?.whatsapp || job.client?.phone, job.client?.full_name);
+                                }}
+                                className="p-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                title="1-Click WhatsApp"
+                              >
+                                <MessageSquare size={11} />
+                              </button>
+                              <a
+                                href={`tel:${job.client?.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+                                title="Call Phone"
+                              >
+                                <Phone size={11} />
+                              </a>
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 uppercase font-semibold text-foreground">
                         {job.visa_category ? job.visa_category.replace(/_/g, ' ') : 'Tourist'}
@@ -549,29 +692,65 @@ export default function MigrateReportDashboard() {
                       <td className="px-5 py-4 capitalize text-muted-foreground">
                         {job.embassy_fee_mode ? job.embassy_fee_mode.replace(/_/g, ' ') : 'Paid to OSBIC'}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${job.has_dummy_ticket ? 'bg-emerald-400' : 'bg-muted-foreground/40'}`} title="Dummy Ticket" />
-                          <span className={`w-2 h-2 rounded-full ${job.has_dummy_hotel ? 'bg-emerald-400' : 'bg-muted-foreground/40'}`} title="Hotel Voucher" />
-                          <span className={`w-2 h-2 rounded-full ${job.has_insurance ? 'bg-emerald-400' : 'bg-muted-foreground/40'}`} title="Travel Insurance" />
-                          <span className="text-[10px] text-muted-foreground ml-1">
-                            {job.has_dummy_ticket && job.has_dummy_hotel ? 'Ready' : 'Incomplete'}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateJobField(job.id, { has_dummy_ticket: !job.has_dummy_ticket })}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
+                              job.has_dummy_ticket
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : 'bg-muted/40 text-muted-foreground/50 border-border hover:text-foreground'
+                            }`}
+                            title="Click to toggle Dummy Flight Ticket"
+                          >
+                            Flight
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateJobField(job.id, { has_dummy_hotel: !job.has_dummy_hotel })}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
+                              job.has_dummy_hotel
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : 'bg-muted/40 text-muted-foreground/50 border-border hover:text-foreground'
+                            }`}
+                            title="Click to toggle Hotel Voucher"
+                          >
+                            Hotel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateJobField(job.id, { has_insurance: !job.has_insurance })}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
+                              job.has_insurance
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : 'bg-muted/40 text-muted-foreground/50 border-border hover:text-foreground'
+                            }`}
+                            title="Click to toggle Travel Insurance"
+                          >
+                            Insur
+                          </button>
                         </div>
                       </td>
                       <td className="px-5 py-4 font-mono text-[11px] text-muted-foreground">
                         {job.travel_date ? format(new Date(job.travel_date), 'dd MMM yyyy') : 'Not Set'}
                       </td>
-                      <td className="px-5 py-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          job.embassy_outcome === 'approved'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : job.embassy_outcome === 'rejected'
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {job.embassy_outcome || 'Pending'}
-                        </span>
+                      <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                        <select
+                          value={job.embassy_outcome || 'pending'}
+                          onChange={e => handleUpdateJobField(job.id, { embassy_outcome: e.target.value })}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border ${
+                            job.embassy_outcome === 'approved'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : job.embassy_outcome === 'rejected'
+                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                              : 'bg-muted text-muted-foreground border-border'
+                          }`}
+                        >
+                          <option value="pending" className="bg-card text-foreground">Pending</option>
+                          <option value="approved" className="bg-card text-foreground">Approved</option>
+                          <option value="rejected" className="bg-card text-foreground">Rejected</option>
+                        </select>
                       </td>
                       <td className="px-5 py-4 text-right font-mono font-bold text-sky-400">
                         {Number(job.total_fee || 0).toFixed(3)}
@@ -668,6 +847,13 @@ export default function MigrateReportDashboard() {
           </div>
         </div>
       )}
+      {/* Add Migrate File Modal (Golden Visa & Global Tourist Visa) */}
+      <AddMigrateJobModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => refetch()}
+        defaultCategory={addModalCategory}
+      />
     </div>
   );
 }

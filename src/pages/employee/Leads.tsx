@@ -266,8 +266,9 @@ export default function EmployeeLeads() {
         leadsAddedCount++;
       }
 
-      // 2. Connected: 1st Call Done or Connected Through Watsapp
-      if (l.call_status === '1st Call Done' || l.call_status === 'Connected Through Watsapp') {
+      // 2. Connected: 1st Call Done or Connected Through Watsapp / WhatsApp or Status Contacted
+      const cs = (l.call_status || '').toLowerCase();
+      if (cs === '1st call done' || cs.includes('whatsapp') || cs.includes('watsapp') || l.status === 'contacted') {
         connectedCount++;
       }
 

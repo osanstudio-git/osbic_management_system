@@ -245,7 +245,11 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
 
     if (newStatus !== 'lost') {
       const updates: Record<string, any> = { status: newStatus as any, lost_reason: null };
-      if (newStatus === 'interested') {
+      if (newStatus === 'contacted') {
+        if (!lead.call_status || lead.call_status === 'Pending') {
+          updates.call_status = '1st Call Done';
+        }
+      } else if (newStatus === 'interested') {
         updates.second_followup_status = 'Interested';
       } else if (newStatus === 'negotiating') {
         updates.second_followup_status = 'Negotiating';
@@ -258,6 +262,31 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
         onError: () => setStatus(lead.status)
       });
     }
+  };
+
+  const handleUpdateCallStatus = (newCallStatus: string) => {
+    const normVal = (newCallStatus || '').trim().toLowerCase();
+    const updates: Record<string, any> = { call_status: newCallStatus };
+
+    if (normVal === '1st call done' || normVal.includes('whatsapp') || normVal.includes('watsapp')) {
+      if (!lead.status || lead.status === 'new') {
+        updates.status = 'contacted';
+        setStatus('contacted');
+      }
+    } else if (normVal === 'not interested' || normVal === 'invalid number') {
+      if (lead.status !== 'converted') {
+        updates.status = 'lost';
+        updates.second_followup_status = 'Lost';
+        setStatus('lost');
+      }
+    }
+
+    updateLeadMutation.mutate({
+      id: lead.id,
+      updates
+    }, {
+      onSuccess: () => toast.success('Call status updated & synced')
+    });
   };
 
   const handleAddInterestedService = () => {
@@ -676,7 +705,19 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     {lead.contact_phone && (
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-xs text-muted-foreground">Phone</span>
-                        <a href={`tel:${lead.contact_phone}`} className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5">
+                        <a 
+                          href={`tel:${lead.contact_phone}`} 
+                          onClick={() => {
+                            if (!lead.status || lead.status === 'new') {
+                              updateLeadMutation.mutate({
+                                id: lead.id,
+                                updates: { status: 'contacted', call_status: '1st Call Done' }
+                              });
+                              setStatus('contacted');
+                            }
+                          }}
+                          className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5"
+                        >
                           <Phone size={14} />
                           <span>{lead.contact_phone}</span>
                         </a>
@@ -686,7 +727,21 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                     {lead.contact_phone && (
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-xs text-muted-foreground">WhatsApp</span>
-                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-emerald-400 hover:underline flex items-center gap-1.5">
+                        <a 
+                          href={waUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={() => {
+                            if (!lead.status || lead.status === 'new') {
+                              updateLeadMutation.mutate({
+                                id: lead.id,
+                                updates: { status: 'contacted', call_status: 'Connected Through Watsapp' }
+                              });
+                              setStatus('contacted');
+                            }
+                          }}
+                          className="text-sm font-bold text-emerald-400 hover:underline flex items-center gap-1.5"
+                        >
                           <MessageSquare size={14} />
                           <span>Open WhatsApp</span>
                         </a>
@@ -866,24 +921,47 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                 </div>
               </div>
 
-              {/* 2. Status Update */}
+              {/* 2. Status & Call Synchronization */}
               <div className="space-y-3">
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Lead Status</label>
-                <select
-                  value={status}
-                  disabled={lead.status === 'converted'}
-                  onChange={e => handleUpdateStatus(e.target.value)}
-                  className="w-full bg-muted/40 border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="new" className="bg-card text-foreground">New</option>
-                  <option value="contacted" className="bg-card text-foreground">Contacted</option>
-                  <option value="interested" className="bg-card text-foreground">Interested</option>
-                  <option value="quoted" className="bg-card text-foreground">Quoted</option>
-                  <option value="negotiating" className="bg-card text-foreground">Negotiating</option>
-                  <option value="converted" className="bg-card text-foreground">Converted</option>
-                  <option value="cancelled" className="bg-card text-foreground">Cancelled</option>
-                  <option value="on_hold" className="bg-card text-foreground">On Hold</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Lead Status</label>
+                    <select
+                      value={status}
+                      disabled={lead.status === 'converted'}
+                      onChange={e => handleUpdateStatus(e.target.value)}
+                      className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="new" className="bg-card text-foreground">New</option>
+                      <option value="contacted" className="bg-card text-foreground">Contacted</option>
+                      <option value="interested" className="bg-card text-foreground">Interested</option>
+                      <option value="quoted" className="bg-card text-foreground">Quoted</option>
+                      <option value="negotiating" className="bg-card text-foreground">Negotiating</option>
+                      <option value="converted" className="bg-card text-foreground">Converted</option>
+                      <option value="cancelled" className="bg-card text-foreground">Cancelled</option>
+                      <option value="on_hold" className="bg-card text-foreground">On Hold</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">1st Call / Outreach</label>
+                    <select
+                      value={lead.call_status || 'Pending'}
+                      disabled={lead.status === 'converted'}
+                      onChange={e => handleUpdateCallStatus(e.target.value)}
+                      className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="Pending" className="bg-card text-foreground">Pending 1st Call</option>
+                      <option value="1st Call Done" className="bg-card text-foreground">1st Call Done</option>
+                      <option value="Connected Through Watsapp" className="bg-card text-foreground">Connected Through WhatsApp</option>
+                      <option value="RNR" className="bg-card text-foreground">RNR (Ringing)</option>
+                      <option value="Busy" className="bg-card text-foreground">Busy</option>
+                      <option value="Switch Off" className="bg-card text-foreground">Switch Off</option>
+                      <option value="Invalid Number" className="bg-card text-foreground">Invalid Number</option>
+                      <option value="Not Interested" className="bg-card text-foreground">Not Interested</option>
+                    </select>
+                  </div>
+                </div>
 
                 {lead.status === 'converted' && (
                   <p className="text-[10px] text-emerald-400 font-semibold mt-1.5 flex items-center gap-1">
