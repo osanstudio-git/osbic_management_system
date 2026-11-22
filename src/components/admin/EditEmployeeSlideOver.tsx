@@ -29,6 +29,7 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     can_do_ops: false,
     can_do_accounts: false,
     is_pro: false,
+    is_saudi_rep: false,
     is_sales_head: false,
     can_assign_leads: false,
     is_ops_head: false,
@@ -61,8 +62,6 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     visa_expiry: '',
     civil_id_expiry: '',
     passport_expiry: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
   });
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -120,8 +119,6 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         visa_expiry: employee.visa_expiry || '',
         civil_id_expiry: employee.civil_id_expiry || '',
         passport_expiry: employee.passport_expiry || '',
-        emergency_contact_name: employee.emergency_contact_name || '',
-        emergency_contact_phone: employee.emergency_contact_phone || '',
       });
     }
   }, [employee]);
@@ -223,8 +220,6 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         visa_expiry: formData.visa_expiry || null,
         civil_id_expiry: formData.civil_id_expiry || null,
         passport_expiry: formData.passport_expiry || null,
-        emergency_contact_name: formData.emergency_contact_name || null,
-        emergency_contact_phone: formData.emergency_contact_phone || null,
       } as any
     }, {
       onSuccess: () => {

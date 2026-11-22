@@ -206,7 +206,7 @@ const ApplicantCard = ({
         const compIso = new Date(`${completedDate}T12:00:00Z`).toISOString();
         await supabase
           .from('jobs')
-          .update({ completed_at: compIso, created_at: compIso })
+          .update({ completed_at: compIso, created_at: compIso } as any)
           .eq('id', job.id);
         await supabase
           .from('job_expenses')

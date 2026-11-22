@@ -89,6 +89,7 @@ export interface JobDocument {
   uploaded_by_role?: string;
   uploaded_by?: string;
   uploaded_at: string;
+  created_at?: string;
   status: 'approved' | 'pending' | 'rejected';
   rejection_reason?: string;
   is_client_visible?: boolean;
@@ -538,6 +539,7 @@ export const useJobDetail = (jobId: string) => {
         uploaded_by_role: d.uploader?.role ?? 'client',
         uploaded_by: d.uploaded_by,
         uploaded_at: d.created_at,
+        created_at: d.created_at,
         status: d.status,
         is_client_visible: d.is_client_visible ?? true,
         is_checklist_doc: false,
@@ -553,6 +555,7 @@ export const useJobDetail = (jobId: string) => {
         uploaded_by_role: d.uploader?.role ?? 'client',
         uploaded_by: d.uploaded_by,
         uploaded_at: d.created_at,
+        created_at: d.created_at,
         status: d.status,
         is_client_visible: d.is_client_visible ?? false,
         applicant_name: d.job_service?.applicant_name,

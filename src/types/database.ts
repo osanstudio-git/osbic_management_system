@@ -821,7 +821,7 @@ export interface Database {
         status: 'pending_approval' | 'approved' | 'rejected'
         created_at: string
         created_by: string | null
-      }, 'id' | 'created_at' | 'status' | 'expense_type'>
+      }, 'id', 'created_at' | 'status' | 'expense_type'>
 
       branch_client_escalations: TableDef<{
         id: string

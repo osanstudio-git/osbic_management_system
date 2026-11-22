@@ -367,7 +367,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           try {
             const diff = differenceInDays(parseISO(d), now);
             if (minDays === null || diff < minDays) minDays = diff;
-          } catch {}
+          } catch { }
         }
       });
 
@@ -442,7 +442,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
     return employees.map(emp => {
       const empRequests = leaveRequests.filter(r => r.employee_id === emp.id && r.status === 'approved');
-      
+
       let takenThisMonth = 0;
       let takenThisYear = 0;
 
@@ -456,7 +456,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
               takenThisMonth += days;
             }
           }
-        } catch {}
+        } catch { }
       });
 
       const initialBalance = emp.leave_balance ?? 30;
@@ -575,7 +575,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
     try {
       const ext = slipFile.name.split('.').pop() || 'pdf';
       const filePath = `gov_receipts/${attachGovTarget.id}_${Date.now()}.${ext}`;
-      
+
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, slipFile, { upsert: true });
       if (uploadError) throw uploadError;
 
@@ -758,11 +758,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'dashboard'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'dashboard'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <BarChart3 size={15} />
               <span>{isRtl ? 'لوحة المتابعة والتحليلات' : 'Executive Overview'}</span>
@@ -770,11 +769,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('finance')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'finance'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'finance'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <Wallet size={15} />
               <span>{isRtl ? 'المركز المالي والمبيعات' : 'Finance & Revenue'}</span>
@@ -782,11 +780,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('accounts')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'accounts'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'accounts'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <CreditCard size={15} />
               <span>{isRtl ? 'الحسابات والذمم والمصروفات' : 'Accounts & Ledger'}</span>
@@ -794,11 +791,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('daily_sales')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'daily_sales'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'daily_sales'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <ShoppingBag size={15} />
               <span>{isRtl ? 'المبيعات اليومية المباشرة' : 'Daily Sales Sheet'}</span>
@@ -806,11 +802,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('sales_reports')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'sales_reports'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'sales_reports'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <BarChart3 size={15} />
               <span>{isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports'}</span>
@@ -818,11 +813,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('ops_command')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'ops_command'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'ops_command'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <Compass size={15} />
               <span>{isRtl ? 'غرفة عمليات التوزيع' : 'Ops Command Center'}</span>
@@ -830,11 +824,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('sales')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'sales'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'sales'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <DollarSign size={15} />
               <span>{isRtl ? 'تدقيق المبيعات وسندات القبض' : 'Sales & Receipt Audit'}</span>
@@ -847,11 +840,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('gov_outflows')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'gov_outflows'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'gov_outflows'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <Building2 size={15} />
               <span>{isRtl ? 'المدفوعات الحكومية والجهات' : 'Gov & Supplier Outflows'}</span>
@@ -859,11 +851,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('team')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'team'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'team'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <Users size={15} />
               <span>{isRtl ? 'سجل الموظفين والامتثال' : 'Team Directory & Expiry Radar'}</span>
@@ -871,11 +862,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setActiveTab('leaves_attendance')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
-                activeTab === 'leaves_attendance'
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'leaves_attendance'
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+                }`}
             >
               <Calendar size={15} />
               <span>{isRtl ? 'الإجازات والحضور' : 'Leaves & Attendance'}</span>
@@ -932,7 +922,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           {/* Executive KPI Bar */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* 1. Total Sales */}
-            <div 
+            <div
               onClick={() => setActiveTab('sales')}
               className="p-4 rounded-2xl bg-card border border-border/80 hover:border-emerald-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
             >
@@ -945,16 +935,15 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
 
             {/* 2. Missing Slip Watchdog */}
-            <div 
+            <div
               onClick={() => {
                 setActiveTab('sales');
                 setSalesReceiptFilter('missing');
               }}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 shadow-sm ${
-                (auditData?.kpis.salesMissingReceipt ?? 0) > 0
+              className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 shadow-sm ${(auditData?.kpis.salesMissingReceipt ?? 0) > 0
                   ? 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20'
                   : 'bg-card border-border/80'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
@@ -968,7 +957,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
 
             {/* 3. Gov Outflows */}
-            <div 
+            <div
               onClick={() => setActiveTab('gov_outflows')}
               className="p-4 rounded-2xl bg-card border border-border/80 hover:border-blue-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
             >
@@ -981,7 +970,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
 
             {/* 4. Net Work Fees & Finance Ledger */}
-            <div 
+            <div
               onClick={() => setActiveTab('finance')}
               className="p-4 rounded-2xl bg-card border border-border/80 hover:border-primary/40 transition-all cursor-pointer space-y-1 shadow-sm"
             >
@@ -994,7 +983,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
 
             {/* 5. Total Staff */}
-            <div 
+            <div
               onClick={() => setActiveTab('team')}
               className="p-4 rounded-2xl bg-card border border-border/80 hover:border-purple-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
             >
@@ -1007,7 +996,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </div>
 
             {/* 6. Leave Requests Pending */}
-            <div 
+            <div
               onClick={() => setActiveTab('leaves_attendance')}
               className="p-4 rounded-2xl bg-card border border-border/80 hover:border-amber-500/40 transition-all cursor-pointer space-y-1 shadow-sm"
             >
@@ -1108,10 +1097,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                       contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px', fontSize: '11px' }}
                       formatter={(value: any) => [`OMR ${Number(value).toFixed(3)}`, 'Disbursed']}
                     />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36} 
-                      wrapperStyle={{ fontSize: '10px' }} 
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
+                      wrapperStyle={{ fontSize: '10px' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1146,12 +1135,12 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                       <span className="text-muted-foreground font-mono">{d.count} {isRtl ? 'موظف' : 'staff'} ({employees.length > 0 ? Math.round((d.count / employees.length) * 100) : 0}%)</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-muted/40 overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all" 
-                        style={{ 
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
                           width: `${employees.length > 0 ? Math.round((d.count / employees.length) * 100) : 0}%`,
-                          backgroundColor: d.fill 
-                        }} 
+                          backgroundColor: d.fill
+                        }}
                       />
                     </div>
                   </div>
@@ -1190,7 +1179,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                 </div>
                 <h4 className="text-sm font-bold text-foreground">{isRtl ? 'سندات قبض مفقودة' : 'Unattached Receipt Slips'}</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {missingSlipsList.length > 0 
+                  {missingSlipsList.length > 0
                     ? (isRtl ? 'يوجد مبيعات مسجلة لم يقم الموظف بإرفاق سند القبض المالي المعتمد لها.' : 'Sales entries recorded without verified voucher receipts uploaded.')
                     : (isRtl ? 'جميع سندات القبض معتمدة ومرفقة بشكل ممتاز.' : 'All sales transactions have verified vouchers attached.')}
                 </p>
@@ -1304,9 +1293,8 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                         <p className="font-bold text-foreground">{emp.full_name}</p>
                         <p className="text-[10px] text-muted-foreground">{emp.job_title || emp.department}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        (emp.minDays || 0) < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${(emp.minDays || 0) < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
+                        }`}>
                         {(emp.minDays || 0) < 0 ? 'Expired' : `${emp.minDays}d left`}
                       </span>
                     </div>
@@ -1414,11 +1402,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setSalesReceiptFilter('missing')}
-              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${
-                (auditData?.kpis.salesMissingReceipt ?? 0) > 0
+              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${(auditData?.kpis.salesMissingReceipt ?? 0) > 0
                   ? 'bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/20'
                   : 'bg-card border-border/80'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
@@ -1449,19 +1436,17 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border/80">
               <button
                 onClick={() => setSalesReceiptFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  salesReceiptFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${salesReceiptFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {isRtl ? 'جميع المبيعات' : 'All Sales'} ({auditData?.sales.length || 0})
               </button>
               <button
                 onClick={() => setSalesReceiptFilter('missing')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  salesReceiptFilter === 'missing'
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${salesReceiptFilter === 'missing'
                     ? 'bg-rose-600 text-white shadow-sm'
                     : 'text-rose-400 hover:text-rose-300'
-                }`}
+                  }`}
               >
                 <AlertTriangle size={12} />
                 <span>{isRtl ? 'سند ناقص (تنبيه)' : 'Missing Receipt'}</span>
@@ -1471,11 +1456,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
               </button>
               <button
                 onClick={() => setSalesReceiptFilter('attached')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  salesReceiptFilter === 'attached'
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${salesReceiptFilter === 'attached'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-emerald-400 hover:text-emerald-300'
-                }`}
+                  }`}
               >
                 <CheckCircle2 size={12} />
                 <span>{isRtl ? 'مرفق السند' : 'Receipt Attached'}</span>
@@ -1647,11 +1631,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
 
             <button
               onClick={() => setGovReceiptFilter('missing')}
-              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${
-                filteredGovOutflows.filter(g => !g.hasGovReceipt).length > 0
+              className={`p-4 rounded-2xl border text-left transition-all space-y-1 shadow-sm ${filteredGovOutflows.filter(g => !g.hasGovReceipt).length > 0
                   ? 'bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/20'
                   : 'bg-card border-border/80'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400">
@@ -1672,26 +1655,23 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
               <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border/80">
                 <button
                   onClick={() => setGovReceiptFilter('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    govReceiptFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${govReceiptFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   {isRtl ? 'جميع المدفوعات' : 'All Gov Outflows'} ({auditData?.govOutflows.length || 0})
                 </button>
                 <button
                   onClick={() => setGovReceiptFilter('missing')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    govReceiptFilter === 'missing' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-400 hover:text-rose-300'
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${govReceiptFilter === 'missing' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-400 hover:text-rose-300'
+                    }`}
                 >
                   <AlertTriangle size={12} />
                   <span>{isRtl ? 'إيصال حكومي ناقص' : 'Missing Gov Slip'}</span>
                 </button>
                 <button
                   onClick={() => setGovReceiptFilter('attached')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    govReceiptFilter === 'attached' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-400 hover:text-blue-300'
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${govReceiptFilter === 'attached' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-400 hover:text-blue-300'
+                    }`}
                 >
                   <CheckCircle2 size={12} />
                   <span>{isRtl ? 'إيصال رسمي مرفق' : 'Gov Receipt Attached'}</span>
@@ -1719,11 +1699,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                 <button
                   key={cat.key}
                   onClick={() => setGovEntityFilter(cat.key as any)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                    govEntityFilter === cat.key
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${govEntityFilter === cat.key
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-                  }`}
+                    }`}
                 >
                   {cat.label}
                 </button>
@@ -1857,11 +1836,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             {/* Card 0: Total Staff */}
             <button
               onClick={() => setComplianceFilter('all')}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                complianceFilter === 'all'
+              className={`p-4 rounded-2xl border text-left transition-all ${complianceFilter === 'all'
                   ? 'bg-purple-500/15 border-purple-500 shadow-md shadow-purple-500/10'
                   : 'bg-card border-border/80 hover:border-purple-500/40'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between text-purple-400 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'إجمالي الموظفين' : 'Staff Members'}</span>
@@ -1874,11 +1852,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             {/* Card 1: Expired */}
             <button
               onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                complianceFilter === 'expired'
+              className={`p-4 rounded-2xl border text-left transition-all ${complianceFilter === 'expired'
                   ? 'bg-rose-500/15 border-rose-500 shadow-md shadow-rose-500/10'
                   : 'bg-card border-border/80 hover:border-rose-500/40'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between text-rose-400 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'منتهية الصلاحية' : 'Expired Docs'}</span>
@@ -1891,11 +1868,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             {/* Card 2: Critical <= 15 Days */}
             <button
               onClick={() => setComplianceFilter(complianceFilter === 'critical_15' ? 'all' : 'critical_15')}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                complianceFilter === 'critical_15'
+              className={`p-4 rounded-2xl border text-left transition-all ${complianceFilter === 'critical_15'
                   ? 'bg-amber-500/15 border-amber-500 shadow-md shadow-amber-500/10'
                   : 'bg-card border-border/80 hover:border-amber-500/40'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between text-amber-400 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'حرجة (خلال 15 يوم)' : 'Critical (≤ 15 Days)'}</span>
@@ -1908,11 +1884,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             {/* Card 3: Approaching <= 30 Days */}
             <button
               onClick={() => setComplianceFilter(complianceFilter === 'expiring_soon' ? 'all' : 'expiring_soon')}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                complianceFilter === 'expiring_soon'
+              className={`p-4 rounded-2xl border text-left transition-all ${complianceFilter === 'expiring_soon'
                   ? 'bg-yellow-500/15 border-yellow-500 shadow-md shadow-yellow-500/10'
                   : 'bg-card border-border/80 hover:border-yellow-500/40'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between text-yellow-400 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'تنتهي خلال 30 يوم' : 'Approaching (≤ 30 Days)'}</span>
@@ -1925,11 +1900,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             {/* Card 4: Fully Compliant */}
             <button
               onClick={() => setComplianceFilter(complianceFilter === 'compliant' ? 'all' : 'compliant')}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                complianceFilter === 'compliant'
+              className={`p-4 rounded-2xl border text-left transition-all ${complianceFilter === 'compliant'
                   ? 'bg-emerald-500/15 border-emerald-500 shadow-md shadow-emerald-500/10'
                   : 'bg-card border-border/80 hover:border-emerald-500/40'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between text-emerald-400 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'سارية وصالحة' : 'Fully Compliant'}</span>
@@ -1944,35 +1918,31 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border/80">
               <button
                 onClick={() => setComplianceFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  complianceFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${complianceFilter === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {isRtl ? 'جميع الموظفين' : 'All Staff'} ({employees.length})
               </button>
               <button
                 onClick={() => setComplianceFilter('critical_15')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  complianceFilter === 'critical_15' ? 'bg-amber-500 text-black shadow-sm font-black' : 'text-amber-400 hover:text-amber-300'
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${complianceFilter === 'critical_15' ? 'bg-amber-500 text-black shadow-sm font-black' : 'text-amber-400 hover:text-amber-300'
+                  }`}
               >
                 <AlertTriangle size={12} />
                 <span>{isRtl ? 'حرجة (15 يوم)' : 'Critical (15d)'}</span>
               </button>
               <button
                 onClick={() => setComplianceFilter('expiring_soon')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  complianceFilter === 'expiring_soon' ? 'bg-yellow-500 text-black shadow-sm font-black' : 'text-yellow-400 hover:text-yellow-300'
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${complianceFilter === 'expiring_soon' ? 'bg-yellow-500 text-black shadow-sm font-black' : 'text-yellow-400 hover:text-yellow-300'
+                  }`}
               >
                 <Clock size={12} />
                 <span>{isRtl ? 'تنتهي قريباً (30 يوم)' : 'Expiring Soon (30d)'}</span>
               </button>
               <button
                 onClick={() => setComplianceFilter('expired')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  complianceFilter === 'expired' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-400 hover:text-rose-300'
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${complianceFilter === 'expired' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-400 hover:text-rose-300'
+                  }`}
               >
                 <XCircle size={12} />
                 <span>{isRtl ? 'منتهية الصلاحية' : 'Expired'}</span>
@@ -2047,32 +2017,29 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                     {isRtl ? 'رادار صلاحية الوثائق' : 'Document Compliance Radar'}
                   </span>
                   <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
-                    <div className={`p-1.5 rounded-lg border ${
-                      emp.visaDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
-                      emp.visaDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
-                      emp.visaDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
-                      'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    }`}>
+                    <div className={`p-1.5 rounded-lg border ${emp.visaDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
+                        emp.visaDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
+                          emp.visaDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
+                            'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      }`}>
                       <span className="block font-bold">Visa</span>
                       <span className="font-mono">{emp.visaDays === null ? 'N/A' : `${emp.visaDays}d`}</span>
                     </div>
 
-                    <div className={`p-1.5 rounded-lg border ${
-                      emp.civilIdDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
-                      emp.civilIdDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
-                      emp.civilIdDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
-                      'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    }`}>
+                    <div className={`p-1.5 rounded-lg border ${emp.civilIdDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
+                        emp.civilIdDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
+                          emp.civilIdDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
+                            'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      }`}>
                       <span className="block font-bold">Civil ID</span>
                       <span className="font-mono">{emp.civilIdDays === null ? 'N/A' : `${emp.civilIdDays}d`}</span>
                     </div>
 
-                    <div className={`p-1.5 rounded-lg border ${
-                      emp.passportDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
-                      emp.passportDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
-                      emp.passportDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
-                      'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    }`}>
+                    <div className={`p-1.5 rounded-lg border ${emp.passportDays === null ? 'bg-muted/10 border-border text-muted-foreground' :
+                        emp.passportDays < 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' :
+                          emp.passportDays <= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' :
+                            'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      }`}>
                       <span className="block font-bold">Passport</span>
                       <span className="font-mono">{emp.passportDays === null ? 'N/A' : `${emp.passportDays}d`}</span>
                     </div>
@@ -2089,11 +2056,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
         <div className="space-y-4">
           {/* Dedicated Leaves & Attendance KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className={`p-4 rounded-2xl border space-y-1 shadow-sm ${
-              leaveRequests.filter(r => r.status === 'pending').length > 0
+            <div className={`p-4 rounded-2xl border space-y-1 shadow-sm ${leaveRequests.filter(r => r.status === 'pending').length > 0
                 ? 'bg-amber-500/10 border-amber-500/40'
                 : 'bg-card border-border/80'
-            }`}>
+              }`}>
               <div className="flex items-center justify-between text-amber-400">
                 <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'طلبات قيد المراجعة' : 'Pending Approvals'}</span>
                 <Calendar size={16} />
@@ -2145,25 +2111,22 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setLeavesSubTab('requests')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  leavesSubTab === 'requests' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${leavesSubTab === 'requests' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {isRtl ? 'طلبات الإجازات' : 'Leave Requests'} ({leaveRequests.length})
               </button>
               <button
                 onClick={() => setLeavesSubTab('attendance')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  leavesSubTab === 'attendance' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${leavesSubTab === 'attendance' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {isRtl ? 'سجل الحضور اليومي' : 'Daily Attendance Log'}
               </button>
               <button
                 onClick={() => setLeavesSubTab('monthly_summary')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  leavesSubTab === 'monthly_summary' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${leavesSubTab === 'monthly_summary' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {isRtl ? 'ملخص الإجازات الشهري' : 'Monthly Leave Summary'}
               </button>
@@ -2230,11 +2193,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                             {req.reason || 'No details provided'}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              req.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                              'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                req.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                                  'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
+                              }`}>
                               {req.status}
                             </span>
                           </td>
@@ -2316,11 +2278,10 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                             {log.check_out ? format(parseISO(log.check_out), 'hh:mm a') : '—'}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              log.status === 'present' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              log.status === 'late' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                              'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${log.status === 'present' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                log.status === 'late' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                  'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}>
                               {log.status}
                             </span>
                           </td>
@@ -2383,13 +2344,12 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                             {m.remainingBalance} {isRtl ? 'يوم' : 'Days'}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              m.remainingBalance < 5
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${m.remainingBalance < 5
                                 ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                 : m.takenThisMonth > 3
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}>
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              }`}>
                               {m.remainingBalance < 5 ? 'Low Balance' : m.takenThisMonth > 3 ? 'High Monthly' : 'Normal'}
                             </span>
                           </td>
