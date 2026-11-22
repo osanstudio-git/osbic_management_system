@@ -2848,12 +2848,52 @@ export const JobDetailsView = ({ job: initialJob, onUpdated }: { job: any; onUpd
       }
 
       // Check if full payment has been made before closing the job
-      if (!job.remaining_paid && (job.total_fee > 0 || job.remaining_amount > 0)) {
-        import('react-hot-toast').then(toast => {
-          toast.default.error('Payment Incomplete: Please verify full payment in the Financial Ledger before closing this job.');
-        });
-        loadData();
-        return;
+      let isPaid = job.remaining_paid === true;
+
+      if (!isPaid) {
+        // Query live payments and charges to verify ledger directly (handles "client pays ministry fee directly" & edge cases)
+        const [{ data: payments }, { data: addCharges }] = await Promise.all([
+          supabase
+            .from('job_payments')
+            .select('amount, status')
+            .eq('job_id', job.id)
+            .neq('status', 'cancelled')
+            .neq('status', 'refunded')
+            .neq('status', 'voided'),
+          supabase
+            .from('job_additional_charges')
+            .select('amount')
+            .eq('job_id', job.id)
+        ]);
+
+        const clientPaysMin = job.client_pays_ministry_fee === true;
+        const billedMin = clientPaysMin ? 0 : Number(job.ministry_fee || 0);
+        const totalWork = Number(job.work_fee || 0);
+        const totalAdd = (addCharges || []).reduce((sum, c) => sum + Number(c.amount || 0), 0);
+        const netBilled = totalWork + billedMin + totalAdd;
+        const totalPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const actualRemaining = Math.max(0, netBilled - totalPaid);
+
+        if (actualRemaining <= 0.001) {
+          isPaid = true;
+          // Auto-heal database record so jobs table remains permanently in sync with ledger
+          await supabase.from('jobs').update({
+            remaining_paid: true,
+            remaining_amount: 0,
+            advance_paid: true,
+            advance_amount: totalPaid,
+            total_fee: netBilled
+          }).eq('id', job.id);
+          job.remaining_paid = true;
+          job.remaining_amount = 0;
+          job.total_fee = netBilled;
+        } else if (netBilled > 0) {
+          import('react-hot-toast').then(toast => {
+            toast.default.error(`Payment Incomplete: Balance of ${actualRemaining.toFixed(3)} OMR remains in the Financial Ledger before closing this job.`);
+          });
+          loadData();
+          return;
+        }
       }
     }
 

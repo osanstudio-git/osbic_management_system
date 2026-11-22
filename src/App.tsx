@@ -45,6 +45,8 @@ import AdminMessages from './pages/admin/Messages';
 import Settings from './pages/admin/Settings';
 import AdminLeads from './pages/admin/AdminLeads';
 import MigrateReportDashboard from './pages/admin/MigrateReportDashboard';
+import GoldenVisaDesk from './pages/employee/GoldenVisaDesk';
+import GlobalVisaDesk from './pages/employee/GlobalVisaDesk';
 import MyJobs from './pages/employee/MyJobs';
 import EmployeeProfile from './pages/employee/Profile';
 import EmployeeRequests from './pages/employee/Requests';
@@ -499,6 +501,8 @@ function App() {
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
               <Route path="migrate" element={<MigrateReportDashboard />} />
+              <Route path="golden-visa" element={<GoldenVisaDesk />} />
+              <Route path="global-visa" element={<GlobalVisaDesk />} />
             </Route>
 
             {/* Employee Portal */}
@@ -552,6 +556,8 @@ function App() {
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
               <Route path="migrate" element={<MigrateReportDashboard />} />
+              <Route path="golden-visa" element={<GoldenVisaDesk />} />
+              <Route path="global-visa" element={<GlobalVisaDesk />} />
             </Route>
 
             {/* Client Portal */}

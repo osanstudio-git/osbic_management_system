@@ -36,7 +36,9 @@ import {
    DollarSign,
    Calendar,
    Wallet,
-   FileSpreadsheet
+   FileSpreadsheet,
+   Crown,
+   Plane
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -185,6 +187,12 @@ const EmployeeLayout: React.FC = () => {
     ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
     { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
     ...(isManagerOrAdmin || profile?.department === 'migrate' || (profile as any)?.is_migrate_specialist ? [
+      ...((profile as any)?.migrate_specialty === 'global_visa' ? [] : [
+        { key: 'golden_visa', label: isRtl ? 'التأشيرات الذهبية للمستثمرين' : 'Golden Visa Desk', icon: Crown, path: '/employee/golden-visa' }
+      ]),
+      ...((profile as any)?.migrate_specialty === 'golden_visa' ? [] : [
+        { key: 'global_visa', label: isRtl ? 'تأشيرات السفر العالمية' : 'Global Tourist Visas', icon: Plane, path: '/employee/global-visa' }
+      ]),
       { key: 'migrate_hub', label: isRtl ? 'الهجرة والتأشيرات الذهبية' : 'OSBIC Migrate Hub', icon: Globe, path: '/employee/migrate' }
     ] : []),
     { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
@@ -208,6 +216,10 @@ const EmployeeLayout: React.FC = () => {
     ] : []),
     { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
   ].filter(item => {
+    // Migrate-only staff: dedicated desk isolation (only their specialized desk(s), hub, messages, notifications, profile)
+    if ((profile?.department === 'migrate' || (profile as any)?.is_migrate_specialist) && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.can_do_accounts && !profile?.is_pro) {
+      return ['home', 'golden_visa', 'global_visa', 'migrate_hub', 'messages', 'notifications', 'profile'].includes(item.key);
+    }
     // PRO agents: only home, pro queue, and profile
     if (profile?.is_pro) {
       return ['home', 'pro_queue', 'profile'].includes(item.key);

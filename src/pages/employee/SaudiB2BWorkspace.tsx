@@ -4,17 +4,21 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2, Globe, ArrowUpRight, ArrowDownLeft, Plus, Search,
-  DollarSign, FileText, ShieldCheck, Handshake, X, ExternalLink, Printer
+  DollarSign, FileText, ShieldCheck, Handshake, X, ExternalLink, Printer,
+  Users, Copy, MessageSquare, Phone
 } from 'lucide-react';
-import { useB2BPartners, useCreateB2BPartner } from '../../hooks/shared/useB2BPartners';
+import toast from 'react-hot-toast';
+import { useB2BPartners, useCreateB2BPartner, type B2BPartner } from '../../hooks/shared/useB2BPartners';
 import type { Lead } from '../../hooks/shared/useLeads';
 import type { Invoice } from '../../hooks/employee/useInvoices';
 import { useCurrencyRates } from '../../hooks/shared/useCurrencyRates';
 import { supabase } from '../../lib/supabase';
+import { B2BPartnerClientsDrawer } from '../../components/employee/B2BPartnerClientsDrawer';
+import { AssignToOmanOpsModal } from '../../components/employee/AssignToOmanOpsModal';
 
 export default function SaudiB2BWorkspace() {
   const navigate = useNavigate();
-  const { data: partners = [] } = useB2BPartners();
+  const { data: partners = [], refetch: refetchPartners } = useB2BPartners();
   const { data: leads = [], refetch: refetchLeads } = useQuery<Lead[]>({
     queryKey: ['b2b_workspace_leads'],
     queryFn: async () => {
@@ -52,10 +56,50 @@ export default function SaudiB2BWorkspace() {
   const createPartnerMutation = useCreateB2BPartner();
 
   // State
-  const [activeTab, setActiveTab] = useState<'outbound' | 'inbound' | 'partners' | 'proposals'>('outbound');
+  const [activeTab, setActiveTab] = useState<'outbound' | 'inbound' | 'partners' | 'proposals'>('inbound');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddPartnerModal, setShowAddPartnerModal] = useState(false);
   const [selectedLeadForAssign, setSelectedLeadForAssign] = useState<Lead | null>(null);
+
+  // New Drawer & Ops Modal states
+  const [selectedPartnerForClients, setSelectedPartnerForClients] = useState<B2BPartner | null>(null);
+  const [showPartnerClientsDrawer, setShowPartnerClientsDrawer] = useState(false);
+  const [selectedLeadForOps, setSelectedLeadForOps] = useState<Lead | null>(null);
+
+  const openWhatsApp = (phone?: string, name?: string) => {
+    if (!phone) {
+      toast.error('No phone number available');
+      return;
+    }
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      toast.error('Invalid phone number');
+      return;
+    }
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.slice(2);
+    if (cleanPhone.length === 8) cleanPhone = '968' + cleanPhone;
+    else if (cleanPhone.length === 9 && cleanPhone.startsWith('0')) cleanPhone = '968' + cleanPhone.slice(1);
+
+    const message = encodeURIComponent(`Hello ${name || 'Sir/Madam'}, greeting from OSBIC Saudi & GCC Corporate Desk.`);
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${message}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyKsaDossier = (lead: Lead, partner?: B2BPartner) => {
+    const dossier = `*OSBIC ➔ KSA GROUND EXECUTION DOSSIER*
+---------------------------------------
+• Client Name: ${lead.contact_name}
+• Company: ${lead.company_name || 'N/A'}
+• Phone: ${lead.contact_phone || 'N/A'}
+• Service Requested: ${lead.service_required || 'KSA Corporate Setup / MISA'}
+• Subcontract Partner: ${partner?.name || 'Unassigned'}
+• Flow: Oman ➔ Saudi Outbound
+• Date: ${new Date().toLocaleDateString()}
+---------------------------------------
+Please initiate ground procedures in KSA.`;
+
+    navigator.clipboard.writeText(dossier);
+    toast.success('KSA Execution Dossier copied to clipboard!');
+  };
 
   // New partner form state
   const [newPartner, setNewPartner] = useState({
@@ -421,6 +465,41 @@ export default function SaudiB2BWorkspace() {
 
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {/* Flow 2 Inbound: Assign to Oman Ops */}
+                              {activeTab === 'inbound' && (
+                                <button
+                                  onClick={() => setSelectedLeadForOps(lead)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                                  title="Assign to Oman Ops with OMR Gov Fee calculation"
+                                >
+                                  <ArrowDownLeft size={13} />
+                                  <span>Assign Oman Ops</span>
+                                </button>
+                              )}
+
+                              {/* Flow 1 Outbound: Copy KSA Ground Partner Dossier */}
+                              {activeTab === 'outbound' && (
+                                <button
+                                  onClick={() => copyKsaDossier(lead, partner)}
+                                  className="px-3 py-1.5 bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 border border-sky-500/30 text-xs rounded-xl font-bold transition-all flex items-center gap-1.5"
+                                  title="Copy client dossier to WhatsApp/Email Saudi Ground Partner"
+                                >
+                                  <Copy size={13} />
+                                  <span>Copy Dossier</span>
+                                </button>
+                              )}
+
+                              {/* WhatsApp Contact */}
+                              {lead.contact_phone && (
+                                <button
+                                  onClick={() => openWhatsApp(lead.contact_whatsapp || lead.contact_phone, lead.contact_name)}
+                                  className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                                  title="Chat on WhatsApp"
+                                >
+                                  <MessageSquare size={13} />
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => openAssignModal(lead)}
                                 className="px-3 py-1.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 text-xs rounded-xl font-bold transition-all border border-emerald-500/30"
@@ -495,13 +574,36 @@ export default function SaudiB2BWorkspace() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-border">
+                <div className="mt-4 pt-3 border-t border-border space-y-2">
                   <button
-                    onClick={() => navigate(`/employee/b2b/proposals/new?partner_id=${partner.id}`)}
-                    className="w-full py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-700 dark:text-cyan-300 font-bold text-xs rounded-xl border border-cyan-500/30 transition flex items-center justify-center gap-1.5"
+                    type="button"
+                    onClick={() => {
+                      setSelectedPartnerForClients(partner);
+                      setShowPartnerClientsDrawer(true);
+                    }}
+                    className="w-full py-2 px-3 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                   >
-                    <FileText className="w-3.5 h-3.5" /> Create B2B Proposal
+                    <Users size={14} />
+                    <span>View Clients & Pipeline ({assignedCount})</span>
                   </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/employee/b2b/proposals/new?partner_id=${partner.id}`)}
+                      className="flex-1 py-1.5 px-3 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold text-xs rounded-xl border border-cyan-500/20 transition flex items-center justify-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Proposal
+                    </button>
+                    {partner.contact_phone && (
+                      <button
+                        onClick={() => openWhatsApp(partner.contact_phone, partner.contact_person || partner.name)}
+                        className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                        title="Chat on WhatsApp"
+                      >
+                        <MessageSquare size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -767,6 +869,31 @@ export default function SaudiB2BWorkspace() {
           </motion.div>
         </div>
       )}
+      {/* Drawer: B2B Partner Client Roster & Pipeline */}
+      <B2BPartnerClientsDrawer
+        isOpen={showPartnerClientsDrawer}
+        onClose={() => {
+          setShowPartnerClientsDrawer(false);
+          setSelectedPartnerForClients(null);
+        }}
+        partner={selectedPartnerForClients}
+        leads={leads}
+        onRefresh={() => {
+          refetchLeads();
+          refetchPartners();
+        }}
+      />
+
+      {/* Modal: Assign Saudi Inbound Work to Oman Ops Team */}
+      <AssignToOmanOpsModal
+        isOpen={!!selectedLeadForOps}
+        onClose={() => setSelectedLeadForOps(null)}
+        lead={selectedLeadForOps}
+        onSuccess={() => {
+          refetchLeads();
+        }}
+        defaultSarRate={sarRate}
+      />
     </div>
   );
 }

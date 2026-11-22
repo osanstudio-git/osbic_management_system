@@ -24,7 +24,7 @@ const ClientsHub = () => {
   const { profile } = useAuth();
   const { data: clients, isLoading } = useEmployeeClients(profile?.id);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'mine' | 'assigned'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'mine' | 'assigned' | 'saudi'>('all');
 
   // Modals state
   const [requestModal, setRequestModal] = useState<{
@@ -49,6 +49,10 @@ const ClientsHub = () => {
     if (!matchesSearch) return false;
     if (filterType === 'mine' && c.created_by !== profile?.id) return false;
     if (filterType === 'assigned' && c.created_by === profile?.id) return false;
+    if (filterType === 'saudi') {
+      const isSaudi = (c as any).is_saudi_client || c.nationality === 'Saudi Arabia' || (c as any).b2b_partner_id;
+      if (!isSaudi) return false;
+    }
     return true;
   });
 
@@ -99,13 +103,13 @@ const ClientsHub = () => {
           />
         </div>
         <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-2xl w-full lg:w-auto overflow-x-auto no-scrollbar">
-          {(['all', 'mine', 'assigned'] as const).map(f => (
+          {(['all', 'mine', 'assigned', 'saudi'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilterType(f)}
               className={`relative px-4 py-2.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest rounded-xl transition-colors whitespace-nowrap flex-1 lg:flex-none ${filterType === f ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              {f === 'mine' ? 'My Registrations' : f === 'assigned' ? 'Assigned to Me' : 'All Clients'}
+              {f === 'mine' ? 'My Registrations' : f === 'assigned' ? 'Assigned to Me' : f === 'saudi' ? '🇸🇦 Saudi & B2B' : 'All Clients'}
               {filterType === f && (
                 <motion.div layoutId="clientFilter" className="absolute inset-0 bg-card rounded-xl shadow-sm border border-border -z-10" />
               )}

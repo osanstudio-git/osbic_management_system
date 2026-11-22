@@ -117,15 +117,18 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
         ? new Date(`${completedDate}T12:00:00Z`).toISOString()
         : job.completed_at;
 
+      const billableGovFee = clientPaysGovFee ? 0 : numGovFee;
+      const netTotalToCollect = numWorkFee + billableGovFee;
+
       const advanceAmt = syncPaidStatus && job.remaining_paid 
-        ? calculatedTotal 
+        ? netTotalToCollect 
         : Number(job.advance_amount || 0);
 
       const remainingAmt = syncPaidStatus && job.remaining_paid
         ? 0
-        : Math.max(0, calculatedTotal - advanceAmt);
+        : Math.max(0, netTotalToCollect - advanceAmt);
 
-      const isFullyPaid = syncPaidStatus && (job.remaining_paid || remainingAmt <= 0);
+      const isFullyPaid = (job.remaining_paid || remainingAmt <= 0);
 
       // 1. Update jobs table
       const jobUpdate: any = {
@@ -136,7 +139,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
         custom_name: customName.trim(),
         work_fee: numWorkFee,
         ministry_fee: numGovFee,
-        total_fee: calculatedTotal,
+        total_fee: clientPaysGovFee ? numWorkFee : calculatedTotal,
         client_pays_ministry_fee: clientPaysGovFee,
         started_at: startedIso,
         created_at: startedIso,
@@ -446,8 +449,11 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
                 <label className="text-[10px] font-bold uppercase text-primary block mb-1">
                   Total Fee (الإجمالي)
                 </label>
-                <div className="w-full bg-primary/10 border border-primary/30 rounded-xl px-3 py-2 text-xs font-black text-primary">
-                  {calculatedTotal.toFixed(3)} OMR
+                <div className="w-full bg-primary/10 border border-primary/30 rounded-xl px-3 py-2 text-xs font-black text-primary flex items-center justify-between">
+                  <span>{(clientPaysGovFee ? numWorkFee : calculatedTotal).toFixed(3)} OMR</span>
+                  {clientPaysGovFee && (
+                    <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">(Gov Fee Direct)</span>
+                  )}
                 </div>
               </div>
             </div>

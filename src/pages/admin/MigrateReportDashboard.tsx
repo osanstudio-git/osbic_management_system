@@ -292,10 +292,16 @@ export default function MigrateReportDashboard() {
         </div>
 
         {/* Card 2: Golden Visa Revenue */}
-        <div className="bg-card border border-amber-500/30 rounded-2xl p-5 shadow-sm space-y-1 bg-amber-500/[0.02]">
+        <div 
+          onClick={() => navigate(`${window.location.pathname.startsWith('/admin') ? '/admin' : '/employee'}/golden-visa`)}
+          className="bg-card border border-amber-500/30 rounded-2xl p-5 shadow-sm space-y-1 bg-amber-500/[0.02] cursor-pointer hover:border-amber-500/60 transition-all hover:bg-amber-500/[0.05] group"
+        >
           <div className="flex items-center justify-between text-amber-400">
             <span className="text-[10px] font-bold uppercase tracking-widest">Golden Visa (Invest Oman)</span>
-            <Crown size={16} />
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-amber-400/80 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Open Desk →</span>
+              <Crown size={16} />
+            </div>
           </div>
           <p className="text-2xl font-mono font-bold text-amber-400">
             {goldenRevenue.toFixed(3)} <span className="text-xs font-normal opacity-50">OMR</span>
@@ -307,10 +313,16 @@ export default function MigrateReportDashboard() {
         </div>
 
         {/* Card 3: Global Tourist Visa Revenue */}
-        <div className="bg-card border border-sky-500/30 rounded-2xl p-5 shadow-sm space-y-1 bg-sky-500/[0.02]">
+        <div 
+          onClick={() => navigate(`${window.location.pathname.startsWith('/admin') ? '/admin' : '/employee'}/global-visa`)}
+          className="bg-card border border-sky-500/30 rounded-2xl p-5 shadow-sm space-y-1 bg-sky-500/[0.02] cursor-pointer hover:border-sky-500/60 transition-all hover:bg-sky-500/[0.05] group"
+        >
           <div className="flex items-center justify-between text-sky-400">
             <span className="text-[10px] font-bold uppercase tracking-widest">Global Tourist Visas</span>
-            <Plane size={16} />
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-sky-400/80 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Open Desk →</span>
+              <Plane size={16} />
+            </div>
           </div>
           <p className="text-2xl font-mono font-bold text-sky-400">
             {globalRevenue.toFixed(3)} <span className="text-xs font-normal opacity-50">OMR</span>
