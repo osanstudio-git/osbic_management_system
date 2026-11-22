@@ -448,7 +448,7 @@ export interface Database {
         source_id: string | null
         assigned_to: string | null
         assigned_by: string | null
-        status: 'new' | 'contacted' | 'interested' | 'qualified' | 'quoted' | 'negotiating' | 'converted' | 'lost' | 'on_hold'
+        status: 'new' | 'contacted' | 'interested' | 'qualified' | 'quoted' | 'negotiating' | 'converted' | 'cancelled' | 'lost' | 'on_hold'
         lost_reason: string | null
         next_follow_up_at: string | null
         follow_up_notes: string | null

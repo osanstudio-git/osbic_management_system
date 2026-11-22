@@ -40,7 +40,9 @@ import {
    Crown,
    Plane,
    BookOpen,
-   TrendingUp
+   TrendingUp,
+   Clock,
+   UserCheck
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -60,6 +62,143 @@ import { BirthdayCelebrationModal } from '../components/employee/BirthdayCelebra
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+interface NavSingleItem {
+  type?: 'item';
+  key: string;
+  label: string;
+  icon: any;
+  path: string;
+}
+
+interface NavGroupItem {
+  type: 'group';
+  key: string;
+  label: string;
+  icon: any;
+  basePaths: string[];
+  children: {
+    key: string;
+    label: string;
+    icon: any;
+    path: string;
+  }[];
+}
+
+type NavigationEntry = NavSingleItem | NavGroupItem;
+
+const NavGroupSection: React.FC<{
+  entry: NavGroupItem;
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+  location: ReturnType<typeof useLocation>;
+  onMobileClose: () => void;
+}> = ({ entry, collapsed, setCollapsed, location, onMobileClose }) => {
+  const isGroupActive = entry.basePaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+  const [isOpen, setIsOpen] = useState(isGroupActive);
+
+  React.useEffect(() => {
+    if (isGroupActive) {
+      setIsOpen(true);
+    }
+  }, [isGroupActive]);
+
+  const handleToggle = () => {
+    if (collapsed) {
+      setCollapsed(false);
+      setIsOpen(true);
+    } else {
+      setIsOpen(prev => !prev);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className={cn(
+          "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold select-none group",
+          isGroupActive
+            ? "bg-primary/10 text-primary border border-primary/25 shadow-[0_0_12px_rgba(var(--primary),0.08)]"
+            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+        )}
+        title={collapsed ? entry.label : undefined}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <entry.icon size={19} className={cn("shrink-0 transition-colors", isGroupActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+          {!collapsed && (
+            <span className="truncate font-medium">{entry.label}</span>
+          )}
+        </div>
+        {!collapsed && (
+          <ChevronDown
+            size={16}
+            className={cn(
+              "shrink-0 transition-transform duration-200 text-muted-foreground",
+              isOpen ? "rotate-180 text-primary" : ""
+            )}
+          />
+        )}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && !collapsed && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden space-y-1 ltr:pl-3.5 rtl:pr-3.5 ltr:border-l rtl:border-r border-primary/25 ms-3 my-1"
+          >
+            {entry.children.map((child) => {
+              let isChildActive = false;
+              if (child.path.includes('?')) {
+                const [targetPath, targetQuery] = child.path.split('?');
+                const isPathMatch = location.pathname === targetPath;
+                if (targetQuery.includes('view=expiries')) {
+                  isChildActive = isPathMatch && location.search.includes('view=expiries');
+                } else if (targetQuery.includes('view=employees')) {
+                  isChildActive = isPathMatch && (location.search.includes('view=employees') || !location.search.includes('view=expiries'));
+                } else {
+                  isChildActive = isPathMatch && location.search.includes(targetQuery);
+                }
+              } else {
+                isChildActive = location.pathname === child.path;
+              }
+
+              return (
+                <NavLink
+                  key={child.key}
+                  to={child.path}
+                  onClick={onMobileClose}
+                  className={cn(
+                    "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150 text-xs font-medium group",
+                    isChildActive
+                      ? "bg-primary/20 text-primary font-bold shadow-sm border border-primary/30"
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                  )}
+                >
+                  <child.icon
+                    size={15}
+                    className={cn(
+                      "shrink-0 transition-colors",
+                      isChildActive ? "text-primary" : "text-muted-foreground/80 group-hover:text-foreground"
+                    )}
+                  />
+                  <span className="truncate">{child.label}</span>
+                  {isChildActive && (
+                    <span className="ltr:ml-auto rtl:mr-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                  )}
+                </NavLink>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const EmployeeLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -162,67 +301,83 @@ const EmployeeLayout: React.FC = () => {
     role === 'admin'
   );
 
-  const navItems = [
-    { key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
+  const navItems: NavigationEntry[] = [
+    { type: 'item', key: 'home', label: isRtl ? 'لوحة القيادة' : 'Dashboard', icon: LayoutDashboard, path: '/employee' },
     ...(profile?.can_do_sales ? [
-      { key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' },
-      { key: 'daily_sales_sheet', label: isRtl ? 'ورقة المبيعات اليومية' : 'Daily Sales Sheet', icon: FileSpreadsheet, path: '/employee/leads?dailySheet=true' }
+      { type: 'item' as const, key: 'leads', label: isRtl ? 'العملاء المحتملين' : 'Leads & Sales', icon: Users, path: '/employee/leads' },
+      { type: 'item' as const, key: 'daily_sales_sheet', label: isRtl ? 'ورقة المبيعات اليومية' : 'Daily Sales Sheet', icon: FileSpreadsheet, path: '/employee/leads?dailySheet=true' }
     ] : []),
     ...(isSalesHead ? [
-      { key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
+      { type: 'item' as const, key: 'sales_team_reports', label: isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports', icon: BarChart3, path: '/employee/sales-team-reports' }
     ] : []),
     ...(isOpsHead ? [
-      { key: 'ops_command', label: isRtl ? 'غرفة عمليات التوزيع' : 'Ops Command Center', icon: Compass, path: '/employee/ops-command' },
-      { key: 'ops_team_reports', label: isRtl ? 'مركز فريق العمليات' : 'Ops Team Hub', icon: Briefcase, path: '/employee/ops-team-reports' }
+      { type: 'item' as const, key: 'ops_command', label: isRtl ? 'غرفة عمليات التوزيع' : 'Ops Command Center', icon: Compass, path: '/employee/ops-command' },
+      { type: 'item' as const, key: 'ops_team_reports', label: isRtl ? 'مركز فريق العمليات' : 'Ops Team Hub', icon: Briefcase, path: '/employee/ops-team-reports' }
     ] : []),
-    { key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
-    { key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
+    { type: 'item' as const, key: 'my_clients', label: isRtl ? 'عملاء الفرع' : 'My Clients', icon: Users, path: '/employee/clients' },
+    { type: 'item' as const, key: 'my_tasks', label: isRtl ? 'الوظائف والمهام' : 'Active Jobs', icon: ClipboardList, path: '/employee/tasks' },
     // Open Task Pool Marketplace — open for ops employees to claim tasks
-    ...(profile?.can_do_ops ? [{ key: 'task_pool', label: isRtl ? 'سوق المهام المتاح' : 'Task Marketplace', icon: Sparkles, path: '/employee/task-pool' }] : []),
+    ...(profile?.can_do_ops ? [{ type: 'item' as const, key: 'task_pool', label: isRtl ? 'سوق المهام المتاح' : 'Task Marketplace', icon: Sparkles, path: '/employee/task-pool' }] : []),
     // Ops queue — shown if employee can do ops work
-    ...(profile?.can_do_ops && !profile?.is_manager ? [{ key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
+    ...(profile?.can_do_ops && !profile?.is_manager ? [{ type: 'item' as const, key: 'ops_queue', label: isRtl ? 'مهامي' : 'My Tasks', icon: Zap, path: '/employee/my-tasks' }] : []),
     // Daily Sales — shown for ops employees, branch managers, and admins
-    ...(profile?.can_do_ops || isManagerOrAdmin ? [{ key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
+    ...(profile?.can_do_ops || isManagerOrAdmin ? [{ type: 'item' as const, key: 'daily_sales', label: isRtl ? 'المبيعات اليومية' : 'Daily Sales', icon: ShoppingBag, path: '/employee/daily-sales' }] : []),
     // Invoices & Quotes
-    { key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
+    { type: 'item' as const, key: 'invoices', label: isRtl ? 'الفواتير وعروض الأسعار' : 'Invoices & Quotes', icon: FileText, path: '/employee/invoices' },
     // PRO queue — shown for PRO agents
-    ...(profile?.is_pro ? [{ key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
-    { key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
+    ...(profile?.is_pro ? [{ type: 'item' as const, key: 'pro_queue', label: isRtl ? 'طابور المعقب' : 'PRO Queue', icon: Shield, path: '/employee/pro-queue' }] : []),
+    { type: 'item' as const, key: 'reports', label: isRtl ? 'التقارير' : 'Reports', icon: PieChart, path: '/employee/reports' },
     ...(isManagerOrAdmin || profile?.department === 'migrate' || (profile as any)?.is_migrate_specialist ? [
       ...((profile as any)?.migrate_specialty === 'global_visa' ? [] : [
-        { key: 'golden_visa', label: isRtl ? 'التأشيرات الذهبية للمستثمرين' : 'Golden Visa Desk', icon: Crown, path: '/employee/golden-visa' }
+        { type: 'item' as const, key: 'golden_visa', label: isRtl ? 'التأشيرات الذهبية للمستثمرين' : 'Golden Visa Desk', icon: Crown, path: '/employee/golden-visa' }
       ]),
       ...((profile as any)?.migrate_specialty === 'golden_visa' ? [] : [
-        { key: 'global_visa', label: isRtl ? 'تأشيرات السفر العالمية' : 'Global Tourist Visas', icon: Plane, path: '/employee/global-visa' }
+        { type: 'item' as const, key: 'global_visa', label: isRtl ? 'تأشيرات السفر العالمية' : 'Global Tourist Visas', icon: Plane, path: '/employee/global-visa' }
       ]),
-      { key: 'migrate_hub', label: isRtl ? 'الهجرة والتأشيرات الذهبية' : 'OSBIC Migrate Hub', icon: Globe, path: '/employee/migrate' }
+      { type: 'item' as const, key: 'migrate_hub', label: isRtl ? 'الهجرة والتأشيرات الذهبية' : 'OSBIC Migrate Hub', icon: Globe, path: '/employee/migrate' }
     ] : []),
-    { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
-    { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
-    ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
-    ...(profile?.can_do_accounts || isHRAdmin ? [
-      { key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' },
-      { key: 'accounts_journal', label: isRtl ? 'دفتر اليومية والأرباح P&L' : 'Journal & P&L', icon: BookOpen, path: '/employee/accounts/journal' },
-      { key: 'accounts_income_exp', label: isRtl ? 'إيرادات وتكاليف المعاملات' : 'Job Margins & Income', icon: TrendingUp, path: '/employee/accounts/income-expenses' },
-      { key: 'accounts_receivables', label: isRtl ? 'مستحقات وديون العملاء' : 'Client Receivables', icon: Wallet, path: '/employee/accounts/receivables' },
-      { key: 'accounts_gov_audit', label: isRtl ? 'تدقيق الرسوم الحكومية' : 'Gov Fees Audit', icon: Landmark, path: '/employee/accounts/gov-audit' },
-    ] : []),
-    ...(isHRAdmin ? [
-      { key: 'hr_finance', label: isRtl ? 'المركز المالي والمبيعات' : 'Finance & Revenue', icon: Wallet, path: '/employee/finance' },
-      { key: 'hr_sales_audit', label: isRtl ? 'تدقيق سندات المبيعات' : 'Sales Receipt Audit', icon: DollarSign, path: '/employee/sales-audit' },
-      { key: 'hr_gov_outflows', label: isRtl ? 'المدفوعات الحكومية والموردين' : 'Gov & Supplier Outflows', icon: Landmark, path: '/employee/gov-outflows' },
-      { key: 'hr_team_directory', label: isRtl ? 'سجل الموظفين والامتثال' : 'Team & Expiry Radar', icon: Users, path: '/employee/team-directory' },
-      { key: 'hr_leaves_attendance', label: isRtl ? 'الإجازات والحضور اليومي' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
-    ] : []),
+    { type: 'item' as const, key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
+    { type: 'item' as const, key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
+    ...(profile?.can_do_marketing ? [{ type: 'item' as const, key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
+
+    // 💼 Finance Selector Accordion (Accounts, Finance & Revenue, Sales Receipt Audit, Gov Outflows)
+    ...(profile?.can_do_accounts || isHRAdmin ? [{
+      type: 'group' as const,
+      key: 'finance_group',
+      label: isRtl ? 'المالية والحسابات' : 'Finance & Accounts',
+      icon: Wallet,
+      basePaths: ['/employee/accounts', '/employee/finance', '/employee/sales-audit', '/employee/gov-outflows'],
+      children: [
+        { key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' },
+        { key: 'finance', label: isRtl ? 'المركز المالي والمبيعات' : 'Finance & Revenue', icon: TrendingUp, path: '/employee/finance' },
+        { key: 'sales_audit', label: isRtl ? 'تدقيق سندات المبيعات' : 'Sales Receipt Audit', icon: DollarSign, path: '/employee/sales-audit' },
+        { key: 'gov_outflows', label: isRtl ? 'المدفوعات الحكومية والموردين' : 'Gov & Supplier Outflows', icon: Landmark, path: '/employee/gov-outflows' },
+      ]
+    }] : []),
+
+    // 🏢 HR Selector Accordion (Employee Details, Expiry Radar, Leaves & Attendance)
+    ...(isHRAdmin ? [{
+      type: 'group' as const,
+      key: 'hr_group',
+      label: isRtl ? 'الموارد البشرية والإدارة' : 'HR Management',
+      icon: Building2,
+      basePaths: ['/employee/team-directory', '/employee/leaves-attendance', '/employee/hr'],
+      children: [
+        { key: 'hr_employees', label: isRtl ? 'سجل وتفاصيل الموظفين' : 'Employee Details', icon: Users, path: '/employee/team-directory?view=employees' },
+        { key: 'hr_expiries', label: isRtl ? 'رادار الصلاحيات والامتثال' : 'Expiry Radar & Compliance', icon: Clock, path: '/employee/team-directory?view=expiries' },
+        { key: 'hr_leaves', label: isRtl ? 'الإجازات والحضور اليومي' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
+      ]
+    }] : []),
+
     ...(profile?.is_manager ? [
-      { key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
-      { key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
-      { key: 'pipeline', label: isRtl ? 'مخطط العمليات' : 'Workflow Pipeline', icon: Globe, path: '/employee/pipeline' },
+      { type: 'item' as const, key: 'team', label: isRtl ? 'فريق الفرع' : 'Branch Team', icon: Users, path: '/employee/team' },
+      { type: 'item' as const, key: 'approvals', label: isRtl ? 'مركز الموافقات' : 'Approval Hub', icon: ShieldCheck, path: '/employee/approvals' },
+      { type: 'item' as const, key: 'pipeline', label: isRtl ? 'مخطط العمليات' : 'Workflow Pipeline', icon: Globe, path: '/employee/pipeline' },
     ] : []),
     ...(profile?.is_saudi_rep || profile?.is_manager ? [
-      { key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' }
+      { type: 'item' as const, key: 'b2b_saudi', label: isRtl ? 'إدارة B2B والسعودية' : 'Saudi & B2B Hub', icon: Handshake, path: '/employee/b2b-saudi' }
     ] : []),
-    { key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
+    { type: 'item' as const, key: 'profile', label: isRtl ? 'الحساب والأمان' : 'Profile & Security', icon: User, path: '/employee/profile' },
   ].filter(item => {
     // Migrate-only staff: dedicated desk isolation (only their specialized desk(s), hub, messages, notifications, profile)
     if ((profile?.department === 'migrate' || (profile as any)?.is_migrate_specialist) && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.can_do_accounts && !profile?.is_pro) {
@@ -232,13 +387,13 @@ const EmployeeLayout: React.FC = () => {
     if (profile?.is_pro) {
       return ['home', 'pro_queue', 'profile'].includes(item.key);
     }
-    // HR-only staff: only Dashboard, the dedicated HR pages + Accounts, Messages, Notifications, Profile
+    // HR-only staff: only Dashboard, Messages, Notifications, Finance Group, HR Group, Profile
     if (profile?.department === 'hr' && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.can_do_accounts && !profile?.is_pro) {
-      return ['home', 'hr_finance', 'accounts', 'hr_sales_audit', 'hr_gov_outflows', 'hr_team_directory', 'hr_leaves_attendance', 'messages', 'notifications', 'profile'].includes(item.key);
+      return ['home', 'messages', 'notifications', 'finance_group', 'hr_group', 'profile'].includes(item.key);
     }
-    // Accounts-only staff: only Dashboard, Accounts, Invoices, Messages, Profile
+    // Accounts-only staff: only Dashboard, Finance Group, Invoices, Messages, Profile
     if (profile?.can_do_accounts && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_marketing && !profile?.is_pro) {
-      return ['home', 'accounts', 'invoices', 'messages', 'profile'].includes(item.key);
+      return ['home', 'finance_group', 'invoices', 'messages', 'profile'].includes(item.key);
     }
     // Marketing-only staff: only Dashboard, Marketing & Ads, Reports, Messages, Profile
     if (profile?.can_do_marketing && !profile?.is_manager && !profile?.can_do_ops && !profile?.can_do_sales && !profile?.can_do_accounts && !profile?.is_pro) {
@@ -306,31 +461,48 @@ const EmployeeLayout: React.FC = () => {
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/employee'}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium",
-                  isActive 
-                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-                )
-              }
-            >
-              <item.icon size={20} className={cn("shrink-0")} />
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  {item.label || t(`sidebar.${item.key}`)}
-                </motion.span>
-              )}
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            if (item.type === 'group') {
+              return (
+                <NavGroupSection
+                  key={item.key}
+                  entry={item}
+                  collapsed={collapsed}
+                  setCollapsed={setCollapsed}
+                  location={location}
+                  onMobileClose={() => {
+                    if (window.innerWidth < 1024) setMobileMenuOpen(false);
+                  }}
+                />
+              );
+            }
+
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/employee'}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium",
+                    isActive 
+                      ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                  )
+                }
+              >
+                <item.icon size={20} className={cn("shrink-0")} />
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                  >
+                    {item.label || t(`sidebar.${item.key}`)}
+                  </motion.span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-border space-y-1">

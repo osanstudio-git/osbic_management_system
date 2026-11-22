@@ -29,7 +29,7 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
 
   React.useEffect(() => {
     if (lead) {
-      setNewStatus(lead.status || 'contacted');
+      setNewStatus(lead.status === 'lost' ? 'cancelled' : (lead.status || 'contacted'));
       setNextFollowUp(lead.next_follow_up_at ? lead.next_follow_up_at.substring(0, 16) : '');
       setNotes('');
     }
@@ -245,7 +245,7 @@ export const QuickInteractionModal: React.FC<Props> = ({ isOpen, onClose, lead }
                   Update Lead Stage
                 </label>
                 <select
-                  value={newStatus}
+                  value={newStatus === 'lost' ? 'cancelled' : newStatus}
                   onChange={e => setNewStatus(e.target.value)}
                   className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none cursor-pointer capitalize"
                 >

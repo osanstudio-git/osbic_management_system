@@ -49,6 +49,7 @@ interface HRAdminPortalProps {
 export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
   const [searchParams] = useSearchParams();
   const queryTab = searchParams.get('tab') as MasterTab | null;
+  const queryView = searchParams.get('view');
   const { profile, role } = useAuth();
   const { branches } = useBranch();
   const { t, i18n } = useTranslation();
@@ -104,10 +105,17 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           subtitle: isRtl ? 'متابعة رسوم الجهات الحكومية (ROP, MOCIIP, Labour, OCCI) وحساب أرباح المعاملات' : 'Monitor ministry fee disbursements, profit margins, and verified payment slips'
         };
       case 'team':
+        if (queryView === 'expiries') {
+          return {
+            badge: isRtl ? 'رادار الصلاحيات والامتثال' : 'Expiry Radar & Compliance',
+            title: isRtl ? 'رادار متابعة صلاحية الوثائق والإقامات' : 'Document Expiry Radar & Compliance',
+            subtitle: isRtl ? 'تتبع فترات انتهاء الجوازات والإقامات والتأشيرات، والتنبيهات الاستباقية لتجديدها' : 'Real-time countdown for visas, civil IDs, and passports with proactive renewal radar'
+          };
+        }
         return {
-          badge: isRtl ? 'الموارد البشرية والامتثال' : 'HR & Compliance',
-          title: isRtl ? 'سجل الموظفين ورادار الامتثال' : 'Staff Directory & Expiry Radar',
-          subtitle: isRtl ? 'دليل موظفي الشركة، رصيد الإجازات، والعد التنازلي لصلاحية الجوازات والإقامات' : 'Company staff profiles, leave balances, and passport/visa countdown alerts'
+          badge: isRtl ? 'الموارد البشرية وسجل الموظفين' : 'HR & Staff Directory',
+          title: isRtl ? 'سجل وتفاصيل الموظفين' : 'Staff Directory & Employee Profiles',
+          subtitle: isRtl ? 'دليل موظفي الشركة، بيانات الاتصال، الأقسام، والمسمى الوظيفي' : 'Company staff profiles, contact information, departmental assignments, and roles'
         };
       case 'leaves_attendance':
         return {
@@ -132,7 +140,17 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
   const [salesReceiptFilter, setSalesReceiptFilter] = useState<'all' | 'missing' | 'attached'>('all');
   const [govReceiptFilter, setGovReceiptFilter] = useState<'all' | 'missing' | 'attached'>('all');
   const [govEntityFilter, setGovEntityFilter] = useState<'all' | 'mol' | 'rop' | 'mociip' | 'occi' | 'other'>('all');
-  const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical_15' | 'expiring_soon' | 'expired' | 'compliant'>('all');
+  const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical_15' | 'expiring_soon' | 'expired' | 'compliant'>(
+    queryView === 'expiries' ? 'critical_15' : 'all'
+  );
+
+  React.useEffect(() => {
+    if (queryView === 'expiries') {
+      setComplianceFilter('critical_15');
+    } else if (queryView === 'employees') {
+      setComplianceFilter('all');
+    }
+  }, [queryView]);
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [leavesSubTab, setLeavesSubTab] = useState<'requests' | 'attendance' | 'monthly_summary'>('requests');
   const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);

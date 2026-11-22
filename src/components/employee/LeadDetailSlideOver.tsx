@@ -122,7 +122,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
   // Sync state with lead changes
   React.useEffect(() => {
     if (lead) {
-      setStatus(lead.status || 'new');
+      setStatus(lead.status === 'lost' ? 'cancelled' : (lead.status || 'new'));
       setLostReason(lead.lost_reason || '');
       setNextFollowUpDate(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '');
       setFollowUpNotes(lead.follow_up_notes || '');
@@ -243,25 +243,48 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
       return;
     }
 
-    if (newStatus !== 'lost') {
-      const updates: Record<string, any> = { status: newStatus as any, lost_reason: null };
-      if (newStatus === 'contacted') {
-        if (!lead.call_status || lead.call_status === 'Pending') {
-          updates.call_status = '1st Call Done';
-        }
-      } else if (newStatus === 'interested') {
-        updates.second_followup_status = 'Interested';
-      } else if (newStatus === 'negotiating') {
-        updates.second_followup_status = 'Negotiating';
-      }
+    if (newStatus === 'cancelled' || newStatus === 'lost') {
+      const updates: Record<string, any> = { 
+        status: 'cancelled',
+        second_followup_status: 'Lost',
+        lost_reason: null
+      };
       updateLeadMutation.mutate({
         id: lead.id,
         updates
       }, {
-        onSuccess: () => toast.success('Status updated'),
-        onError: () => setStatus(lead.status)
+        onSuccess: () => {
+          toast.success('Lead status updated to Cancelled');
+          setStatus('cancelled');
+        },
+        onError: (err: any) => {
+          toast.error(err.message || 'Failed to update status');
+          setStatus(lead.status === 'lost' ? 'cancelled' : (lead.status || 'new'));
+        }
       });
+      return;
     }
+
+    const updates: Record<string, any> = { status: newStatus as any, lost_reason: null };
+    if (newStatus === 'contacted') {
+      if (!lead.call_status || lead.call_status === 'Pending') {
+        updates.call_status = '1st Call Done';
+      }
+    } else if (newStatus === 'interested') {
+      updates.second_followup_status = 'Interested';
+    } else if (newStatus === 'negotiating') {
+      updates.second_followup_status = 'Negotiating';
+    }
+    updateLeadMutation.mutate({
+      id: lead.id,
+      updates
+    }, {
+      onSuccess: () => toast.success('Status updated'),
+      onError: (err: any) => {
+        toast.error(err.message || 'Failed to update status');
+        setStatus(lead.status === 'lost' ? 'cancelled' : (lead.status || 'new'));
+      }
+    });
   };
 
   const handleUpdateCallStatus = (newCallStatus: string) => {
@@ -275,9 +298,9 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
       }
     } else if (normVal === 'not interested' || normVal === 'invalid number') {
       if (lead.status !== 'converted') {
-        updates.status = 'lost';
+        updates.status = 'cancelled';
         updates.second_followup_status = 'Lost';
-        setStatus('lost');
+        setStatus('cancelled');
       }
     }
 
@@ -927,7 +950,7 @@ export default function LeadDetailSlideOver({ isOpen, onClose, lead }: Props) {
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Lead Status</label>
                     <select
-                      value={status}
+                      value={status === 'lost' ? 'cancelled' : (status || 'new')}
                       disabled={lead.status === 'converted'}
                       onChange={e => handleUpdateStatus(e.target.value)}
                       className="w-full bg-muted/40 border border-border rounded-xl px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
