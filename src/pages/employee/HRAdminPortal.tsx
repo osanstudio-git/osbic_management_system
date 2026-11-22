@@ -494,7 +494,15 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
       Other: 0
     };
     (auditData?.govOutflows || []).forEach(item => {
-      const cat = item.category || 'Other';
+      let cat = item.category || 'Other';
+      if (!item.category) {
+        const supp = (item.supplierName || '').toLowerCase();
+        if (supp.includes('labour') || supp.includes('labor') || supp.includes('mol')) cat = 'MOL';
+        else if (supp.includes('rop') || supp.includes('police')) cat = 'ROP';
+        else if (supp.includes('moci') || supp.includes('commerce') || supp.includes('invest in oman')) cat = 'MOCIIP';
+        else if (supp.includes('occi') || supp.includes('chamber')) cat = 'OCCI';
+        else cat = 'Other';
+      }
       const fee = Number(item.actualPaidGovFee || item.estimatedGovFee || 0);
       if (map[cat] !== undefined) {
         map[cat] += fee;
@@ -1691,7 +1699,7 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
               </div>
 
               <span className="text-xs text-muted-foreground font-mono">
-                Total Outflow: OMR {(auditData?.kpis.totalGovFeesPaid || 0).toFixed(3)} • Net Profit Margin: OMR {(auditData?.kpis.netProfitMargin || 0).toFixed(3)}
+                Total Outflow: OMR {(auditData?.kpis.totalGovFeesPaid || 0).toFixed(3)} • Net Profit Margin: OMR {(auditData?.kpis.netOperatingMargin || 0).toFixed(3)}
               </span>
             </div>
 

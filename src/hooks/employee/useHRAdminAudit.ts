@@ -34,6 +34,7 @@ export interface GovOutflowItem {
   clientName: string;
   serviceName: string;
   supplierName: string; // e.g. MOCIIP, ROP, MOL, OCCI, Sanad
+  category?: 'MOL' | 'ROP' | 'MOCIIP' | 'OCCI' | 'Other' | string;
   date: string;
   dealFee: number;
   estimatedGovFee: number;
@@ -45,6 +46,15 @@ export interface GovOutflowItem {
   branchName?: string | null;
   branchId?: string | null;
   status: string;
+}
+
+function inferGovCategory(supplierName: string, serviceName?: string): 'MOL' | 'ROP' | 'MOCIIP' | 'OCCI' | 'Other' {
+  const combined = `${supplierName} ${serviceName || ''}`.toLowerCase();
+  if (combined.includes('labour') || combined.includes('labor') || combined.includes('mol')) return 'MOL';
+  if (combined.includes('rop') || combined.includes('police')) return 'ROP';
+  if (combined.includes('moci') || combined.includes('commerce') || combined.includes('invest in oman')) return 'MOCIIP';
+  if (combined.includes('occi') || combined.includes('chamber')) return 'OCCI';
+  return 'Other';
 }
 
 export const useHRAdminAudit = (filters?: {
@@ -260,6 +270,7 @@ export const useHRAdminAudit = (filters?: {
               clientName: j.client?.full_name || 'Client',
               serviceName: js.service_name || 'Ministry Service',
               supplierName: supplier,
+              category: inferGovCategory(supplier, js.service_name),
               date: js.gov_paid_at || j.created_at,
               dealFee,
               estimatedGovFee: estimatedFee,
@@ -298,6 +309,7 @@ export const useHRAdminAudit = (filters?: {
             clientName: j.client?.full_name || 'Client',
             serviceName: j.custom_name || j.service_name || 'Ministry Service',
             supplierName: supplier,
+            category: inferGovCategory(supplier, j.custom_name || j.service_name),
             date: j.created_at,
             dealFee,
             estimatedGovFee: estimatedFee,
@@ -327,6 +339,7 @@ export const useHRAdminAudit = (filters?: {
             clientName: w.client_name || 'Walk-in Client',
             serviceName: w.work_type || 'Walk-in Ministry Service',
             supplierName: 'Sanad / Gov Portal',
+            category: 'Other',
             date: w.date || w.created_at,
             dealFee: total,
             estimatedGovFee: govFee,
@@ -417,6 +430,7 @@ export const useHRAdminAudit = (filters?: {
           totalGovFeesCollected,
           totalGovFeesPaid,
           netOperatingMargin: totalWorkFees,
+          netProfitMargin: totalWorkFees,
           salesWithReceipt,
           salesMissingReceipt,
           govWithReceipt,
