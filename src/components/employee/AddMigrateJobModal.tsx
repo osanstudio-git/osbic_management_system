@@ -130,6 +130,18 @@ export const AddMigrateJobModal: React.FC<Props> = ({
     }
   });
 
+  // Fetch services for linking service_id
+  const { data: services = [] } = useQuery({
+    queryKey: ['migrate_services_lookup'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('services')
+        .select('id, name_en, name_ar')
+        .order('name_en');
+      return data || [];
+    }
+  });
+
   const filteredClients = existingClients.filter((c: any) => {
     if (!clientSearch.trim()) return true;
     const q = clientSearch.toLowerCase();
@@ -183,16 +195,27 @@ export const AddMigrateJobModal: React.FC<Props> = ({
       const advancePaidBool = advancePaidAmount >= totalFee * 0.5 && advancePaidAmount > 0;
       const remainingAmt = Math.max(0, totalFee - (Number(advancePaidAmount) || 0));
 
+      // Resolve service_id
+      const matchedService = services.find((s: any) =>
+        category === 'golden_visa'
+          ? (s.name_en || '').toLowerCase().includes('golden')
+          : (s.name_en || '').toLowerCase().includes('visa')
+      );
+      const fallbackServiceId = matchedService?.id || services[0]?.id || null;
+
       // 3. Insert into jobs table
       const jobPayload: Record<string, any> = {
         job_code: jobCode,
         client_id: finalClientId,
-        service_title: title,
+        employee_id: user?.id || profile?.id,
+        assigned_by: referringSalesId || user?.id,
+        service_id: fallbackServiceId,
+        custom_name: title,
         branch_id: selectedBranchId || profile?.branch_id || null,
         sales_employee_id: referringSalesId || (leadSourceType === 'branch_walkin' ? user?.id : null),
         ops_employee_id: user?.id,
         work_fee: Number(workFee) || 0,
-        govt_fee: Number(govtFee) || 0,
+        ministry_fee: Number(govtFee) || 0,
         total_fee: totalFee,
         advance_amount: Number(advancePaidAmount) || 0,
         advance_paid: advancePaidBool,

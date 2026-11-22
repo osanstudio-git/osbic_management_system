@@ -90,17 +90,21 @@ export const AssignToOmanOpsModal: React.FC<Props> = ({
       const jobCode = `JOB-KSA-26-${randDigits}`;
 
       // 3. Create Job in jobs table
+      const { data: anySvc } = await supabase.from('services').select('id').limit(1).maybeSingle();
+
       const { data: newJob, error: jobErr } = await supabase
         .from('jobs')
         .insert({
           job_code: jobCode,
           client_id: clientId || null,
-          service_title: serviceTitle.trim(),
+          custom_name: serviceTitle.trim(),
+          service_id: anySvc?.id || null,
+          employee_id: user?.id,
           sales_employee_id: user?.id,
           ops_employee_id: selectedOpsId,
           assigned_by: user?.id,
           work_fee: netOfficeProfitOmr,
-          govt_fee: omanGovFeeOmr,
+          ministry_fee: omanGovFeeOmr,
           total_fee: totalFeeOmr,
           advance_amount: advanceCollectedOmr,
           advance_paid: advanceCollectedOmr > 0,
