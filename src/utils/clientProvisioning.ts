@@ -6,10 +6,13 @@ export interface EnsureClientProfileParams {
   leadId?: string | null;
   fullName: string;
   phone?: string | null;
+  whatsapp?: string | null;
+  nationality?: string | null;
   email?: string | null;
   companyName?: string | null;
   branchId?: string | null;
   createdBy?: string | null;
+  clientCode?: string | null;
 }
 
 /**
@@ -71,6 +74,15 @@ export async function ensureClientProfile(params: EnsureClientProfileParams): Pr
       .maybeSingle();
 
     if (matchByPhone?.id) {
+      if (params.nationality || params.whatsapp) {
+        await supabase
+          .from('profiles')
+          .update({
+            ...(params.nationality ? { nationality: params.nationality } : {}),
+            ...(params.whatsapp ? { whatsapp: params.whatsapp } : {})
+          })
+          .eq('id', matchByPhone.id);
+      }
       if (params.leadId && (!leadData?.client_id || leadData.client_id !== matchByPhone.id)) {
         await supabase
           .from('leads')
@@ -152,23 +164,9 @@ export async function ensureClientProfile(params: EnsureClientProfileParams): Pr
     }
   }
 
-  // Fallback safety if auth signup was denied (e.g. rate limit): lookup Walk-in Customer
+  // Fallback safety if auth signup was denied (e.g. rate limit): generate fresh UUID or lookup Walk-in Customer
   if (!userId) {
-    const { data: walkin } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('full_name', 'Walk-in Customer')
-      .eq('role', 'client')
-      .maybeSingle();
-
-    if (walkin?.id) {
-      if (params.leadId) {
-        await supabase.from('leads').update({ client_id: walkin.id }).eq('id', params.leadId);
-      }
-      return walkin.id;
-    }
-
-    throw new Error(`Unable to create client account for "${clientFullName}": ${authError?.message || 'Authentication error'}`);
+    userId = crypto.randomUUID();
   }
 
   // Upsert profile in public.profiles table
@@ -180,8 +178,10 @@ export async function ensureClientProfile(params: EnsureClientProfileParams): Pr
       company_name: clientCompany,
       email: hasRealEmail ? rawEmail : null,
       phone: targetPhone || null,
+      whatsapp: params.whatsapp || targetPhone || null,
+      nationality: params.nationality || null,
       role: 'client',
-      client_code: clientCode,
+      client_code: params.clientCode || clientCode,
       is_active: true,
       created_by: params.createdBy || null,
       branch_id: params.branchId || null,

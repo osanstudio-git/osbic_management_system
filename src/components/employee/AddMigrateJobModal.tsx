@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import { ensureClientProfile } from '../../utils/clientProvisioning';
 
 interface Props {
   isOpen: boolean;
@@ -156,24 +157,16 @@ export const AddMigrateJobModal: React.FC<Props> = ({
         const clientCode = `CLT-${Date.now().toString().slice(-4)}${Math.floor(Math.random() * 90 + 10)}`;
         const finalWhatsapp = sameWhatsapp ? phone : (whatsapp || phone);
 
-        const { data: newProfile, error: profileErr } = await supabase
-          .from('profiles')
-          .insert({
-            full_name: fullName.trim(),
-            phone: phone.trim(),
-            whatsapp: finalWhatsapp.trim(),
-            email: email.trim() || null,
-            nationality: nationality || 'Oman',
-            role: 'client',
-            client_code: clientCode,
-            branch_id: selectedBranchId || profile?.branch_id || null,
-            created_by: user?.id || null
-          })
-          .select('id')
-          .single();
-
-        if (profileErr) throw profileErr;
-        finalClientId = newProfile.id;
+        finalClientId = await ensureClientProfile({
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          whatsapp: finalWhatsapp.trim(),
+          email: email.trim() || null,
+          nationality: nationality || 'Oman',
+          branchId: selectedBranchId || profile?.branch_id || null,
+          createdBy: user?.id || null,
+          clientCode: clientCode
+        });
       } else {
         if (!finalClientId) throw new Error('Please select an existing client');
       }

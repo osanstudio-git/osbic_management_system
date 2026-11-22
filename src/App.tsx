@@ -81,6 +81,10 @@ import OpsTeamReports from './pages/employee/OpsTeamReports';
 import OpsCommandCenter from './pages/employee/OpsCommandCenter';
 import TaskPool from './pages/employee/TaskPool';
 import HRAdminPortal from './pages/employee/HRAdminPortal';
+import GeneralJournalPL from './pages/employee/accounts/GeneralJournalPL';
+import JobIncomeExpenses from './pages/employee/accounts/JobIncomeExpenses';
+import ClientReceivables from './pages/employee/accounts/ClientReceivables';
+import GovFeesAudit from './pages/employee/accounts/GovFeesAudit';
 // i18n
 import './i18n/config';
 
@@ -482,6 +486,11 @@ function App() {
               <Route path="jobs/:id" element={<JobDetail />} />
               <Route path="approvals" element={<SLAApprovals />} />
               <Route path="finance" element={<Finance />} />
+              <Route path="accounts" element={<AccountsDashboard />} />
+              <Route path="accounts/journal" element={<GeneralJournalPL />} />
+              <Route path="accounts/income-expenses" element={<JobIncomeExpenses />} />
+              <Route path="accounts/receivables" element={<ClientReceivables />} />
+              <Route path="accounts/gov-audit" element={<GovFeesAudit />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="audit" element={<Audit />} />
@@ -496,6 +505,10 @@ function App() {
               <Route path="hr-admin" element={<HRAdminPortal />} />
               <Route path="hr" element={<HRAdminPortal />} />
               <Route path="finance-portal" element={<HRAdminPortal pageMode="finance" />} />
+              <Route path="daily-sales" element={<HRAdminPortal pageMode="daily_sales" />} />
+              <Route path="ops-command" element={<HRAdminPortal pageMode="ops_command" />} />
+              <Route path="sales-reports" element={<HRAdminPortal pageMode="sales_reports" />} />
+              <Route path="sales-team-reports" element={<HRAdminPortal pageMode="sales_reports" />} />
               <Route path="sales-audit" element={<HRAdminPortal pageMode="sales" />} />
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
@@ -547,6 +560,11 @@ function App() {
               <Route path="ops-command" element={<OpsCommandCenter />} />
               <Route path="ops-command-center" element={<OpsCommandCenter />} />
               <Route path="finance" element={<Finance />} />
+              <Route path="accounts" element={<AccountsDashboard />} />
+              <Route path="accounts/journal" element={<GeneralJournalPL />} />
+              <Route path="accounts/income-expenses" element={<JobIncomeExpenses />} />
+              <Route path="accounts/receivables" element={<ClientReceivables />} />
+              <Route path="accounts/gov-audit" element={<GovFeesAudit />} />
               <Route path="finance-portal" element={<HRAdminPortal pageMode="finance" />} />
               <Route path="hr-admin" element={<HRAdminPortal />} />
               <Route path="hr" element={<HRAdminPortal />} />

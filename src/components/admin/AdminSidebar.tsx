@@ -24,7 +24,12 @@ import {
   DollarSign,
   Calendar,
   Crown,
-  Plane
+  Plane,
+  ShoppingBag,
+  Compass,
+  BarChart3,
+  BookOpen,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -64,13 +69,21 @@ const AdminSidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileM
     { id: 'services', icon: Briefcase, label: 'sidebar.services', path: '/admin/services' },
     { id: 'packages', icon: Boxes, label: 'Packages', path: '/admin/packages' },
     { id: 'jobs', icon: ClipboardList, label: 'sidebar.jobs', path: '/admin/jobs' },
+    { id: 'ops_command', icon: Compass, label: 'Ops Command Center', path: '/admin/ops-command' },
     { id: 'leads', icon: Zap, label: 'Leads Pipeline', path: '/admin/leads' },
+    { id: 'sales_reports', icon: BarChart3, label: 'Sales Team Reports', path: '/admin/sales-reports' },
+    { id: 'daily_sales', icon: ShoppingBag, label: 'Daily Sales Sheet', path: '/admin/daily-sales' },
     { id: 'migrate', icon: Globe, label: 'OSBIC Migrate Hub', path: '/admin/migrate' },
     { id: 'golden_visa', icon: Crown, label: 'Golden Visa Desk', path: '/admin/golden-visa' },
     { id: 'global_visa', icon: Plane, label: 'Global Tourist Visas', path: '/admin/global-visa' },
     { id: 'marketing', icon: Megaphone, label: 'sidebar.marketing', path: '/admin/marketing' },
     { id: 'approvals', icon: Shield, label: 'sidebar.approvals', path: '/admin/approvals', badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined },
     { id: 'finance', icon: Wallet, label: 'sidebar.finance', path: '/admin/finance' },
+    { id: 'accounts', icon: Wallet, label: 'Accounts & Verification', path: '/admin/accounts' },
+    { id: 'journal', icon: BookOpen, label: 'Journal & P&L', path: '/admin/accounts/journal' },
+    { id: 'job_margins', icon: TrendingUp, label: 'Job Margins & Income', path: '/admin/accounts/income-expenses' },
+    { id: 'receivables', icon: Wallet, label: 'Client Receivables', path: '/admin/accounts/receivables' },
+    { id: 'gov_audit', icon: Landmark, label: 'Gov Fees Audit', path: '/admin/accounts/gov-audit' },
     { id: 'sales_audit', icon: DollarSign, label: 'Sales & Receipts Audit', path: '/admin/sales-audit' },
     { id: 'gov_outflows', icon: Landmark, label: 'Gov & Supplier Outflows', path: '/admin/gov-outflows' },
     { id: 'team_directory', icon: Users, label: 'Team Directory & Radar', path: '/admin/team-directory' },

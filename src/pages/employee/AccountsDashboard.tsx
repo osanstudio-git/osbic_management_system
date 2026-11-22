@@ -11,6 +11,7 @@ import { useAccountsOverview } from '../../hooks/employee/useAccountsOverview';
 import { useNavigate } from 'react-router-dom';
 import { downloadInvoice, downloadReceipt } from '../../utils/invoiceGenerator';
 import { getPaymentReceivedDate, formatPaymentReceivedDate } from '../../utils/paymentUtils';
+import AccountsNavHeader from '../../components/employee/accounts/AccountsNavHeader';
 
 interface AccountsDashboardProps {
   hideHeader?: boolean;
@@ -370,6 +371,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           </div>
         </div>
       )}
+
+      {/* Navigation Suite */}
+      <AccountsNavHeader activePage="overview" />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

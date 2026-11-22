@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import type { Lead } from '../../hooks/shared/useLeads';
+import { ensureClientProfile } from '../../utils/clientProvisioning';
 
 interface Props {
   isOpen: boolean;
@@ -73,27 +74,15 @@ export const AssignToOmanOpsModal: React.FC<Props> = ({
       // 1. Ensure client profile exists
       let clientId = lead.client_id;
       if (!clientId) {
-        const clientCode = `CLT-KSA-${Date.now().toString().slice(-4)}`;
-        const { data: newClient, error: clientErr } = await supabase
-          .from('profiles')
-          .insert({
-            full_name: lead.contact_name,
-            company_name: lead.company_name || null,
-            phone: lead.contact_phone,
-            whatsapp: lead.contact_whatsapp || lead.contact_phone,
-            nationality: lead.nationality || 'Saudi Arabia',
-            role: 'client',
-            client_code: clientCode,
-            b2b_partner_id: lead.b2b_partner_id || null,
-            is_saudi_client: true,
-            created_by: user?.id
-          })
-          .select('id')
-          .single();
-
-        if (!clientErr && newClient) {
-          clientId = newClient.id;
-        }
+        clientId = await ensureClientProfile({
+          fullName: lead.contact_name,
+          companyName: lead.company_name || null,
+          phone: lead.contact_phone,
+          whatsapp: lead.contact_whatsapp || lead.contact_phone,
+          nationality: lead.nationality || 'Saudi Arabia',
+          createdBy: user?.id,
+          leadId: lead.id
+        });
       }
 
       // 2. Generate specialized Saudi Job Code

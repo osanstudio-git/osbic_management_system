@@ -64,6 +64,22 @@ export interface Employee {
   passport_expiry?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
+  emergency_contact_relation?: string | null;
+  nationality?: string | null;
+  blood_group?: string | null;
+  residence_address?: string | null;
+  contract_type?: 'full_time' | 'probation' | 'part_time' | 'remote' | null;
+  probation_end_date?: string | null;
+  notice_period_days?: number | null;
+  labor_card_number?: string | null;
+  labor_card_expiry?: string | null;
+  housing_allowance?: number | null;
+  transport_allowance?: number | null;
+  other_allowance?: number | null;
+  gross_salary?: number | null;
+  bank_name?: string | null;
+  bank_iban?: string | null;
+  bank_account_number?: string | null;
 }
 
 // ─── List All Employees (with optional branch filter) ─────────────────────────
@@ -338,6 +354,22 @@ export const useCreateEmployee = () => {
         if ((newEmployee as any).passport_expiry !== undefined) extraProfileUpdates.passport_expiry = (newEmployee as any).passport_expiry;
         if ((newEmployee as any).emergency_contact_name !== undefined) extraProfileUpdates.emergency_contact_name = (newEmployee as any).emergency_contact_name;
         if ((newEmployee as any).emergency_contact_phone !== undefined) extraProfileUpdates.emergency_contact_phone = (newEmployee as any).emergency_contact_phone;
+        if ((newEmployee as any).emergency_contact_relation !== undefined) extraProfileUpdates.emergency_contact_relation = (newEmployee as any).emergency_contact_relation;
+        if ((newEmployee as any).nationality !== undefined) extraProfileUpdates.nationality = (newEmployee as any).nationality;
+        if ((newEmployee as any).blood_group !== undefined) extraProfileUpdates.blood_group = (newEmployee as any).blood_group;
+        if ((newEmployee as any).residence_address !== undefined) extraProfileUpdates.residence_address = (newEmployee as any).residence_address;
+        if ((newEmployee as any).contract_type !== undefined) extraProfileUpdates.contract_type = (newEmployee as any).contract_type;
+        if ((newEmployee as any).probation_end_date !== undefined) extraProfileUpdates.probation_end_date = (newEmployee as any).probation_end_date;
+        if ((newEmployee as any).notice_period_days !== undefined) extraProfileUpdates.notice_period_days = (newEmployee as any).notice_period_days;
+        if ((newEmployee as any).labor_card_number !== undefined) extraProfileUpdates.labor_card_number = (newEmployee as any).labor_card_number;
+        if ((newEmployee as any).labor_card_expiry !== undefined) extraProfileUpdates.labor_card_expiry = (newEmployee as any).labor_card_expiry;
+        if ((newEmployee as any).housing_allowance !== undefined) extraProfileUpdates.housing_allowance = (newEmployee as any).housing_allowance;
+        if ((newEmployee as any).transport_allowance !== undefined) extraProfileUpdates.transport_allowance = (newEmployee as any).transport_allowance;
+        if ((newEmployee as any).other_allowance !== undefined) extraProfileUpdates.other_allowance = (newEmployee as any).other_allowance;
+        if ((newEmployee as any).gross_salary !== undefined) extraProfileUpdates.gross_salary = (newEmployee as any).gross_salary;
+        if ((newEmployee as any).bank_name !== undefined) extraProfileUpdates.bank_name = (newEmployee as any).bank_name;
+        if ((newEmployee as any).bank_iban !== undefined) extraProfileUpdates.bank_iban = (newEmployee as any).bank_iban;
+        if ((newEmployee as any).bank_account_number !== undefined) extraProfileUpdates.bank_account_number = (newEmployee as any).bank_account_number;
         
         if (Object.keys(extraProfileUpdates).length > 0) {
           try {
@@ -426,6 +458,22 @@ export const useUpdateEmployee = () => {
         if (updates.passport_expiry !== undefined) extraUpdateFields.passport_expiry = updates.passport_expiry;
         if (updates.emergency_contact_name !== undefined) extraUpdateFields.emergency_contact_name = updates.emergency_contact_name;
         if (updates.emergency_contact_phone !== undefined) extraUpdateFields.emergency_contact_phone = updates.emergency_contact_phone;
+        if ((updates as any).emergency_contact_relation !== undefined) extraUpdateFields.emergency_contact_relation = (updates as any).emergency_contact_relation;
+        if ((updates as any).nationality !== undefined) extraUpdateFields.nationality = (updates as any).nationality;
+        if ((updates as any).blood_group !== undefined) extraUpdateFields.blood_group = (updates as any).blood_group;
+        if ((updates as any).residence_address !== undefined) extraUpdateFields.residence_address = (updates as any).residence_address;
+        if ((updates as any).contract_type !== undefined) extraUpdateFields.contract_type = (updates as any).contract_type;
+        if ((updates as any).probation_end_date !== undefined) extraUpdateFields.probation_end_date = (updates as any).probation_end_date;
+        if ((updates as any).notice_period_days !== undefined) extraUpdateFields.notice_period_days = (updates as any).notice_period_days;
+        if ((updates as any).labor_card_number !== undefined) extraUpdateFields.labor_card_number = (updates as any).labor_card_number;
+        if ((updates as any).labor_card_expiry !== undefined) extraUpdateFields.labor_card_expiry = (updates as any).labor_card_expiry;
+        if ((updates as any).housing_allowance !== undefined) extraUpdateFields.housing_allowance = (updates as any).housing_allowance;
+        if ((updates as any).transport_allowance !== undefined) extraUpdateFields.transport_allowance = (updates as any).transport_allowance;
+        if ((updates as any).other_allowance !== undefined) extraUpdateFields.other_allowance = (updates as any).other_allowance;
+        if ((updates as any).gross_salary !== undefined) extraUpdateFields.gross_salary = (updates as any).gross_salary;
+        if ((updates as any).bank_name !== undefined) extraUpdateFields.bank_name = (updates as any).bank_name;
+        if ((updates as any).bank_iban !== undefined) extraUpdateFields.bank_iban = (updates as any).bank_iban;
+        if ((updates as any).bank_account_number !== undefined) extraUpdateFields.bank_account_number = (updates as any).bank_account_number;
 
         if (Object.keys(extraUpdateFields).length > 0) {
           try {

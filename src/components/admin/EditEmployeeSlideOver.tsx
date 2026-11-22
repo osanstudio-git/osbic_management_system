@@ -41,6 +41,23 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
     date_of_joining: '',
     leave_balance: 30,
     basic_salary: 0,
+    housing_allowance: 0,
+    transport_allowance: 0,
+    other_allowance: 0,
+    bank_name: '',
+    bank_iban: '',
+    bank_account_number: '',
+    nationality: 'Omani',
+    blood_group: '',
+    residence_address: '',
+    contract_type: 'full_time' as 'full_time' | 'probation' | 'part_time' | 'remote',
+    probation_end_date: '',
+    notice_period_days: 30,
+    labor_card_number: '',
+    labor_card_expiry: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relation: '',
     visa_expiry: '',
     civil_id_expiry: '',
     passport_expiry: '',
@@ -83,6 +100,23 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         date_of_joining: employee.date_of_joining || '',
         leave_balance: employee.leave_balance ?? 30,
         basic_salary: employee.basic_salary ?? 0,
+        housing_allowance: employee.housing_allowance ?? 0,
+        transport_allowance: employee.transport_allowance ?? 0,
+        other_allowance: employee.other_allowance ?? 0,
+        bank_name: employee.bank_name || '',
+        bank_iban: employee.bank_iban || '',
+        bank_account_number: employee.bank_account_number || '',
+        nationality: employee.nationality || 'Omani',
+        blood_group: employee.blood_group || '',
+        residence_address: employee.residence_address || '',
+        contract_type: (employee.contract_type || 'full_time') as any,
+        probation_end_date: employee.probation_end_date || '',
+        notice_period_days: employee.notice_period_days ?? 30,
+        labor_card_number: employee.labor_card_number || '',
+        labor_card_expiry: employee.labor_card_expiry || '',
+        emergency_contact_name: employee.emergency_contact_name || '',
+        emergency_contact_phone: employee.emergency_contact_phone || '',
+        emergency_contact_relation: employee.emergency_contact_relation || '',
         visa_expiry: employee.visa_expiry || '',
         civil_id_expiry: employee.civil_id_expiry || '',
         passport_expiry: employee.passport_expiry || '',
@@ -168,6 +202,24 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
         date_of_joining: formData.date_of_joining || null,
         leave_balance: Number(formData.leave_balance) || 0,
         basic_salary: Number(formData.basic_salary) || 0,
+        housing_allowance: Number(formData.housing_allowance) || 0,
+        transport_allowance: Number(formData.transport_allowance) || 0,
+        other_allowance: Number(formData.other_allowance) || 0,
+        gross_salary: (Number(formData.basic_salary) || 0) + (Number(formData.housing_allowance) || 0) + (Number(formData.transport_allowance) || 0) + (Number(formData.other_allowance) || 0),
+        bank_name: formData.bank_name || null,
+        bank_iban: formData.bank_iban || null,
+        bank_account_number: formData.bank_account_number || null,
+        nationality: formData.nationality || null,
+        blood_group: formData.blood_group || null,
+        residence_address: formData.residence_address || null,
+        contract_type: formData.contract_type || 'full_time',
+        probation_end_date: formData.probation_end_date || null,
+        notice_period_days: Number(formData.notice_period_days) || 30,
+        labor_card_number: formData.labor_card_number || null,
+        labor_card_expiry: formData.labor_card_expiry || null,
+        emergency_contact_name: formData.emergency_contact_name || null,
+        emergency_contact_phone: formData.emergency_contact_phone || null,
+        emergency_contact_relation: formData.emergency_contact_relation || null,
         visa_expiry: formData.visa_expiry || null,
         civil_id_expiry: formData.civil_id_expiry || null,
         passport_expiry: formData.passport_expiry || null,
@@ -487,25 +539,159 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                       </div>
                     </div>
 
+                    {/* Extended Identity & Contract */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-white/5">
+                      <div>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Nationality</label>
+                        <input
+                          type="text"
+                          value={formData.nationality}
+                          onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                          placeholder="e.g. Omani, Indian"
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Blood Group</label>
+                        <input
+                          type="text"
+                          value={formData.blood_group}
+                          onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
+                          placeholder="e.g. O+, A+"
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Contract Type</label>
+                        <select
+                          value={formData.contract_type}
+                          onChange={(e) => setFormData({ ...formData, contract_type: e.target.value as any })}
+                          className="w-full bg-[#0A0F1E] border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                        >
+                          <option value="full_time">Full Time</option>
+                          <option value="probation">Probationary</option>
+                          <option value="part_time">Part Time</option>
+                          <option value="remote">Remote</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
                       <div>
-                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Emergency Contact Name</label>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Labor Card Number</label>
+                        <input
+                          type="text"
+                          value={formData.labor_card_number}
+                          onChange={(e) => setFormData({ ...formData, labor_card_number: e.target.value })}
+                          placeholder="MOL Labor Card No"
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Labor Card Expiry</label>
+                        <input
+                          type="date"
+                          value={formData.labor_card_expiry}
+                          onChange={(e) => setFormData({ ...formData, labor_card_expiry: e.target.value })}
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* WPS Payroll Structure */}
+                    <div className="pt-2 border-t border-white/5 space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        💰 WPS Payroll & Allowances (OMR)
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground mb-0.5">Housing</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={formData.housing_allowance}
+                            onChange={(e) => setFormData({ ...formData, housing_allowance: Number(e.target.value) })}
+                            className="w-full bg-white/5 border border-border rounded-xl px-2 py-1 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground mb-0.5">Transport</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={formData.transport_allowance}
+                            onChange={(e) => setFormData({ ...formData, transport_allowance: Number(e.target.value) })}
+                            className="w-full bg-white/5 border border-border rounded-xl px-2 py-1 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground mb-0.5">Other</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={formData.other_allowance}
+                            onChange={(e) => setFormData({ ...formData, other_allowance: Number(e.target.value) })}
+                            className="w-full bg-white/5 border border-border rounded-xl px-2 py-1 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground mb-0.5">Bank Name</label>
+                          <input
+                            type="text"
+                            value={formData.bank_name}
+                            onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                            placeholder="e.g. Bank Muscat"
+                            className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground mb-0.5">Bank IBAN</label>
+                          <input
+                            type="text"
+                            value={formData.bank_iban}
+                            onChange={(e) => setFormData({ ...formData, bank_iban: e.target.value })}
+                            placeholder="OM00..."
+                            className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-white/5">
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">Emergency Contact</label>
                         <input
                           type="text"
                           value={formData.emergency_contact_name}
                           onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
-                          className="w-full bg-white/5 border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
                           placeholder="Contact person"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">Emergency Phone</label>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">Emergency Phone</label>
                         <input
                           type="tel"
                           value={formData.emergency_contact_phone}
                           onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
-                          className="w-full bg-white/5 border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
                           placeholder="+968 ..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted-foreground mb-0.5">Relation</label>
+                        <input
+                          type="text"
+                          value={formData.emergency_contact_relation}
+                          onChange={(e) => setFormData({ ...formData, emergency_contact_relation: e.target.value })}
+                          className="w-full bg-white/5 border border-border rounded-xl px-2.5 py-1.5 text-foreground focus:outline-none focus:border-blue-500 transition-colors text-xs"
+                          placeholder="e.g. Brother, Spouse"
                         />
                       </div>
                     </div>

@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import {
   ChevronLeft, Edit3, Key, Ban, Mail, Phone, Calendar,
   Clock, CheckCircle, TrendingUp,
-  FileText, Activity, UserCheck, AlertCircle, Trash2, ChevronRight
+  FileText, Activity, UserCheck, AlertCircle, Trash2, ChevronRight,
+  ShieldCheck, Shield
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -20,6 +21,8 @@ import EditEmployeeSlideOver from '../../components/admin/EditEmployeeSlideOver'
 import ResetPasswordModal from '../../components/admin/ResetPasswordModal';
 import ConfirmStatusModal from '../../components/admin/ConfirmStatusModal';
 import DeleteEmployeeModal from '../../components/admin/DeleteEmployeeModal';
+import { EmployeeDossierView } from '../../components/admin/EmployeeDossierView';
+import { EmployeeDocumentsVault } from '../../components/admin/EmployeeDocumentsVault';
 import Skeleton from '../../components/ui/Skeleton';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -42,7 +45,7 @@ const EmployeeDetail = () => {
   const { mutate: updateEmployee, isPending: isUpdating } = useUpdateEmployee();
   const { mutate: deleteEmployee, isPending: isDeleting } = useDeleteEmployee();
 
-  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'performance' | 'audit'>('active');
+  const [activeTab, setActiveTab] = useState<'dossier' | 'documents' | 'active' | 'completed' | 'performance' | 'audit'>('dossier');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -104,6 +107,8 @@ const EmployeeDetail = () => {
   };
 
   const tabs = [
+    { id: 'dossier', label: 'HR Dossier & WPS', icon: UserCheck },
+    { id: 'documents', label: 'Document Vault', icon: ShieldCheck },
     { id: 'active', label: 'Active Jobs', icon: Clock, count: emp.active_jobs || 0 },
     { id: 'completed', label: 'Completed Jobs', icon: CheckCircle, count: emp.total_jobs || 0 },
     { id: 'performance', label: 'Performance Analytics', icon: TrendingUp },
@@ -363,6 +368,14 @@ const EmployeeDetail = () => {
         className="bg-card border border-border rounded-3xl p-8 shadow-2xl min-h-[500px] relative overflow-hidden"
       >
         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gold/20 via-transparent to-transparent opacity-30" />
+
+        {activeTab === 'dossier' && (
+          <EmployeeDossierView employee={emp} onEditClick={() => setIsEditOpen(true)} />
+        )}
+
+        {activeTab === 'documents' && (
+          <EmployeeDocumentsVault employeeId={emp.id} employeeName={emp.full_name} />
+        )}
 
         {activeTab === 'active' && (
           <div className="space-y-6">

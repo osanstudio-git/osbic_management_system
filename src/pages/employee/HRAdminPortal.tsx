@@ -7,7 +7,7 @@ import {
   ChevronRight, ArrowUpRight, Plus, RefreshCw, X, AlertCircle,
   FileCheck, ShieldAlert, UserCheck, Phone, Check, ArrowRight,
   Printer, UploadCloud, TrendingUp, Paperclip, BarChart3, PieChart as PieChartIcon,
-  CheckSquare, Wallet, CreditCard
+  CheckSquare, Wallet, CreditCard, ShoppingBag, Compass
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -31,12 +31,15 @@ import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import EditEmployeeSlideOver from '../../components/admin/EditEmployeeSlideOver';
 import Finance from '../admin/Finance';
 import AccountsDashboard from './AccountsDashboard';
+import WalkinSales from './WalkinSales';
+import OpsCommandCenter from './OpsCommandCenter';
+import SalesTeamReports from './SalesTeamReports';
 import { format, parseISO, isToday, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-type MasterTab = 'dashboard' | 'finance' | 'accounts' | 'sales' | 'gov_outflows' | 'team' | 'leaves_attendance';
+type MasterTab = 'dashboard' | 'finance' | 'daily_sales' | 'sales' | 'sales_reports' | 'ops_command' | 'gov_outflows' | 'team' | 'leaves_attendance' | 'accounts';
 type TimeframePreset = 'today' | 'week' | 'month' | 'all';
 
 interface HRAdminPortalProps {
@@ -764,6 +767,42 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
             </button>
 
             <button
+              onClick={() => setActiveTab('daily_sales')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'daily_sales'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <ShoppingBag size={15} />
+              <span>{isRtl ? 'المبيعات اليومية المباشرة' : 'Daily Sales Sheet'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sales_reports')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'sales_reports'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <BarChart3 size={15} />
+              <span>{isRtl ? 'تقارير فريق المبيعات' : 'Sales Team Reports'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ops_command')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
+                activeTab === 'ops_command'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 font-black'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+            >
+              <Compass size={15} />
+              <span>{isRtl ? 'غرفة عمليات التوزيع' : 'Ops Command Center'}</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('sales')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
                 activeTab === 'sales'
@@ -1285,6 +1324,42 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           className="space-y-6 pt-1"
         >
           <AccountsDashboard hideHeader />
+        </motion.div>
+      )}
+
+      {/* ─── TAB: DAILY SALES SHEET (EMBEDDED) ────────────────────────────── */}
+      {activeTab === 'daily_sales' && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="space-y-6 pt-1"
+        >
+          <WalkinSales />
+        </motion.div>
+      )}
+
+      {/* ─── TAB: SALES TEAM REPORTS (EMBEDDED) ───────────────────────────── */}
+      {activeTab === 'sales_reports' && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="space-y-6 pt-1"
+        >
+          <SalesTeamReports />
+        </motion.div>
+      )}
+
+      {/* ─── TAB: OPERATIONS COMMAND CENTER (EMBEDDED) ───────────────────── */}
+      {activeTab === 'ops_command' && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="space-y-6 pt-1"
+        >
+          <OpsCommandCenter />
         </motion.div>
       )}
 

@@ -110,6 +110,22 @@ export interface Database {
         passport_expiry: string | null
         emergency_contact_name: string | null
         emergency_contact_phone: string | null
+        emergency_contact_relation: string | null
+        nationality: string | null
+        blood_group: string | null
+        residence_address: string | null
+        contract_type: 'full_time' | 'probation' | 'part_time' | 'remote' | null
+        probation_end_date: string | null
+        notice_period_days: number | null
+        labor_card_number: string | null
+        labor_card_expiry: string | null
+        housing_allowance: number | null
+        transport_allowance: number | null
+        other_allowance: number | null
+        gross_salary: number | null
+        bank_name: string | null
+        bank_iban: string | null
+        bank_account_number: string | null
       }, never, 'role'>
 
 

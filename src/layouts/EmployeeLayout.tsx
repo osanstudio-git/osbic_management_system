@@ -38,7 +38,9 @@ import {
    Wallet,
    FileSpreadsheet,
    Crown,
-   Plane
+   Plane,
+   BookOpen,
+   TrendingUp
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -198,7 +200,13 @@ const EmployeeLayout: React.FC = () => {
     { key: 'messages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare, path: '/employee/messages' },
     { key: 'notifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, path: '/employee/notifications' },
     ...(profile?.can_do_marketing ? [{ key: 'marketing', label: isRtl ? 'التسويق والإعلانات' : 'Marketing & Ads', icon: Megaphone, path: '/employee/marketing' }] : []),
-    ...(profile?.can_do_accounts || isHRAdmin ? [{ key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' }] : []),
+    ...(profile?.can_do_accounts || isHRAdmin ? [
+      { key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' },
+      { key: 'accounts_journal', label: isRtl ? 'دفتر اليومية والأرباح P&L' : 'Journal & P&L', icon: BookOpen, path: '/employee/accounts/journal' },
+      { key: 'accounts_income_exp', label: isRtl ? 'إيرادات وتكاليف المعاملات' : 'Job Margins & Income', icon: TrendingUp, path: '/employee/accounts/income-expenses' },
+      { key: 'accounts_receivables', label: isRtl ? 'مستحقات وديون العملاء' : 'Client Receivables', icon: Wallet, path: '/employee/accounts/receivables' },
+      { key: 'accounts_gov_audit', label: isRtl ? 'تدقيق الرسوم الحكومية' : 'Gov Fees Audit', icon: Landmark, path: '/employee/accounts/gov-audit' },
+    ] : []),
     ...(isHRAdmin ? [
       { key: 'hr_finance', label: isRtl ? 'المركز المالي والمبيعات' : 'Finance & Revenue', icon: Wallet, path: '/employee/finance' },
       { key: 'hr_sales_audit', label: isRtl ? 'تدقيق سندات المبيعات' : 'Sales Receipt Audit', icon: DollarSign, path: '/employee/sales-audit' },
