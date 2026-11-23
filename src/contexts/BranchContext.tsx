@@ -38,21 +38,23 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { profile, role } = useAuth();
 
   const isSuperAdmin = role === 'admin';
-  const isBranchManager = Boolean(role === 'employee' && profile?.is_manager && profile?.branch_id);
+  const isAccountsOrHR = Boolean(profile?.can_do_accounts || profile?.department === 'hr');
+  const canSwitchBranches = isSuperAdmin || isAccountsOrHR;
+  const isBranchManager = Boolean(role === 'employee' && profile?.is_manager && profile?.branch_id && !canSwitchBranches);
 
-  // Restore from localStorage on load (for Admins)
+  // Restore from localStorage on load (for Admins & Accounts)
   const [selectedBranchIdState, setSelectedBranchIdState] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEY) || null;
   });
 
-  // For Branch Managers, lock branch to their assigned branch_id
+  // For Branch Managers, lock branch to their assigned branch_id. For Super Admins & Accounts, use selectedBranchIdState (default null = All Branches)
   const effectiveBranchId = isBranchManager
     ? profile?.branch_id || null
-    : isSuperAdmin
+    : canSwitchBranches
       ? selectedBranchIdState
       : (profile?.branch_id || null);
 
-  // Persist selection to localStorage whenever it changes (for Super Admins)
+  // Persist selection to localStorage whenever it changes
   const setSelectedBranchId = (id: string | null) => {
     if (isBranchManager) {
       // Branch Managers are locked to their branch
@@ -71,6 +73,9 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     queryClient.invalidateQueries({ queryKey: ['accounts_overview'] });
     queryClient.invalidateQueries({ queryKey: ['leads'] });
     queryClient.invalidateQueries({ queryKey: ['branch_team'] });
+    queryClient.invalidateQueries({ queryKey: ['pending_payments'] });
+    queryClient.invalidateQueries({ queryKey: ['history_payments'] });
+    queryClient.invalidateQueries({ queryKey: ['all_jobs_report'] });
   };
 
   const { data: branches = [], isLoading: loadingBranches } = useQuery({
@@ -96,13 +101,13 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Validate that the stored branch still exists (handles deactivated branches)
   useEffect(() => {
-    if (!loadingBranches && branches.length > 0 && selectedBranchIdState && isSuperAdmin) {
+    if (!loadingBranches && branches.length > 0 && selectedBranchIdState && canSwitchBranches) {
       const stillExists = branches.some(b => b.id === selectedBranchIdState && b.is_active);
       if (!stillExists) {
         setSelectedBranchId(null);
       }
     }
-  }, [branches, loadingBranches, isSuperAdmin, selectedBranchIdState]);
+  }, [branches, loadingBranches, canSwitchBranches, selectedBranchIdState]);
 
   const selectedBranch = branches.find(b => b.id === effectiveBranchId) || null;
 

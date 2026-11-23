@@ -9,6 +9,7 @@ import { useBranch } from '../../../contexts/BranchContext';
 interface AccountsNavHeaderProps {
   title?: string;
   description?: string;
+  activePage?: string;
   selectedBranchId?: string | null;
   onBranchChange?: (branchId: string | null) => void;
   children?: React.ReactNode;

@@ -344,7 +344,7 @@ const EmployeeLayout: React.FC = () => {
     ...(profile?.can_do_accounts || isHRAdmin ? [{
       type: 'group' as const,
       key: 'finance_group',
-      label: isRtl ? 'المالية والحسابات' : 'Finance & Accounts',
+      label: isRtl ? 'المالية' : 'Finance',
       icon: Wallet,
       basePaths: ['/employee/accounts', '/employee/finance', '/employee/sales-audit', '/employee/gov-outflows'],
       children: [
@@ -359,13 +359,13 @@ const EmployeeLayout: React.FC = () => {
     ...(isHRAdmin ? [{
       type: 'group' as const,
       key: 'hr_group',
-      label: isRtl ? 'الموارد البشرية والإدارة' : 'HR Management',
+      label: isRtl ? 'الموارد البشرية' : 'HR',
       icon: Building2,
       basePaths: ['/employee/team-directory', '/employee/leaves-attendance', '/employee/hr'],
       children: [
-        { key: 'hr_employees', label: isRtl ? 'سجل وتفاصيل الموظفين' : 'Employee Details', icon: Users, path: '/employee/team-directory?view=employees' },
-        { key: 'hr_expiries', label: isRtl ? 'رادار الصلاحيات والامتثال' : 'Expiry Radar & Compliance', icon: Clock, path: '/employee/team-directory?view=expiries' },
-        { key: 'hr_leaves', label: isRtl ? 'الإجازات والحضور اليومي' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
+        { key: 'hr_employees', label: isRtl ? 'تفاصيل الموظفين' : 'Employee Details', icon: Users, path: '/employee/team-directory?view=employees' },
+        { key: 'hr_expiries', label: isRtl ? 'رادار الصلاحيات والوثائق' : 'Expiry Things & Radar', icon: Clock, path: '/employee/team-directory?view=expiries' },
+        { key: 'hr_leaves', label: isRtl ? 'الإجازات وسجل الحضور' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
       ]
     }] : []),
 
@@ -557,8 +557,8 @@ const EmployeeLayout: React.FC = () => {
               </div>
             )}
 
-            {/* Branch Switcher — Super Admin only */}
-            {profile?.role === 'admin' && (
+            {/* Branch Switcher — Super Admin & Accounts/HR */}
+            {(profile?.role === 'admin' || profile?.can_do_accounts || profile?.department === 'hr') && (
               <div className="relative">
                 <button
                   onClick={() => setBranchDropdownOpen(o => !o)}

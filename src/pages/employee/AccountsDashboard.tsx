@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar } from 'lucide-react';
+import { useBranch } from '../../contexts/BranchContext';
+import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar, Globe, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,7 +40,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'sales_report' | 'receivables' | 'govt_fees' | 'financials' | 'expenses' | 'history'>('overview');
+  const { branches, selectedBranchId, setSelectedBranchId, selectedBranch } = useBranch();
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'branches' | 'sales_report' | 'receivables' | 'govt_fees' | 'financials' | 'expenses' | 'history'>('overview');
 
   // Payment Proof Modal State
   const [proofModalOpen, setProofModalOpen] = useState(false);
@@ -63,56 +65,87 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
   const [receivablesSubTab, setReceivablesSubTab] = useState<'due' | 'surplus'>('due');
 
   const { pendingExpenses, loadingPending, updateExpenseStatus } = useExpenses();
-  const { data: accountsData, isLoading: loadingOverview } = useAccountsOverview();
+  const { data: accountsData, isLoading: loadingOverview } = useAccountsOverview(selectedBranchId);
+  const { data: allBranchesData } = useAccountsOverview(null);
 
-  // Fetch pending payments
+  // Fetch pending payments (scoped by selected branch or full list if all)
   const { data: pendingPayments, isLoading: loadingPayments, refetch: refetchPayments } = useQuery({
-    queryKey: ['pending_payments'],
+    queryKey: ['pending_payments', selectedBranchId || 'all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('job_payments')
         .select(`
           *,
-          job:jobs(job_code, work_fee, ministry_fee, client_pays_ministry_fee, advance_receipt_url, remaining_receipt_url, sales_employee:profiles!sales_employee_id(full_name), ops_employee:profiles!ops_employee_id(full_name), client:profiles!client_id(full_name, company_name, phone)),
+          job:jobs(job_code, branch_id, branch:branches(id, name, code), work_fee, ministry_fee, client_pays_ministry_fee, advance_receipt_url, remaining_receipt_url, sales_employee:profiles!sales_employee_id(full_name), ops_employee:profiles!ops_employee_id(full_name), client:profiles!client_id(full_name, company_name, phone)),
           recorder:profiles!job_payments_recorded_by_fkey(full_name)
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      const list = data || [];
+      if (!selectedBranchId) return list;
+      return list.filter((p: any) => p.job?.branch_id === selectedBranchId);
     }
   });
 
   // Fetch verified/history payments
   const { data: historyPayments, isLoading: loadingHistory } = useQuery({
-    queryKey: ['history_payments'],
+    queryKey: ['history_payments', selectedBranchId || 'all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('job_payments')
         .select(`
           *,
-          job:jobs(job_code, client:profiles!client_id(full_name, phone)),
+          job:jobs(job_code, branch_id, branch:branches(id, name, code), client:profiles!client_id(full_name, phone)),
           recorder:profiles!job_payments_recorded_by_fkey(full_name),
           verifier:profiles!job_payments_verified_by_fkey(full_name)
         `)
         .in('status', ['verified', 'rejected'])
         .order('verified_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
+      const list = data || [];
+      if (!selectedBranchId) return list;
+      return list.filter((p: any) => p.job?.branch_id === selectedBranchId);
+    }
+  });
+
+  // Fetch All Jobs for Financial Reports & Statements (scoped to selected branch if any)
+  const { data: allJobsReport = [] } = useQuery({
+    queryKey: ['all_jobs_report', selectedBranchId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('jobs')
+        .select(`
+          *,
+          branch:branches(id, name, code),
+          client:profiles!client_id(full_name, company_name, phone),
+          sales_employee:profiles!sales_employee_id(full_name),
+          ops_employee:profiles!ops_employee_id(full_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (selectedBranchId) {
+        query = query.eq('branch_id', selectedBranchId);
+      }
+
+      const { data, error } = await query;
+      if (error) return [];
       return data || [];
     }
   });
 
-  // Fetch All Jobs for Financial Reports & Statements
-  const { data: allJobsReport = [] } = useQuery({
-    queryKey: ['all_jobs_report'],
+  // Fetch Unfiltered Jobs across all branches for branch-wise matrix calculation
+  const { data: allJobsReportAll = [] } = useQuery({
+    queryKey: ['all_jobs_report_all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jobs')
         .select(`
           *,
+          branch:branches(id, name, code),
           client:profiles!client_id(full_name, company_name, phone),
           sales_employee:profiles!sales_employee_id(full_name),
           ops_employee:profiles!ops_employee_id(full_name)
@@ -123,6 +156,74 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
       return data || [];
     }
   });
+
+  // Branch-Wise Comparative Analytics Breakdown
+  const branchBreakdown = useMemo(() => {
+    const jobs = allJobsReportAll.length > 0 ? allJobsReportAll : (allBranchesData || []);
+    
+    const results = branches.filter(b => b.is_active).map(b => {
+      const bJobs = jobs.filter((j: any) => j.branch_id === b.id);
+      const totalBilled = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_fee) || 0), 0);
+      const totalCollected = bJobs.reduce((sum: number, j: any) => sum + (Number(j.advance_amount) || 0), 0);
+      const totalSpent = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_spent) || 0), 0);
+      const totalOutstanding = bJobs.reduce((sum: number, j: any) => sum + Math.max(0, (Number(j.remaining_amount) || 0)), 0);
+      const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
+      const netMargin = Math.max(0, totalBilled - totalSpent);
+
+      const pendingCount = (pendingPayments || []).filter((p: any) => p.job?.branch_id === b.id).length;
+
+      return {
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        phone: b.phone,
+        address: b.address,
+        jobCount: bJobs.length,
+        totalBilled,
+        totalCollected,
+        totalSpent,
+        totalOutstanding,
+        collectionRate,
+        netMargin,
+        pendingCount
+      };
+    });
+
+    // Check for unassigned / online branch jobs
+    const unassignedJobs = jobs.filter((j: any) => !j.branch_id);
+    if (unassignedJobs.length > 0) {
+      const totalBilled = unassignedJobs.reduce((sum: number, j: any) => sum + (Number(j.total_fee) || 0), 0);
+      const totalCollected = unassignedJobs.reduce((sum: number, j: any) => sum + (Number(j.advance_amount) || 0), 0);
+      const totalSpent = unassignedJobs.reduce((sum: number, j: any) => sum + (Number(j.total_spent) || 0), 0);
+      const totalOutstanding = unassignedJobs.reduce((sum: number, j: any) => sum + Math.max(0, (Number(j.remaining_amount) || 0)), 0);
+      const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
+
+      results.push({
+        id: 'unassigned',
+        name: 'Direct / Online / Unassigned',
+        code: 'ONL',
+        phone: null,
+        address: null,
+        jobCount: unassignedJobs.length,
+        totalBilled,
+        totalCollected,
+        totalSpent,
+        totalOutstanding,
+        collectionRate,
+        netMargin: Math.max(0, totalBilled - totalSpent),
+        pendingCount: (pendingPayments || []).filter((p: any) => !p.job?.branch_id).length
+      });
+    }
+
+    return results;
+  }, [allJobsReportAll, allBranchesData, branches, pendingPayments]);
+
+  const grandTotalBilled = branchBreakdown.reduce((s, b) => s + b.totalBilled, 0);
+  const grandTotalCollected = branchBreakdown.reduce((s, b) => s + b.totalCollected, 0);
+  const grandTotalSpent = branchBreakdown.reduce((s, b) => s + b.totalSpent, 0);
+  const grandTotalDue = branchBreakdown.reduce((s, b) => s + b.totalOutstanding, 0);
+  const grandTotalJobs = branchBreakdown.reduce((s, b) => s + b.jobCount, 0);
+  const grandCollectionRate = grandTotalBilled > 0 ? (grandTotalCollected / grandTotalBilled) * 100 : 0;
 
   const handleViewPaymentProof = async (payment: any) => {
     let targetPath = payment?.proof_url;
@@ -171,6 +272,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
     qc.invalidateQueries({ queryKey: ['job'] });
     qc.invalidateQueries({ queryKey: ['employee', 'jobs'] });
     qc.invalidateQueries({ queryKey: ['history_payments'] });
+    qc.invalidateQueries({ queryKey: ['pending_payments'] });
+    qc.invalidateQueries({ queryKey: ['all_jobs_report'] });
+    qc.invalidateQueries({ queryKey: ['all_jobs_report_all'] });
     refetchPayments();
   };
 
@@ -373,7 +477,73 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
       )}
 
       {/* Navigation Suite */}
-      <AccountsNavHeader activePage="overview" />
+      <AccountsNavHeader activePage="overview" selectedBranchId={selectedBranchId} onBranchChange={setSelectedBranchId} />
+
+      {/* Scope / Branch Selector Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-3xl shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground pr-2">
+            <Building2 size={15} className="text-primary" />
+            <span>Branch Scope:</span>
+          </div>
+          <button
+            onClick={() => setSelectedBranchId(null)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              !selectedBranchId
+                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-black'
+                : 'bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+            }`}
+          >
+            <Globe size={13} />
+            <span>All Branches (Consolidated)</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${!selectedBranchId ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+              {allBranchesData?.length || 0}
+            </span>
+          </button>
+
+          {branches.filter(b => b.is_active).map(b => {
+            const count = (allBranchesData || []).filter(j => j.branch_id === b.id).length;
+            const isSel = selectedBranchId === b.id;
+            return (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBranchId(b.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  isSel
+                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-black'
+                    : 'bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded flex items-center justify-center text-[8px] font-mono font-bold ${isSel ? 'bg-black/25 text-white' : 'bg-primary/15 text-primary'}`}>
+                  {b.code.slice(0, 2)}
+                </span>
+                <span>{b.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${isSel ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedBranch ? (
+          <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-2xl font-bold">
+            <span>Viewing: <strong>{selectedBranch.name}</strong></span>
+            <button
+              onClick={() => setSelectedBranchId(null)}
+              className="p-1 hover:bg-primary/20 rounded-lg text-primary transition-colors"
+              title="Clear branch filter (Show all branches)"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-2xl font-bold">
+            <CheckCircle2 size={13} />
+            <span>Consolidated Sultanate Accounts (All Branches)</span>
+          </div>
+        )}
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -389,7 +559,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             <div className="text-3xl font-mono font-black text-foreground">
               {totalBilled.toFixed(3)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total revenue generated</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedBranch ? `Revenue in ${selectedBranch.name}` : 'Consolidated sales revenue'}
+            </p>
           </div>
         </div>
 
@@ -405,7 +577,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             <div className="text-3xl font-mono font-black text-emerald-500">
               {totalVerified.toFixed(3)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total collected & verified</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedBranch ? `Collections in ${selectedBranch.name}` : 'Total collected & verified'}
+            </p>
           </div>
         </div>
 
@@ -421,7 +595,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             <div className="text-3xl font-mono font-black text-rose-500">
               {totalSpent.toFixed(3)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total operational spending</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedBranch ? `Spending in ${selectedBranch.name}` : 'Total operational spending'}
+            </p>
           </div>
         </div>
 
@@ -437,7 +613,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             <div className="text-3xl font-mono font-black text-amber-500">
               {totalOutstanding.toFixed(3)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total amount due</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedBranch ? `Due in ${selectedBranch.name}` : 'Total amount due'}
+            </p>
           </div>
         </div>
       </div>
@@ -453,6 +631,18 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
               }`}
           >
             <LayoutDashboard size={16} /> Master Ledger
+          </button>
+          <button
+            onClick={() => setActiveTab('branches')}
+            className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'branches'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+          >
+            <Building2 size={16} /> Branch Breakdown
+            <span className="ml-1 bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">
+              {branches.filter(b => b.is_active).length}
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('payments')}
@@ -573,7 +763,14 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                               {job.job_code}
                               <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
                             </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(job.created_at), 'MMM d, yyyy')}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">{format(new Date(job.created_at), 'MMM d, yyyy')}</span>
+                              {job.branch?.name && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                  {job.branch.name}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -616,6 +813,188 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             </div>
           )}
 
+          {/* BRANCH BREAKDOWN TAB */}
+          {activeTab === 'branches' && (
+            <div className="space-y-6">
+              {/* Branch Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {branchBreakdown.map((b) => (
+                  <div
+                    key={b.id}
+                    className="p-6 rounded-3xl bg-card border border-border hover:border-primary/40 transition-all shadow-sm space-y-4 group relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-28 h-28 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all pointer-events-none" />
+
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+                          <Building2 size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-foreground text-base group-hover:text-primary transition-colors flex items-center gap-2">
+                            {b.name}
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase">
+                              {b.code}
+                            </span>
+                          </h4>
+                          <p className="text-xs text-muted-foreground">{b.city || 'Oman'} Branch</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {b.jobCount} deals
+                      </span>
+                    </div>
+
+                    {/* Financial Stats */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="p-3 rounded-2xl bg-muted/20 border border-border/50">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Invoiced</span>
+                        <span className="text-sm font-mono font-black text-foreground">{b.totalBilled.toFixed(3)}</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Collected</span>
+                        <span className="text-sm font-mono font-black text-emerald-400">{b.totalCollected.toFixed(3)}</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                        <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">Ops Spent</span>
+                        <span className="text-sm font-mono font-black text-rose-400">{b.totalSpent.toFixed(3)}</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Balance Due</span>
+                        <span className="text-sm font-mono font-black text-amber-400">{b.totalOutstanding.toFixed(3)}</span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-muted-foreground">Collection Efficiency</span>
+                        <span className="text-primary font-mono">{b.collectionRate.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-muted/40 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.max(0, b.collectionRate))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Footer Action */}
+                    <div className="pt-2 flex items-center justify-between border-t border-border/60">
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        Net: <strong className="text-foreground font-bold">OMR {b.netMargin.toFixed(3)}</strong>
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedBranchId(b.id === 'unassigned' ? null : b.id);
+                          setActiveTab('overview');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground text-xs font-bold transition-all flex items-center gap-1.5"
+                      >
+                        Focus Ledger <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sultanate Comparison Matrix Table */}
+              <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                <div className="p-5 border-b border-border flex items-center justify-between">
+                  <div>
+                    <h3 className="font-syne font-bold text-foreground text-base">Sultanate Branch Performance Matrix</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cross-branch financial ledger aggregation and recovery tracking</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedBranchId(null);
+                      setActiveTab('overview');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-primary/15 text-primary text-xs font-bold hover:bg-primary hover:text-primary-foreground transition-all flex items-center gap-2"
+                  >
+                    <Globe size={14} /> View Consolidated Ledger
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[950px]">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/20 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        <th className="px-6 py-4">Branch</th>
+                        <th className="px-6 py-4 text-center">Deals</th>
+                        <th className="px-6 py-4 text-right">Invoiced (OMR)</th>
+                        <th className="px-6 py-4 text-right">Cash In (OMR)</th>
+                        <th className="px-6 py-4 text-right">Ops Expenses</th>
+                        <th className="px-6 py-4 text-right">Net Margin</th>
+                        <th className="px-6 py-4 text-right">Due Balance</th>
+                        <th className="px-6 py-4 text-center">Recovery %</th>
+                        <th className="px-6 py-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {branchBreakdown.map((b) => (
+                        <tr key={b.id} className="hover:bg-muted/10 transition-colors">
+                          <td className="px-6 py-4 font-bold text-foreground flex items-center gap-2.5">
+                            <Building2 size={16} className="text-primary shrink-0" />
+                            <div>
+                              <span>{b.name}</span>
+                              <span className="block text-[10px] text-muted-foreground font-mono">{b.code}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center font-mono font-bold text-foreground">{b.jobCount}</td>
+                          <td className="px-6 py-4 text-right font-mono font-bold text-foreground">{b.totalBilled.toFixed(3)}</td>
+                          <td className="px-6 py-4 text-right font-mono font-bold text-emerald-400">{b.totalCollected.toFixed(3)}</td>
+                          <td className="px-6 py-4 text-right font-mono font-bold text-rose-400">{b.totalSpent.toFixed(3)}</td>
+                          <td className="px-6 py-4 text-right font-mono font-bold text-primary">{b.netMargin.toFixed(3)}</td>
+                          <td className="px-6 py-4 text-right font-mono font-bold text-amber-400">{b.totalOutstanding.toFixed(3)}</td>
+                          <td className="px-6 py-4 text-center font-mono font-bold">
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${
+                              b.collectionRate >= 80 ? 'bg-emerald-500/10 text-emerald-400' :
+                              b.collectionRate >= 50 ? 'bg-amber-500/10 text-amber-400' :
+                              'bg-rose-500/10 text-rose-400'
+                            }`}>
+                              {b.collectionRate.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <button
+                              onClick={() => {
+                                setSelectedBranchId(b.id === 'unassigned' ? null : b.id);
+                                setActiveTab('overview');
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-bold transition-all"
+                            >
+                              Filter
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/30 border-t-2 border-border font-bold text-foreground">
+                        <td className="px-6 py-4 flex items-center gap-2 text-primary font-syne">
+                          <Globe size={16} /> Sultanate Total
+                        </td>
+                        <td className="px-6 py-4 text-center font-mono">{grandTotalJobs}</td>
+                        <td className="px-6 py-4 text-right font-mono text-foreground">{grandTotalBilled.toFixed(3)}</td>
+                        <td className="px-6 py-4 text-right font-mono text-emerald-400">{grandTotalCollected.toFixed(3)}</td>
+                        <td className="px-6 py-4 text-right font-mono text-rose-400">{grandTotalSpent.toFixed(3)}</td>
+                        <td className="px-6 py-4 text-right font-mono text-primary">{(grandTotalBilled - grandTotalSpent).toFixed(3)}</td>
+                        <td className="px-6 py-4 text-right font-mono text-amber-400">{grandTotalDue.toFixed(3)}</td>
+                        <td className="px-6 py-4 text-center font-mono text-primary">
+                          <span className="px-2.5 py-1 rounded-full bg-primary/20 text-primary text-xs font-black">
+                            {grandCollectionRate.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs text-muted-foreground">-</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* PAYMENTS TAB */}
           {activeTab === 'payments' && (
             <div className="space-y-4">
@@ -646,6 +1025,11 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-widest">
                               {payment.payment_method}
                             </span>
+                            {payment.job?.branch?.name && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                                <Building2 size={10} /> {payment.job.branch.name}
+                              </span>
+                            )}
                             {payment.job?.client_pays_ministry_fee && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-widest flex items-center gap-1">
                                 <CreditCard size={9} /> Client Card — Service Charge Only

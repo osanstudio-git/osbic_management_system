@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 export interface AccountsJobOverview {
   id: string;
   job_code: string;
+  branch_id?: string | null;
+  branch?: { id: string; name: string; code: string } | null;
   status: string;
   total_fee: number;
   advance_amount: number;
@@ -15,15 +17,17 @@ export interface AccountsJobOverview {
   total_spent: number;
 }
 
-export const useAccountsOverview = () => {
+export const useAccountsOverview = (branchId?: string | null) => {
   return useQuery({
-    queryKey: ['accounts_overview'],
+    queryKey: ['accounts_overview', branchId || 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('jobs')
         .select(`
           id,
           job_code,
+          branch_id,
+          branch:branches(id, name, code),
           status,
           total_fee,
           advance_amount,
@@ -38,6 +42,12 @@ export const useAccountsOverview = () => {
         `)
         .order('created_at', { ascending: false });
 
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
 
       // Transform the data to calculate total_spent and total_paid from related tables
@@ -51,6 +61,8 @@ export const useAccountsOverview = () => {
         return {
           id: job.id,
           job_code: job.job_code,
+          branch_id: job.branch_id,
+          branch: job.branch,
           status: job.status,
           total_fee: Number(job.total_fee) || 0,
           advance_amount: totalPaid > 0 ? totalPaid : (Number(job.advance_amount) || 0),
