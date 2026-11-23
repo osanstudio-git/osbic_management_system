@@ -166,6 +166,16 @@ export const AddMigrateJobModal: React.FC<Props> = ({
         if (!fullName.trim()) throw new Error('Please enter investor / client full name');
         if (!phone.trim()) throw new Error('Please enter contact phone number');
 
+        const cleanEmail = email.trim();
+        if (cleanEmail) {
+          if (user?.email && cleanEmail.toLowerCase() === user.email.toLowerCase()) {
+            throw new Error('You cannot enter your own staff email for a client. Please enter the client\'s personal email or leave it empty.');
+          }
+          if (cleanEmail.toLowerCase().endsWith('@osbic.net')) {
+            throw new Error('OSBIC staff emails (@osbic.net) cannot be registered as clients. Please use the client\'s own personal email or leave it blank.');
+          }
+        }
+
         const clientCode = `CLT-${Date.now().toString().slice(-4)}${Math.floor(Math.random() * 90 + 10)}`;
         const finalWhatsapp = sameWhatsapp ? phone : (whatsapp || phone);
 
@@ -173,7 +183,7 @@ export const AddMigrateJobModal: React.FC<Props> = ({
           fullName: fullName.trim(),
           phone: phone.trim(),
           whatsapp: finalWhatsapp.trim(),
-          email: email.trim() || null,
+          email: cleanEmail || null,
           nationality: nationality || 'Oman',
           branchId: selectedBranchId || profile?.branch_id || null,
           createdBy: user?.id || null,
@@ -399,6 +409,8 @@ export const AddMigrateJobModal: React.FC<Props> = ({
                     <input
                       type="text"
                       required
+                      autoComplete="off"
+                      data-lpignore="true"
                       placeholder="e.g. Salim Al-Harthy"
                       value={fullName}
                       onChange={e => setFullName(e.target.value)}
@@ -430,6 +442,8 @@ export const AddMigrateJobModal: React.FC<Props> = ({
                     <input
                       type="tel"
                       required
+                      autoComplete="off"
+                      data-lpignore="true"
                       placeholder="e.g. 96891234567"
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
@@ -443,11 +457,14 @@ export const AddMigrateJobModal: React.FC<Props> = ({
                     </label>
                     <input
                       type="email"
-                      placeholder="e.g. investor@example.com"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      placeholder="Leave blank if unknown"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
                     />
+                    <span className="text-[9px] text-muted-foreground block mt-1">Do not use staff email. Leave blank if client has none.</span>
                   </div>
                 </div>
 

@@ -93,10 +93,24 @@ export async function ensureClientProfile(params: EnsureClientProfileParams): Pr
     }
   }
 
-  // 4. Match by email
+  // 4. Match by email & Staff Protection
   const rawEmail = (params.email || leadData?.contact_email || '').trim();
   const hasRealEmail = rawEmail.length > 0 && rawEmail.includes('@');
   if (hasRealEmail) {
+    // Step 4a: Explicitly prevent staff emails from being registered or linked as clients
+    const { data: staffMatch } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, email')
+      .ilike('email', rawEmail)
+      .in('role', ['employee', 'admin', 'manager', 'accountant', 'pro'])
+      .maybeSingle();
+
+    if (staffMatch) {
+      throw new Error(
+        `This email (${rawEmail}) belongs to staff member "${staffMatch.full_name}" (${staffMatch.role}). Staff accounts cannot be linked or registered as clients. Please use the client's own email address or leave it empty.`
+      );
+    }
+
     const { data: matchByEmail } = await supabase
       .from('profiles')
       .select('id, role')
@@ -152,21 +166,39 @@ export async function ensureClientProfile(params: EnsureClientProfileParams): Pr
   if (authData?.user?.id) {
     userId = authData.user.id;
   } else if (authError && hasRealEmail) {
-    // If auth user existed already with this email, fetch their profile
+    // If auth user existed already with this email, fetch their profile ONLY if they are a client
     const { data: existingProf } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, role, full_name')
       .ilike('email', rawEmail)
       .maybeSingle();
 
-    if (existingProf?.id) {
+    if (existingProf) {
+      if (existingProf.role && existingProf.role !== 'client') {
+        throw new Error(
+          `This email (${rawEmail}) is registered to staff member "${existingProf.full_name}" (${existingProf.role}). Staff accounts cannot be linked or converted to client accounts.`
+        );
+      }
       userId = existingProf.id;
     }
   }
 
-  // Fallback safety if auth signup was denied (e.g. rate limit): generate fresh UUID or lookup Walk-in Customer
+  // Fallback safety if auth signup was denied (e.g. rate limit): generate fresh UUID
   if (!userId) {
     userId = crypto.randomUUID();
+  }
+
+  // Extra safety check: Ensure target userId is never an existing staff profile before upserting
+  const { data: targetProfileCheck } = await supabase
+    .from('profiles')
+    .select('id, role, full_name')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (targetProfileCheck && targetProfileCheck.role && targetProfileCheck.role !== 'client') {
+    throw new Error(
+      `Critical security block: Target user ID belongs to staff member "${targetProfileCheck.full_name}" (${targetProfileCheck.role}). Cannot overwrite staff account.`
+    );
   }
 
   // Upsert profile in public.profiles table

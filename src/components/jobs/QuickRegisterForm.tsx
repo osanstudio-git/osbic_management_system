@@ -43,7 +43,22 @@ const QuickRegisterForm = ({ onSuccess }: Props) => {
 
       const clientCode = `CLT-${Date.now().toString().slice(-4)}`;
       const tempPassword = `Quick!${Math.random().toString(36).slice(-8)}`;
-      const email = formData.email || `${clientCode.toLowerCase()}@osbic.placeholder`;
+      const cleanEmail = formData.email?.trim();
+
+      if (cleanEmail) {
+        const { data: staffMatch } = await db
+          .from('profiles')
+          .select('id, full_name, role')
+          .ilike('email', cleanEmail)
+          .in('role', ['employee', 'admin', 'manager', 'accountant', 'pro'])
+          .maybeSingle();
+
+        if (staffMatch) {
+          throw new Error(`Email ${cleanEmail} belongs to staff member "${staffMatch.full_name}". Cannot register staff as a client.`);
+        }
+      }
+
+      const email = cleanEmail || `${clientCode.toLowerCase()}@osbic.placeholder`;
 
       // Step B: Create the auth user
       const { data: authData, error: authError } = await authClient.auth.signUp({
