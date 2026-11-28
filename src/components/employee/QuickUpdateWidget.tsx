@@ -222,6 +222,9 @@ export const QuickUpdateWidget = () => {
            : `[Paid by Client Card] Government fee: ${feeAmount.toFixed(3)} OMR`)
         : undefined;
 
+      const existingFee = Number(selectedTask.gov_fee_actual_paid) || 0;
+      const totalCumulativeFee = feeAmount > 0 ? existingFee + feeAmount : existingFee;
+
       await updateStatusMutation.mutateAsync({
         jobServiceId: selectedTask.id,
         jobId: selectedTask.job_id,
@@ -235,7 +238,28 @@ export const QuickUpdateWidget = () => {
         proId: newStatus === 'assigned_to_pro' ? proId : undefined,
         proNotes: newStatus === 'assigned_to_pro' ? proNotes : undefined,
         completedDate: newStatus === 'completed' ? completedDate : undefined,
+        govFeeActualPaid: feeAmount > 0 ? totalCumulativeFee : undefined,
+        govReceiptUrl: receiptUrl || undefined,
+        paidByClient: feeAmount > 0 ? paidByClient : undefined,
       });
+
+      // Direct sync to job_services
+      if (feeAmount > 0 || receiptUrl) {
+        const jsUpdates: any = {};
+        if (feeAmount > 0) {
+          jsUpdates.gov_fee_actual_paid = totalCumulativeFee;
+          jsUpdates.gov_paid_at = new Date().toISOString();
+          jsUpdates.gov_paid_by = profile?.id;
+          jsUpdates.gov_payment_status = paidByClient ? 'client_paid' : 'paid';
+        }
+        if (receiptUrl) {
+          jsUpdates.gov_receipt_url = receiptUrl;
+        }
+        await supabase
+          .from('job_services')
+          .update(jsUpdates)
+          .eq('id', selectedTask.id);
+      }
 
       toast.success(isRtl ? 'تم حفظ التحديث بنجاح!' : 'Update saved successfully!');
       setSelectedTask(null);
@@ -536,9 +560,23 @@ export const QuickUpdateWidget = () => {
                           </label>
                         </div>
 
+                        {/* Previous Fee Info */}
+                        {Number(selectedTask.gov_fee_actual_paid) > 0 && (
+                          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] flex items-center justify-between">
+                            <span className="text-emerald-500 font-bold">
+                              {isRtl ? 'تم دفع رسوم سابقة:' : 'Previously Paid:'}
+                            </span>
+                            <span className="font-mono font-bold text-emerald-500">
+                              {Number(selectedTask.gov_fee_actual_paid).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                            </span>
+                          </div>
+                        )}
+
                         <div className="space-y-1">
                           <label className="text-[9px] font-bold text-primary uppercase tracking-widest block">
-                            {isRtl ? 'الرسوم الحكومية الفعلية المدفوعة (ريال عماني)' : 'Actual Government Fee Spent (OMR)'}
+                            {Number(selectedTask.gov_fee_actual_paid) > 0
+                              ? (isRtl ? 'مبلغ الدفعة الإضافية (ريال عماني)' : 'Additional Payment Amount (OMR)')
+                              : (isRtl ? 'الرسوم الحكومية الفعلية المدفوعة (ريال عماني)' : 'Actual Government Fee Spent (OMR)')}
                           </label>
                           <input
                             type="text"
@@ -549,7 +587,7 @@ export const QuickUpdateWidget = () => {
                                   setActualFee(text);
                               }
                             }}
-                            placeholder="0.000 OMR"
+                            placeholder={Number(selectedTask.gov_fee_actual_paid) > 0 ? '0.000 (Optional)' : '0.000 OMR'}
                             className="w-full bg-card border border-border focus:border-primary rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-all font-mono"
                           />
                         </div>

@@ -86,15 +86,56 @@ const StatusUpdateSheet = ({
   const [proNotes, setProNotes] = useState(task.pro_notes || '');
   const [pros, setPros] = useState<any[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [actualFee, setActualFee] = useState(() => {
-    if (task.gov_fee_actual_paid != null) return String(task.gov_fee_actual_paid);
-    if (task.ministry_fee != null && Number(task.ministry_fee) > 0) return String(task.ministry_fee);
-    return '';
+
+  // 🏛️ Multi-stage Government Fee & Payments Tracking
+  const [recordedExpenses, setRecordedExpenses] = useState<any[]>(() => {
+    return (task.expenses || []).filter((e: any) => e.expense_type === 'ministry_fee' || !e.expense_type);
   });
+  const [newFeeAmount, setNewFeeAmount] = useState<string>('');
+  const [feeStageNote, setFeeStageNote] = useState<string>('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paidByClient, setPaidByClient] = useState(
     task.gov_payment_status === 'client_paid' || task.notes?.includes('[PAID BY CLIENT CARD]') || false
   );
+
+  useEffect(() => {
+    if (!task?.id) return;
+    supabase
+      .from('job_expenses')
+      .select('id, amount, notes, receipt_url, created_at, status, expense_type')
+      .eq('job_service_id', task.id)
+      .order('created_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setRecordedExpenses(data.filter((e: any) => e.expense_type === 'ministry_fee' || !e.expense_type));
+        }
+      });
+  }, [task?.id]);
+
+  const totalPreviouslyPaid = useMemo(() => {
+    if (recordedExpenses.length > 0) {
+      return recordedExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    }
+    return Number(task.gov_fee_actual_paid) || 0;
+  }, [recordedExpenses, task.gov_fee_actual_paid]);
+
+  const handleOpenReceipt = async (filePath: string) => {
+    if (!filePath) return;
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      window.open(filePath, '_blank');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(filePath, 3600);
+      if (!error && data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        toast.error('Could not open receipt');
+      }
+    } catch {
+      toast.error('Could not open receipt');
+    }
+  };
 
   const { mutateAsync: updateStatus, isPending } = useUpdateServiceStatus();
   const uploadMutation = useUploadMultipleServiceDocuments();
@@ -128,6 +169,8 @@ const StatusUpdateSheet = ({
     try {
       let receiptUrl: string | null = null;
       const targetJobId = task.job_id || task.job?.id || 'general';
+      const numNewFee = parseFloat(newFeeAmount) || 0;
+
       if (receiptFile) {
         const fileExt = receiptFile.name.split('.').pop() || 'pdf';
         const fileName = `${targetJobId}/${task.id}/${Date.now()}_gov_receipt.${fileExt}`;
@@ -139,10 +182,11 @@ const StatusUpdateSheet = ({
           receiptUrl = filePath;
 
           if (profile) {
+            const stageLabel = feeStageNote || (totalPreviouslyPaid > 0 ? `Stage ${recordedExpenses.length + 1}` : 'Initial');
             await supabase.from('job_service_documents').insert({
               job_service_id: task.id,
               job_id: targetJobId,
-              document_name: `Government Receipt - ${task.service_name || task.service?.name_en || 'Service'}`,
+              document_name: `Government Receipt (${stageLabel}) - ${task.service_name || task.service?.name_en || 'Service'}`,
               file_name: receiptFile.name,
               file_path: filePath,
               file_size: receiptFile.size,
@@ -159,6 +203,11 @@ const StatusUpdateSheet = ({
         }
       }
 
+      // Cumulative calculation: adds new installment to previously paid
+      const updatedCumulativeGovFee = numNewFee > 0 
+        ? totalPreviouslyPaid + numNewFee 
+        : totalPreviouslyPaid;
+
       await updateStatus({
         jobServiceId: task.id,
         jobId: targetJobId,
@@ -174,15 +223,15 @@ const StatusUpdateSheet = ({
         issueDate: issueDate || undefined,
         expiryDate: expiryDate || undefined,
         completedDate: newStatus === 'completed' ? completedDate : undefined,
-        govFeeActualPaid: actualFee !== '' && !isNaN(Number(actualFee)) ? Number(actualFee) : undefined,
-        govReceiptUrl: receiptUrl || undefined,
-        paidByClient,
+        govFeeActualPaid: updatedCumulativeGovFee > 0 ? updatedCumulativeGovFee : undefined,
+        govReceiptUrl: receiptUrl || task.gov_receipt_url || undefined,
+        paidByClient: numNewFee > 0 ? paidByClient : (task.gov_payment_status === 'client_paid'),
       });
 
       // Direct sync to job_services for immediate UI responsiveness
       const jsUpdates: any = {};
-      if (actualFee !== '' && !isNaN(Number(actualFee))) {
-        jsUpdates.gov_fee_actual_paid = Number(actualFee);
+      if (numNewFee > 0) {
+        jsUpdates.gov_fee_actual_paid = updatedCumulativeGovFee;
         jsUpdates.gov_paid_at = new Date().toISOString();
         jsUpdates.gov_paid_by = profile?.id;
         jsUpdates.gov_payment_status = paidByClient ? 'client_paid' : 'paid';
@@ -197,14 +246,21 @@ const StatusUpdateSheet = ({
           .eq('id', task.id);
       }
 
-      if (actualFee && Number(actualFee) > 0 && profile) {
+      // Record in job_expenses ONLY when a new fee installment is actually paid
+      if (numNewFee > 0 && profile) {
+        const stageDesc = feeStageNote
+          ? feeStageNote
+          : (totalPreviouslyPaid > 0 
+              ? `Stage ${recordedExpenses.length + 1} gov fee (Status: ${newStatus})` 
+              : (reason ? `Logged via status update (${newStatus}): ${reason}` : `Gov fee logged via status update (${newStatus})`));
+
         await supabase.from('job_expenses').insert({
           job_id: targetJobId,
           job_service_id: task.id,
-          amount: Number(actualFee),
+          amount: numNewFee,
           expense_type: 'ministry_fee',
           receipt_url: receiptUrl || task.gov_receipt_url || null,
-          notes: paidByClient ? 'Paid with client card (Direct Pay)' : (reason ? `Logged via status update: ${reason}` : 'Ministry fee logged via status update'),
+          notes: paidByClient ? `[PAID BY CLIENT CARD] ${stageDesc}` : stageDesc,
           created_by: profile.id,
           status: 'pending_approval'
         });
@@ -371,12 +427,12 @@ const StatusUpdateSheet = ({
             />
           </div>
 
-          {/* 🏛️ Government Fee & Government Receipt (Optional) */}
+          {/* 🏛️ Government Fee & Multi-Stage Payments */}
           <div className="space-y-3 p-3.5 rounded-2xl bg-primary/5 border border-primary/20">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
                 <Receipt size={13} className="text-primary" />
-                <span>{isRtl ? 'الرسوم الحكومية وإيصال الدفع (اختياري)' : 'Government Fee & Receipt (Optional)'}</span>
+                <span>{isRtl ? 'الرسوم الحكومية والمدفوعات' : 'Government Fees & Payments'}</span>
               </label>
               {task.ministry_fee != null && Number(task.ministry_fee) > 0 && (
                 <span className="text-[10px] text-muted-foreground font-mono">
@@ -385,70 +441,177 @@ const StatusUpdateSheet = ({
               )}
             </div>
 
-            {/* Direct Pay with Client Card Checkbox */}
-            <label className="flex items-center gap-2 py-1.5 px-3 bg-background/80 hover:bg-background rounded-xl border border-border cursor-pointer select-none transition-all">
-              <input
-                type="checkbox"
-                checked={paidByClient}
-                onChange={e => setPaidByClient(e.target.checked)}
-                className="w-4 h-4 rounded accent-primary bg-card border-border cursor-pointer"
-              />
-              <span className="text-[11px] font-semibold text-foreground">
-                {isRtl ? 'تم الدفع مباشرة ببطاقة العميل البنكية (دفع مباشر)' : 'Paid directly using client card (Direct Pay)'}
-              </span>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Actual Gov Fee */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
-                  {isRtl ? 'المبلغ الحكومي الفعلي' : 'Actual Gov Fee'}
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={actualFee}
-                    onChange={e => {
-                      const text = e.target.value;
-                      if (/^\d*\.?\d*$/.test(text)) {
-                        setActualFee(text);
-                      }
-                    }}
-                    placeholder={task.ministry_fee ? String(task.ministry_fee) : '0.000'}
-                    className="w-full bg-card border border-border focus:border-primary rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none transition-all font-mono"
-                  />
-                  <span className={`absolute ${isRtl ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground font-mono pointer-events-none`}>
-                    {isRtl ? 'ر.ع.' : 'OMR'}
+            {/* Previously Recorded Payments (if any exist) */}
+            {totalPreviouslyPaid > 0 && (
+              <div className="p-3 rounded-xl bg-card border border-emerald-500/25 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-emerald-500 font-bold text-[11px]">
+                    <CheckCircle2 size={13} />
+                    <span>{isRtl ? 'تم دفع رسوم سابقة لهذه المعاملة:' : 'Previously Paid for this Service:'}</span>
+                  </div>
+                  <span className="font-mono font-bold text-emerald-500 text-xs">
+                    {totalPreviouslyPaid.toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
                   </span>
                 </div>
-              </div>
 
-              {/* Gov Receipt Upload */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
-                  {isRtl ? 'إيصال الدفع الحكومي' : 'Government Receipt'}
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="sheet_gov_receipt_upload"
-                    className="hidden"
-                    onChange={e => setReceiptFile(e.target.files?.[0] || null)}
-                    accept="image/*,.pdf"
-                  />
-                  <label
-                    htmlFor="sheet_gov_receipt_upload"
-                    className="w-full bg-card border border-border hover:border-primary/50 rounded-xl px-3 py-2 text-xs text-foreground flex items-center justify-between cursor-pointer transition-all truncate"
-                  >
-                    <span className="truncate text-muted-foreground font-mono text-[11px]">
-                      {receiptFile 
-                        ? receiptFile.name 
-                        : (task.gov_receipt_url ? (isRtl ? '✓ إيصال مرفق (انقر للتغيير)' : '✓ Receipt attached (Change)') : (isRtl ? 'إرفاق إيصال (صورة/PDF)...' : 'Upload Receipt (PDF/Img)...'))}
-                    </span>
-                    <Upload size={13} className="text-primary shrink-0 ml-1.5" />
+                {/* List individual installments if found */}
+                {recordedExpenses.length > 0 && (
+                  <div className="space-y-1.5 pt-1 border-t border-border/40">
+                    {recordedExpenses.map((exp: any, idx: number) => (
+                      <div key={exp.id || idx} className="flex items-center justify-between text-[10px] bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/40">
+                        <div className="flex items-center gap-1.5 truncate max-w-[200px]">
+                          <span className="font-bold text-foreground">
+                            {isRtl ? `دفعة #${idx + 1}` : `Payment #${idx + 1}`}:
+                          </span>
+                          <span className="text-muted-foreground truncate">{exp.notes || (isRtl ? 'رسوم حكومية' : 'Gov fee')}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono font-semibold text-foreground">
+                            {Number(exp.amount).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                          </span>
+                          {exp.receipt_url && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReceipt(exp.receipt_url)}
+                              className="text-primary hover:text-primary/80 flex items-center gap-0.5 font-bold"
+                              title={isRtl ? 'عرض الإيصال' : 'View receipt'}
+                            >
+                              <ExternalLink size={10} />
+                              <span className="text-[9px]">{isRtl ? 'إيصال' : 'Receipt'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Fallback receipt button if task has gov_receipt_url but not in recordedExpenses */}
+                {task.gov_receipt_url && recordedExpenses.every((e: any) => !e.receipt_url) && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReceipt(task.gov_receipt_url)}
+                      className="text-primary hover:text-primary/80 flex items-center gap-1 text-[10px] font-bold"
+                    >
+                      <ExternalLink size={11} />
+                      <span>{isRtl ? 'عرض الإيصال السابق' : 'View previous receipt'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section to Record New Payment (Stage 1 or Stage 2) */}
+            <div className="space-y-3 pt-1">
+              {totalPreviouslyPaid > 0 && (
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-foreground">
+                    {isRtl ? 'هل تريد تسجيل دفعة ثانية / إضافية الآن؟' : 'Add 2nd / Additional payment for this step?'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {isRtl ? '(اختياري - لمعاملات المرحلتين مثل تعديل السجل)' : '(Optional - for 2-step services like CR update)'}
+                  </span>
+                </div>
+              )}
+
+              {/* Direct Pay with Client Card Checkbox */}
+              <label className="flex items-center gap-2 py-1.5 px-3 bg-background/80 hover:bg-background rounded-xl border border-border cursor-pointer select-none transition-all">
+                <input
+                  type="checkbox"
+                  checked={paidByClient}
+                  onChange={e => setPaidByClient(e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary bg-card border-border cursor-pointer"
+                />
+                <span className="text-[11px] font-semibold text-foreground">
+                  {isRtl ? 'تم الدفع مباشرة ببطاقة العميل البنكية (دفع مباشر)' : 'Paid directly using client card (Direct Pay)'}
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* New Fee Amount */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                    {totalPreviouslyPaid > 0 
+                      ? (isRtl ? 'مبلغ الدفعة الإضافية' : 'Additional Payment Amount')
+                      : (isRtl ? 'المبلغ الحكومي الفعلي' : 'Actual Gov Fee Amount')}
                   </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={newFeeAmount}
+                      onChange={e => {
+                        const text = e.target.value;
+                        if (/^\d*\.?\d*$/.test(text)) {
+                          setNewFeeAmount(text);
+                        }
+                      }}
+                      placeholder={totalPreviouslyPaid > 0 ? '0.000' : (task.ministry_fee ? String(task.ministry_fee) : '0.000')}
+                      className="w-full bg-card border border-border focus:border-primary rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none transition-all font-mono"
+                    />
+                    <span className={`absolute ${isRtl ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground font-mono pointer-events-none`}>
+                      {isRtl ? 'ر.ع.' : 'OMR'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Gov Receipt Upload */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                    {totalPreviouslyPaid > 0 
+                      ? (isRtl ? 'إيصال الدفعة الجديدة' : 'New Payment Receipt')
+                      : (isRtl ? 'إيصال الدفع الحكومي' : 'Government Receipt')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="sheet_gov_receipt_upload"
+                      className="hidden"
+                      onChange={e => setReceiptFile(e.target.files?.[0] || null)}
+                      accept="image/*,.pdf"
+                    />
+                    <label
+                      htmlFor="sheet_gov_receipt_upload"
+                      className="w-full bg-card border border-border hover:border-primary/50 rounded-xl px-3 py-2 text-xs text-foreground flex items-center justify-between cursor-pointer transition-all truncate"
+                    >
+                      <span className="truncate text-muted-foreground font-mono text-[11px]">
+                        {receiptFile 
+                          ? receiptFile.name 
+                          : (isRtl ? 'إرفاق إيصال (صورة/PDF)...' : 'Upload Receipt (PDF/Img)...')}
+                      </span>
+                      <Upload size={13} className="text-primary shrink-0 ml-1.5" />
+                    </label>
+                  </div>
                 </div>
               </div>
+
+              {/* Payment Stage Note / Label */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                  {isRtl ? 'وصف الدفعة / المرحلة (مثال: رسوم تقديم أولى / رسوم اعتماد نهائية)' : 'Payment Stage / Note (e.g. Initial Submission / Final CR Issuance)'}
+                </label>
+                <input
+                  type="text"
+                  value={feeStageNote}
+                  onChange={e => setFeeStageNote(e.target.value)}
+                  placeholder={totalPreviouslyPaid > 0 
+                    ? (isRtl ? 'مثال: رسوم اعتماد وإصدار السجل التجاري النهائي' : 'e.g. Final CR issuance & activity approval fee')
+                    : (isRtl ? 'مثال: رسوم التقديم الأولى عبر منصة عمان للأعمال' : 'e.g. Initial submission fee via Invest Easy')}
+                  className="w-full bg-card border border-border rounded-xl px-3.5 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Live Cumulative Summary if new payment entered */}
+              {parseFloat(newFeeAmount) > 0 && totalPreviouslyPaid > 0 && (
+                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-[11px] flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    {isRtl ? 'إجمالي الرسوم الحكومية بعد هذه الدفعة:' : 'Total Gov Fees after this payment:'}
+                  </span>
+                  <span className="font-mono font-bold text-primary text-xs">
+                    {totalPreviouslyPaid.toFixed(3)} + {parseFloat(newFeeAmount).toFixed(3)} = {(totalPreviouslyPaid + parseFloat(newFeeAmount)).toFixed(3)} {isRtl ? 'ر.ع.' : 'OMR'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Receipt Selected Badge & Clear */}
