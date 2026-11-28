@@ -108,6 +108,9 @@ export interface Database {
         visa_expiry: string | null
         civil_id_expiry: string | null
         passport_expiry: string | null
+        is_trusted?: boolean | null
+        credit_limit?: number | null
+        credit_notes?: string | null
         emergency_contact_name: string | null
         emergency_contact_phone: string | null
         emergency_contact_relation: string | null
@@ -202,7 +205,12 @@ export interface Database {
         migrate_category?: 'golden_visa' | 'global_visa' | null
         golden_route?: 'fixed_deposit' | 'itc_property' | 'omani_employees_50' | 'company_assets' | null
         audit_report_required?: boolean | null
-        payment_terms?: '50_50' | 'full' | null
+        payment_terms?: 'prepaid' | 'post_paid' | 'on_completion' | 'credit_30' | '50_50' | 'full' | string | null
+        is_credit_approved?: boolean | null
+        credit_approved_by?: string | null
+        credit_approved_at?: string | null
+        credit_due_date?: string | null
+        credit_notes?: string | null
         golden_approval_status?: 'pending' | 'approved' | 'rejected' | null
         golden_approved_at?: string | null
         id_card_status?: 'pending' | 'issued' | null
@@ -682,7 +690,10 @@ export interface Database {
         pool_claimed_by: string | null
         notes: string | null
         is_funded: boolean
+        is_credit_approved?: boolean | null
         credit_authorized_by: string | null
+        credit_authorized_at?: string | null
+        credit_notes?: string | null
         issue_date: string | null
         expiry_date: string | null
         supplier_name: string | null
@@ -895,8 +906,100 @@ export interface Database {
         status: 'present' | 'late' | 'absent' | 'half_day' | 'on_leave' | 'remote'
         notes: string | null
         branch_id: string | null
+        duty_time?: string | null
+        planned_hours?: string | null
+        actual_hours?: string | null
+        work_minutes?: number | null
+        late_minutes?: number | null
+        early_minutes?: number | null
+        overtime_hours?: number | null
+        absent_time?: string | null
+        exception_count?: number | null
+        punch_in_raw?: string | null
+        punch_out_raw?: string | null
+        source?: 'manual' | 'biometric_punch' | 'leave_sync' | null
+        biometric_device_user_id?: string | null
+        leave_type_detected?: string | null
         created_at: string
       }, 'id' | 'created_at', 'date' | 'status'>
+
+      monthly_attendance_summaries: TableDef<{
+        id: string
+        employee_id: string
+        month_year: string
+        total_working_days: number
+        present_days: number
+        absent_days: number
+        approved_leave_days: number
+        total_work_hours: number
+        total_late_minutes: number
+        total_early_minutes: number
+        total_overtime_hours: number
+        missing_punches_count: number
+        net_payable_days: number
+        status: 'draft' | 'reviewed' | 'approved_for_payroll'
+        notes: string | null
+        uploaded_by: string | null
+        branch_id: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'status' | 'total_working_days' | 'present_days' | 'absent_days'>
+
+      assets: TableDef<{
+        id: string
+        asset_tag: string
+        name: string
+        category: 'desktop_pc' | 'laptop' | 'monitor' | 'peripheral' | 'sim_mobile' | 'pki_token' | 'access_card' | 'furniture' | 'other'
+        brand: string | null
+        model: string | null
+        serial_number: string | null
+        branch_id: string | null
+        status: 'in_stock' | 'assigned' | 'in_repair' | 'damaged_lost' | 'decommissioned'
+        condition: 'new' | 'good' | 'fair' | 'needs_repair' | 'damaged'
+        purchase_date: string | null
+        purchase_cost: number | null
+        warranty_expiry: string | null
+        notes: string | null
+        created_by: string | null
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'status' | 'condition' | 'purchase_cost'>
+
+      asset_kits: TableDef<{
+        id: string
+        kit_code: string
+        name: string
+        branch_id: string | null
+        description: string | null
+        created_by: string | null
+        created_at: string
+      }, 'id' | 'created_at'>
+
+      asset_kit_items: TableDef<{
+        id: string
+        kit_id: string
+        asset_id: string
+        created_at: string
+      }, 'id' | 'created_at'>
+
+      asset_assignments: TableDef<{
+        id: string
+        assignment_code: string
+        asset_id: string
+        employee_id: string
+        kit_id: string | null
+        assigned_by: string | null
+        assigned_at: string
+        returned_at: string | null
+        returned_to: string | null
+        handover_condition: 'new' | 'good' | 'fair' | 'damaged'
+        return_condition: 'new' | 'good' | 'fair' | 'damaged' | null
+        employee_acknowledged: boolean
+        acknowledged_at: string | null
+        acknowledgment_notes: string | null
+        notes: string | null
+        created_at: string
+      }, 'id' | 'created_at', 'assigned_at' | 'handover_condition' | 'employee_acknowledged'>
     }
     Views: {
       [_ in never]: never

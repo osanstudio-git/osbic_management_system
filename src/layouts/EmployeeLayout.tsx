@@ -42,7 +42,8 @@ import {
    BookOpen,
    TrendingUp,
    Clock,
-   UserCheck
+   UserCheck,
+   Barcode
  } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { TopBarNotifications } from '../components/employee/TopBarNotifications';
@@ -355,17 +356,18 @@ const EmployeeLayout: React.FC = () => {
       ]
     }] : []),
 
-    // 🏢 HR Selector Accordion (Employee Details, Expiry Radar, Leaves & Attendance)
+    // 🏢 HR Selector Accordion (Employee Details, Expiry Radar, Leaves & Attendance, Assets)
     ...(isHRAdmin ? [{
       type: 'group' as const,
       key: 'hr_group',
       label: isRtl ? 'الموارد البشرية' : 'HR',
       icon: Building2,
-      basePaths: ['/employee/team-directory', '/employee/leaves-attendance', '/employee/hr'],
+      basePaths: ['/employee/team-directory', '/employee/leaves-attendance', '/employee/hr', '/employee/assets'],
       children: [
         { key: 'hr_employees', label: isRtl ? 'تفاصيل الموظفين' : 'Employee Details', icon: Users, path: '/employee/team-directory?view=employees' },
         { key: 'hr_expiries', label: isRtl ? 'رادار الصلاحيات والوثائق' : 'Expiry Things & Radar', icon: Clock, path: '/employee/team-directory?view=expiries' },
         { key: 'hr_leaves', label: isRtl ? 'الإجازات وسجل الحضور' : 'Leaves & Attendance', icon: Calendar, path: '/employee/leaves-attendance' },
+        { key: 'hr_assets', label: isRtl ? 'العهدة والأجهزة والمعدات' : 'Company Assets & Custody', icon: Barcode, path: '/employee/assets' },
       ]
     }] : []),
 

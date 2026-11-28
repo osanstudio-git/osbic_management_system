@@ -85,6 +85,7 @@ import GeneralJournalPL from './pages/employee/accounts/GeneralJournalPL';
 import JobIncomeExpenses from './pages/employee/accounts/JobIncomeExpenses';
 import ClientReceivables from './pages/employee/accounts/ClientReceivables';
 import GovFeesAudit from './pages/employee/accounts/GovFeesAudit';
+import AssetsManagement from './pages/employee/AssetsManagement';
 // i18n
 import './i18n/config';
 
@@ -513,6 +514,7 @@ function App() {
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
+              <Route path="assets" element={<AssetsManagement />} />
               <Route path="migrate" element={<MigrateReportDashboard />} />
               <Route path="golden-visa" element={<GoldenVisaDesk />} />
               <Route path="global-visa" element={<GlobalVisaDesk />} />
@@ -573,6 +575,7 @@ function App() {
               <Route path="gov-outflows" element={<HRAdminPortal pageMode="gov_outflows" />} />
               <Route path="team-directory" element={<HRAdminPortal pageMode="team" />} />
               <Route path="leaves-attendance" element={<HRAdminPortal pageMode="leaves_attendance" />} />
+              <Route path="assets" element={<AssetsManagement />} />
               <Route path="migrate" element={<MigrateReportDashboard />} />
               <Route path="golden-visa" element={<GoldenVisaDesk />} />
               <Route path="global-visa" element={<GlobalVisaDesk />} />

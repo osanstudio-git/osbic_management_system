@@ -60,7 +60,7 @@ export const AddMigrateJobModal: React.FC<Props> = ({
   // Golden Visa specific
   const [goldenRoute, setGoldenRoute] = useState<'itc_property' | 'company_assets' | 'fixed_deposit' | 'omani_employees_50'>('company_assets');
   const [auditReportRequired, setAuditReportRequired] = useState(true);
-  const [paymentTerms, setPaymentTerms] = useState<'50_50' | 'full'>('50_50');
+  const [paymentTerms, setPaymentTerms] = useState<'50_50' | 'full' | 'post_paid'>('50_50');
   const [goldenApprovalStatus, setGoldenApprovalStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [idCardStatus, setIdCardStatus] = useState<'pending' | 'issued'>('pending');
 
@@ -241,6 +241,11 @@ export const AddMigrateJobModal: React.FC<Props> = ({
         jobPayload.golden_route = goldenRoute;
         jobPayload.audit_report_required = goldenRoute === 'company_assets' ? true : auditReportRequired;
         jobPayload.payment_terms = paymentTerms;
+        jobPayload.is_credit_approved = paymentTerms === 'post_paid';
+        if (paymentTerms === 'post_paid') {
+          jobPayload.credit_approved_by = user?.id || profile?.id;
+          jobPayload.credit_approved_at = new Date().toISOString();
+        }
         jobPayload.golden_approval_status = goldenApprovalStatus;
         jobPayload.id_card_status = idCardStatus;
         if (goldenApprovalStatus === 'approved') {
@@ -597,6 +602,7 @@ export const AddMigrateJobModal: React.FC<Props> = ({
                   >
                     <option value="50_50">50% Retainer + 50% on ID Issuance</option>
                     <option value="full">100% Full Payment Upfront</option>
+                    <option value="post_paid">Post-Paid (100% on Completion / Credit)</option>
                   </select>
                 </div>
               </div>

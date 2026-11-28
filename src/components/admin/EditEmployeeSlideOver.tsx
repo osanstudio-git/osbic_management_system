@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, Camera, Loader2 } from 'lucide-react';
+import { X, CheckCircle, Camera, Loader2, Barcode, AlertTriangle, FileText } from 'lucide-react';
 import { useUpdateEmployee } from '../../hooks/admin/useAdminEmployees';
+import { useEmployeeAssets } from '../../hooks/employee/useAssets';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useBranch } from '../../contexts/BranchContext';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
+  const { data: employeeAssets = [] } = useEmployeeAssets(employee?.id);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -867,6 +869,43 @@ const EditEmployeeSlideOver = ({ isOpen, onClose, employee }: Props) => {
                     </div>
                   </div>
                   )}
+
+                  {/* Hardware Custody & Offboarding Protection */}
+                  <div className="p-4 rounded-2xl bg-white/5 border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Barcode size={16} className="text-primary" />
+                        <span className="text-xs font-bold text-foreground">Hardware Custody ({employeeAssets.length} items)</span>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                        employeeAssets.length > 0 
+                          ? 'bg-primary/10 text-primary border-primary/25' 
+                          : 'bg-muted/30 text-muted-foreground border-border'
+                      }`}>
+                        {employeeAssets.length > 0 ? `${employeeAssets.length} Assigned` : 'No Custody'}
+                      </span>
+                    </div>
+
+                    {employeeAssets.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {employeeAssets.map(item => (
+                          <div key={item.id} className="p-2 rounded-xl bg-card border border-border flex items-center justify-between text-xs">
+                            <div className="min-w-0">
+                              <p className="font-bold text-foreground text-xs truncate">{item.asset?.name || 'Equipment'}</p>
+                              <p className="text-[10px] font-mono text-muted-foreground">
+                                {item.asset?.asset_tag} {item.asset?.serial_number && `• S/N: ${item.asset.serial_number}`}
+                              </p>
+                            </div>
+                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                              {item.handover_condition}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">No hardware custody currently assigned to this employee.</p>
+                    )}
+                  </div>
                </div>
             </div>
 

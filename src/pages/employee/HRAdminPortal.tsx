@@ -7,7 +7,7 @@ import {
   ChevronRight, ArrowUpRight, Plus, RefreshCw, X, AlertCircle,
   FileCheck, ShieldAlert, UserCheck, Phone, Check, ArrowRight,
   Printer, UploadCloud, TrendingUp, Paperclip, BarChart3, PieChart as PieChartIcon,
-  CheckSquare, Wallet, CreditCard, ShoppingBag, Compass
+  CheckSquare, Wallet, CreditCard, ShoppingBag, Compass, FileSpreadsheet
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -26,7 +26,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
 import { useHRAdminAudit, type SalesAuditItem, type GovOutflowItem } from '../../hooks/employee/useHRAdminAudit';
-import { useLeaveRequests, useReviewLeaveRequest, useSubmitLeaveRequest, useAttendanceLogs, useLogAttendance } from '../../hooks/employee/useHRManagement';
+import { useLeaveRequests, useReviewLeaveRequest, useSubmitLeaveRequest, useAttendanceLogs, useLogAttendance, useMonthlyAttendanceSummaries } from '../../hooks/employee/useHRManagement';
+import BiometricAttendanceImportModal from '../../components/employee/BiometricAttendanceImportModal';
 import { useAdminEmployees } from '../../hooks/admin/useAdminEmployees';
 import EditEmployeeSlideOver from '../../components/admin/EditEmployeeSlideOver';
 import Finance from '../admin/Finance';
@@ -152,8 +153,12 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
     }
   }, [queryView]);
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
-  const [leavesSubTab, setLeavesSubTab] = useState<'requests' | 'attendance' | 'monthly_summary'>('requests');
+  const [leavesSubTab, setLeavesSubTab] = useState<'requests' | 'attendance' | 'monthly_summary' | 'biometric_payroll'>('requests');
   const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedPayrollMonth, setSelectedPayrollMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [isBiometricModalOpen, setIsBiometricModalOpen] = useState(false);
+
+  const { data: monthlyAttendanceSummaries = [], isLoading: loadingMonthlySummaries } = useMonthlyAttendanceSummaries(selectedPayrollMonth, selectedBranchId);
 
   // Modals state
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
@@ -2107,8 +2112,8 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           </div>
 
           {/* Sub Navigation */}
-          <div className="flex items-center justify-between gap-4 border-b border-border/40 pb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setLeavesSubTab('requests')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${leavesSubTab === 'requests' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -2124,22 +2129,52 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                 {isRtl ? 'سجل الحضور اليومي' : 'Daily Attendance Log'}
               </button>
               <button
+                onClick={() => setLeavesSubTab('biometric_payroll')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${leavesSubTab === 'biometric_payroll' ? 'bg-card border border-border text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                <FileSpreadsheet size={13} className="text-primary" />
+                <span>{isRtl ? 'حضور البصمة والرواتب' : 'Biometric & Payroll'}</span>
+                {monthlyAttendanceSummaries.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-primary/10 text-primary font-mono font-bold">
+                    {monthlyAttendanceSummaries.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setLeavesSubTab('monthly_summary')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${leavesSubTab === 'monthly_summary' ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
-                {isRtl ? 'ملخص الإجازات الشهري' : 'Monthly Leave Summary'}
+                {isRtl ? 'أرصدة الإجازات السنوية' : 'Annual Leave Balances'}
               </button>
             </div>
 
-            {leavesSubTab === 'attendance' && (
-              <input
-                type="date"
-                value={selectedAttendanceDate}
-                onChange={e => setSelectedAttendanceDate(e.target.value)}
-                className="bg-card border border-border rounded-xl px-3 py-1.5 text-xs text-foreground font-mono"
-              />
-            )}
+            <div className="flex items-center gap-2">
+              {leavesSubTab === 'attendance' && (
+                <input
+                  type="date"
+                  value={selectedAttendanceDate}
+                  onChange={e => setSelectedAttendanceDate(e.target.value)}
+                  className="bg-card border border-border rounded-xl px-3 py-1.5 text-xs text-foreground font-mono"
+                />
+              )}
+              {leavesSubTab === 'biometric_payroll' && (
+                <input
+                  type="month"
+                  value={selectedPayrollMonth}
+                  onChange={e => setSelectedPayrollMonth(e.target.value)}
+                  className="bg-card border border-border rounded-xl px-3 py-1.5 text-xs text-foreground font-mono"
+                />
+              )}
+              <button
+                onClick={() => setIsBiometricModalOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm shadow-blue-500/20"
+              >
+                <UploadCloud size={14} />
+                <span>{isRtl ? 'رفع شيت البصمة الشهري' : 'Import Biometric Punch'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Sub Tab: Leave Requests */}
@@ -2358,6 +2393,192 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Sub Tab: Biometric Punch & Monthly Payroll Attendance */}
+          {leavesSubTab === 'biometric_payroll' && (
+            <div className="space-y-4">
+              {/* Monthly KPI Overview Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'الموظفين المسجلين' : 'Evaluated Staff'}</span>
+                    <Users size={16} className="text-blue-400" />
+                  </div>
+                  <p className="text-2xl font-black font-syne text-foreground">
+                    {monthlyAttendanceSummaries.length}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{isRtl ? 'في شهر' : 'In'} {selectedPayrollMonth}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'ساعات العمل الفعلية' : 'Total Work Hours'}</span>
+                    <Clock size={16} className="text-purple-400" />
+                  </div>
+                  <p className="text-2xl font-black font-syne text-purple-400">
+                    {monthlyAttendanceSummaries.reduce((acc, s) => acc + Number(s.total_work_hours || 0), 0).toFixed(1)}h
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{isRtl ? 'إجمالي ساعات الدوام' : 'Actual duty rendered'}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'دقائق التأخير' : 'Total Late Mins'}</span>
+                    <AlertTriangle size={16} className="text-amber-400" />
+                  </div>
+                  <p className="text-2xl font-black font-syne text-amber-400">
+                    {monthlyAttendanceSummaries.reduce((acc, s) => acc + Number(s.total_late_minutes || 0), 0)}m
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{isRtl ? 'تأخير الحضور الصباحي' : 'Morning clock-in delays'}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'ساعات الإضافي (OT)' : 'Overtime Hours'}</span>
+                    <TrendingUp size={16} className="text-emerald-400" />
+                  </div>
+                  <p className="text-2xl font-black font-syne text-emerald-400">
+                    {monthlyAttendanceSummaries.reduce((acc, s) => acc + Number(s.total_overtime_hours || 0), 0).toFixed(1)}h
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{isRtl ? 'ساعات معتمدة للرواتب' : 'Approved overtime'}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{isRtl ? 'غياب غير مصرح' : 'Unexcused Absences'}</span>
+                    <XCircle size={16} className="text-rose-400" />
+                  </div>
+                  <p className="text-2xl font-black font-syne text-rose-400">
+                    {monthlyAttendanceSummaries.reduce((acc, s) => acc + Number(s.absent_days || 0), 0)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{isRtl ? 'أيام مخصومة من الراتب' : 'Deducted from payable'}</p>
+                </div>
+              </div>
+
+              {/* Monthly Attendance Table */}
+              <div className="bg-card border border-border/80 rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-3 bg-muted/30 border-b border-border/60 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-foreground font-syne">
+                      {isRtl ? 'كشف الحضور وساعات الدوام للرواتب' : 'Payroll Biometric Attendance Sheet'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-muted text-muted-foreground font-mono font-bold">
+                      {selectedPayrollMonth}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsBiometricModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <UploadCloud size={13} />
+                      <span>{isRtl ? 'رفع شيت جديد' : 'Upload Monthly Punch'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-muted/40 border-b border-border/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        <th className="py-3 px-4">{isRtl ? 'الموظف' : 'Staff Member'}</th>
+                        <th className="py-3 px-4">{isRtl ? 'القسم' : 'Department'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'أيام الدوام' : 'Working Days'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'أيام الحضور' : 'Present'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'إجازات معتمدة' : 'Leaves'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'غياب' : 'Absent'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'إجمالي الساعات' : 'Work Hours'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'دقائق التأخير' : 'Late (m)'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'إضافي' : 'OT (h)'}</th>
+                        <th className="py-3 px-4 text-center">{isRtl ? 'صافي أيام الراتب' : 'Net Payable Days'}</th>
+                        <th className="py-3 px-4 text-right">{isRtl ? 'الحالة' : 'Status'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {loadingMonthlySummaries ? (
+                        <tr>
+                          <td colSpan={11} className="py-12 text-center text-muted-foreground">
+                            {isRtl ? 'جاري تحميل ملخص الحضور...' : 'Loading monthly biometric summaries...'}
+                          </td>
+                        </tr>
+                      ) : monthlyAttendanceSummaries.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="py-12 text-center space-y-2">
+                            <FileSpreadsheet size={32} className="mx-auto text-muted-foreground/40 mb-2" />
+                            <p className="text-sm font-bold text-foreground">
+                              {isRtl ? `لم يتم رفع تقرير البصمة لشهر ${selectedPayrollMonth} بعد` : `No biometric attendance uploaded for ${selectedPayrollMonth} yet`}
+                            </p>
+                            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                              {isRtl
+                                ? 'قم برفع ملف الـ CSV المصدر من جهاز البصمة لحساب أيام الحضور وساعات العمل واقتطاعات الرواتب تلقائياً.'
+                                : 'Upload your machine punch CSV to automatically parse hours, exceptions, and compute net salary days.'}
+                            </p>
+                            <button
+                              onClick={() => setIsBiometricModalOpen(true)}
+                              className="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all inline-flex items-center gap-1.5 shadow-sm shadow-blue-500/20"
+                            >
+                              <UploadCloud size={14} />
+                              <span>{isRtl ? 'رفع تقرير البصمة الآن' : 'Import Biometric Punch Sheet'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        monthlyAttendanceSummaries.map(s => (
+                          <tr key={s.id} className="hover:bg-muted/15 transition-colors">
+                            <td className="py-3 px-4">
+                              <p className="font-bold text-foreground">{s.employee?.full_name || 'Staff'}</p>
+                              <p className="text-[10px] text-muted-foreground font-mono">
+                                {s.employee?.employee_code ? `#${s.employee.employee_code}` : 'OSBIC Staff'}
+                              </p>
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground capitalize">
+                              {s.employee?.department || 'Operations'}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold">{s.total_working_days}</td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-400">
+                              {s.present_days}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-purple-400">
+                              {s.approved_leave_days}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-rose-400">
+                              {s.absent_days > 0 ? s.absent_days : '0'}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-semibold text-foreground">
+                              {s.total_work_hours}h
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              <span className={s.total_late_minutes > 60 ? 'text-amber-400 font-bold' : 'text-muted-foreground'}>
+                                {s.total_late_minutes > 0 ? `${s.total_late_minutes}m` : '0m'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              <span className={s.total_overtime_hours > 0 ? 'text-blue-400 font-bold' : 'text-muted-foreground'}>
+                                {s.total_overtime_hours > 0 ? `${s.total_overtime_hours}h` : '0h'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-black text-emerald-400 text-sm">
+                              {s.net_payable_days} {isRtl ? 'يوم' : 'd'}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                s.status === 'approved_for_payroll'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              }`}>
+                                {s.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -2731,6 +2952,16 @@ export default function HRAdminPortal({ pageMode }: HRAdminPortalProps = {}) {
           employee={editingEmployee}
         />
       )}
+
+      {/* ─── 9. Biometric Attendance Punch Sheet Importer Modal ────────────── */}
+      <BiometricAttendanceImportModal
+        isOpen={isBiometricModalOpen}
+        onClose={() => setIsBiometricModalOpen(false)}
+        employees={employees}
+        approvedLeaves={leaveRequests}
+        currentUserId={profile?.id}
+        branchId={selectedBranchId}
+      />
     </div>
   );
 }

@@ -122,8 +122,20 @@ const ApplicantCard = ({
   const reqMinistryFee = Number(js.ministry_fee) || 0;
   const isFree = Number(js.total_fee) === 0;
 
-  // Auto-unlock logic
-  const isAutoUnlocked = isClientTrusted
+  // Credit / Post-Paid / Pay on Completion verification
+  const isCreditOrPostPaid = Boolean(
+    job?.payment_terms === 'post_paid' ||
+    job?.payment_terms === 'on_completion' ||
+    job?.payment_terms === 'credit_30' ||
+    job?.payment_terms === 'credit' ||
+    (job as any)?.is_credit_approved === true ||
+    (js as any)?.is_credit_approved === true ||
+    Boolean((js as any)?.credit_authorized_by)
+  );
+
+  // Auto-unlock logic: if credit or paid or trusted or client pays fee -> UNLOCKED!
+  const isAutoUnlocked = isCreditOrPostPaid
+    || isClientTrusted
     || clientPaysMinistryFee
     || isFree
     || isJobFullyPaid
@@ -136,6 +148,13 @@ const ApplicantCard = ({
     (profile as any)?.is_ops_head ||
     profile?.is_manager ||
     profile?.role === 'admin'
+  );
+  const canAuthorizeCredit = Boolean(
+    isManagerOrAdmin ||
+    isOpsHead ||
+    job?.sales_employee_id === profile?.id ||
+    job?.employee_id === profile?.id ||
+    job?.assigned_by === profile?.id
   );
 
   const assignerName =
@@ -153,10 +172,15 @@ const ApplicantCard = ({
     try {
       const { error } = await supabase
         .from('job_services')
-        .update({ is_funded: newFunded })
+        .update({
+          is_funded: newFunded,
+          is_credit_approved: newFunded,
+          credit_authorized_by: newFunded ? profile?.id : null,
+          credit_authorized_at: newFunded ? new Date().toISOString() : null
+        })
         .eq('id', js.id);
       if (error) throw error;
-      toast.success(newFunded ? 'Service unlocked (Admin Override)' : 'Service re-locked');
+      toast.success(newFunded ? 'Service unlocked on Credit / Post-Paid approval' : 'Service re-locked');
       onUpdated();
     } catch (err: any) {
       toast.error(err.message || 'Failed to update service lock status');
@@ -686,19 +710,24 @@ const ApplicantCard = ({
               {js.government_ref && (
                 <span className="text-[9px] text-cyan-400 whitespace-nowrap">· Ref: {js.government_ref}</span>
               )}
+              {isCreditOrPostPaid && !isJobFullyPaid && (
+                <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1 whitespace-nowrap">
+                  💳 POST-PAID (PAY ON COMPLETION)
+                </span>
+              )}
               {isLocked ? (
                 <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                   <span className="text-[9px] font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20 flex items-center gap-1 whitespace-nowrap">
-                    🔒 LOCKED (FUNDS REQUIRED)
+                    🔒 LOCKED (PAYMENT REQUIRED)
                   </span>
-                  {isManagerOrAdmin && (
+                  {canAuthorizeCredit && (
                     <button
                       type="button"
                       onClick={handleToggleLock}
-                      title="Admin Override: Unlock this service"
-                      className="text-[9px] font-bold text-emerald-500 hover:text-white bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
+                      title="Authorize Credit / Unlock for Ops"
+                      className="text-[9px] font-bold text-amber-500 hover:text-white bg-amber-500/10 hover:bg-amber-600 border border-amber-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
-                      <LockOpen size={10} /> Unlock
+                      <LockOpen size={10} /> Authorize Credit
                     </button>
                   )}
                 </div>
@@ -706,9 +735,9 @@ const ApplicantCard = ({
                 js.is_funded && (
                   <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                     <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1 whitespace-nowrap">
-                      ⚡ UNLOCKED (ADMIN OVERRIDE)
+                      ⚡ UNLOCKED (CREDIT / OVERRIDE)
                     </span>
-                    {isManagerOrAdmin && (
+                    {canAuthorizeCredit && (
                       <button
                         type="button"
                         onClick={handleToggleLock}
@@ -744,19 +773,19 @@ const ApplicantCard = ({
             {isLocked && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/85 backdrop-blur-[2px] p-6 text-center">
                 <div className="bg-destructive/10 text-destructive border border-destructive/20 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                  🔒 Locked Awaiting Sales Allocation
+                  🔒 Locked Awaiting Payment or Credit Approval
                 </div>
-                {isManagerOrAdmin ? (
+                {canAuthorizeCredit ? (
                   <button
                     type="button"
                     onClick={handleToggleLock}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/20 cursor-pointer pointer-events-auto"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all active:scale-95 shadow-lg shadow-amber-500/20 cursor-pointer pointer-events-auto"
                   >
-                    <LockOpen size={14} /> Force Unlock (Admin Override)
+                    <LockOpen size={14} /> Authorize Post-Payment (Unlock for Ops)
                   </button>
                 ) : (
                   <p className="text-[11px] text-muted-foreground max-w-xs">
-                    This service is waiting for funds to be allocated. Please contact Sales or an Admin to unlock it.
+                    This service is waiting for funds to be allocated. Ask Sales or Manager to authorize post-payment credit.
                   </p>
                 )}
               </div>

@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   X, Zap, Search, ChevronRight, User, 
   Building2, Briefcase, Plus, CheckCircle2, ArrowLeft, ArrowRight,
-  Hash, Users, Shield, GitBranch, Layers, LayoutGrid, List, Trash2, CreditCard, Calendar
+  Hash, Users, Shield, GitBranch, Layers, LayoutGrid, List, Trash2, CreditCard, Calendar, Wallet
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import CreateClientSlideOver from '../shared/clients/CreateClientSlideOver';
@@ -165,6 +165,7 @@ export const JobBuilder = ({
   const [entryType, setEntryType] = useState<'lead' | 'walkin' | 'direct' | 'renewal' | 'referral' | 'other'>('direct');
   const [referralName, setReferralName] = useState<string>('');
   const [clientPaysMinistryFee, setClientPaysMinistryFee] = useState(false);
+  const [paymentTerms, setPaymentTerms] = useState<'prepaid' | 'post_paid' | 'credit_30'>('prepaid');
 
   const handleAddCustomService = (customName?: string) => {
     const id = `custom-${Date.now()}`;
@@ -402,6 +403,10 @@ export const JobBuilder = ({
         work_fee: totalWork,
         ministry_fee: totalMin,
         client_pays_ministry_fee: clientPaysMinistryFee,
+        payment_terms: paymentTerms,
+        is_credit_approved: paymentTerms === 'post_paid' || paymentTerms === 'credit_30',
+        credit_approved_by: (paymentTerms === 'post_paid' || paymentTerms === 'credit_30') ? profile?.id : null,
+        credit_approved_at: (paymentTerms === 'post_paid' || paymentTerms === 'credit_30') ? new Date().toISOString() : null,
         advance_percentage: 0,
         advance_amount: 0,
         remaining_amount: totalWork + totalMin,
@@ -470,6 +475,10 @@ export const JobBuilder = ({
           acceptance_status: assignedTo 
             ? (assignedTo !== profile?.id ? 'pending_acceptance' : 'accepted')
             : 'marketplace',
+          is_funded: paymentTerms === 'post_paid' || paymentTerms === 'credit_30',
+          is_credit_approved: paymentTerms === 'post_paid' || paymentTerms === 'credit_30',
+          credit_authorized_by: (paymentTerms === 'post_paid' || paymentTerms === 'credit_30') ? profile?.id : null,
+          credit_authorized_at: (paymentTerms === 'post_paid' || paymentTerms === 'credit_30') ? assignmentIso : null,
           notes: line.notes || null,
         }));
 
@@ -1132,6 +1141,70 @@ export const JobBuilder = ({
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Payment Terms & Credit Flow Selector */}
+              <div className={`bg-[#131824] border rounded-2xl p-5 transition-all ${
+                paymentTerms === 'post_paid' ? 'border-amber-500/50 bg-amber-500/5' : 'border-white/10'
+              }`}>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    paymentTerms === 'post_paid' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/5 text-white/50'
+                  }`}>
+                    <Wallet size={18} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-white uppercase tracking-widest">Payment Terms & Ops Clearance</h5>
+                    <p className="text-[10px] text-white/40 mt-0.5">When will the client pay for this job?</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTerms('prepaid')}
+                    className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                      paymentTerms === 'prepaid'
+                        ? 'border-gold/50 bg-gold/5'
+                        : 'border-white/10 bg-black/20 hover:border-white/20'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      paymentTerms === 'prepaid' ? 'border-gold' : 'border-white/30'
+                    }`}>
+                      {paymentTerms === 'prepaid' && <div className="w-2 h-2 rounded-full bg-gold" />}
+                    </div>
+                    <div>
+                      <p className={`text-xs font-bold ${paymentTerms === 'prepaid' ? 'text-gold' : 'text-white/70'}`}>
+                        Pre-Paid (Standard)
+                      </p>
+                      <p className="text-[10px] text-white/40 mt-0.5">Ops work locked until advance or payment is recorded</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTerms('post_paid')}
+                    className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                      paymentTerms === 'post_paid'
+                        ? 'border-amber-500/60 bg-amber-500/10'
+                        : 'border-white/10 bg-black/20 hover:border-white/20'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      paymentTerms === 'post_paid' ? 'border-amber-400' : 'border-white/30'
+                    }`}>
+                      {paymentTerms === 'post_paid' && <div className="w-2 h-2 rounded-full bg-amber-400" />}
+                    </div>
+                    <div>
+                      <p className={`text-xs font-bold flex items-center gap-1.5 ${paymentTerms === 'post_paid' ? 'text-amber-400' : 'text-white/70'}`}>
+                        <span>Post-Paid (Credit)</span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 font-mono">Unlock Ops</span>
+                      </p>
+                      <p className="text-[10px] text-white/40 mt-0.5">Client pays on completion. Ops can start and update work immediately</p>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* Add Extra Services Bar */}
