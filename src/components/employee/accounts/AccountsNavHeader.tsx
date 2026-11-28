@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   FileText, TrendingUp, Users, Landmark, 
-  Wallet, Building2, ChevronRight, ArrowLeft 
+  Wallet, Building2, ChevronRight, ArrowLeft, Globe
 } from 'lucide-react';
 import { useBranch } from '../../../contexts/BranchContext';
 
@@ -33,6 +33,7 @@ export const AccountsNavHeader: React.FC<AccountsNavHeaderProps> = ({
     { label: 'Client Receivables & Aging', path: `${basePath}/accounts/receivables`, icon: Users },
     { label: 'Gov Fee Audit & Variance', path: `${basePath}/accounts/gov-audit`, icon: Landmark },
     { label: 'Ledger & Verification Hub', path: `${basePath}/accounts`, icon: Wallet },
+    { label: 'OSBIC Migrate Hub', path: `${basePath}/migrate`, icon: Globe },
   ];
 
   return (

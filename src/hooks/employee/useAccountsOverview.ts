@@ -15,6 +15,11 @@ export interface AccountsJobOverview {
   sales: { full_name: string } | null;
   ops: { full_name: string } | null;
   total_spent: number;
+  migrate_category?: 'golden_visa' | 'global_visa' | null;
+  golden_route?: string | null;
+  visa_category?: string | null;
+  destination_country?: string | null;
+  lead_source_type?: string | null;
 }
 
 export const useAccountsOverview = (branchId?: string | null) => {
@@ -33,6 +38,11 @@ export const useAccountsOverview = (branchId?: string | null) => {
           advance_amount,
           remaining_amount,
           created_at,
+          migrate_category,
+          golden_route,
+          visa_category,
+          destination_country,
+          lead_source_type,
           client:profiles!client_id(full_name, phone, company_name),
           sales:profiles!sales_employee_id(full_name),
           ops:profiles!ops_employee_id(full_name),
@@ -72,6 +82,11 @@ export const useAccountsOverview = (branchId?: string | null) => {
           sales: job.sales,
           ops: job.ops,
           total_spent: totalSpent,
+          migrate_category: job.migrate_category,
+          golden_route: job.golden_route,
+          visa_category: job.visa_category,
+          destination_country: job.destination_country,
+          lead_source_type: job.lead_source_type,
           payments: job.payments || [],
           services: job.services || []
         } as AccountsJobOverview & { payments: any[], services: any[] };

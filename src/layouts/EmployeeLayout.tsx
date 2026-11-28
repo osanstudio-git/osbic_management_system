@@ -347,10 +347,11 @@ const EmployeeLayout: React.FC = () => {
       key: 'finance_group',
       label: isRtl ? 'المالية' : 'Finance',
       icon: Wallet,
-      basePaths: ['/employee/accounts', '/employee/finance', '/employee/sales-audit', '/employee/gov-outflows'],
+      basePaths: ['/employee/accounts', '/employee/finance', '/employee/sales-audit', '/employee/gov-outflows', '/employee/migrate'],
       children: [
         { key: 'accounts', label: isRtl ? 'الحسابات والسجلات' : 'Accounts & Ledger', icon: FileText, path: '/employee/accounts' },
         { key: 'finance', label: isRtl ? 'المركز المالي والمبيعات' : 'Finance & Revenue', icon: TrendingUp, path: '/employee/finance' },
+        { key: 'migrate_finance', label: isRtl ? 'مبيعات وإيرادات الهجرة' : 'OSBIC Migrate Sales', icon: Globe, path: '/employee/migrate' },
         { key: 'sales_audit', label: isRtl ? 'تدقيق سندات المبيعات' : 'Sales Receipt Audit', icon: DollarSign, path: '/employee/sales-audit' },
         { key: 'gov_outflows', label: isRtl ? 'المدفوعات الحكومية والموردين' : 'Gov & Supplier Outflows', icon: Landmark, path: '/employee/gov-outflows' },
       ]

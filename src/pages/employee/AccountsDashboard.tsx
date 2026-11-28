@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
-import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar, Globe, ArrowRight, PlusCircle, Banknote, Trash2 } from 'lucide-react';
+import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar, Globe, ArrowRight, PlusCircle, Banknote, Trash2, Crown, Plane, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -69,21 +69,77 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
   // Branch Direct Income State & Hook
   const [isRecordIncomeOpen, setIsRecordIncomeOpen] = useState(false);
   const [ledgerViewMode, setLedgerViewMode] = useState<'all' | 'jobs' | 'branch_income'>('all');
+  const [isMigrateScope, setIsMigrateScope] = useState(false);
   const { data: allBranchIncome = [], isLoading: loadingBranchIncome } = useBranchIncome(null);
   const deleteBranchIncomeMutation = useDeleteBranchIncome();
 
   const currentBranchIncome = useMemo(() => {
+    if (isMigrateScope) return [];
     if (!selectedBranchId) return allBranchIncome;
     return allBranchIncome.filter((entry: any) => entry.branch_id === selectedBranchId);
-  }, [allBranchIncome, selectedBranchId]);
+  }, [allBranchIncome, selectedBranchId, isMigrateScope]);
 
   const { pendingExpenses, loadingPending, updateExpenseStatus } = useExpenses();
   const { data: accountsData, isLoading: loadingOverview } = useAccountsOverview(selectedBranchId);
   const { data: allBranchesData } = useAccountsOverview(null);
 
+  // Migrate Division Detection & Analytics Helpers
+  const isMigrateJob = (j: any) =>
+    j?.migrate_category === 'golden_visa' ||
+    j?.migrate_category === 'global_visa' ||
+    Boolean(j?.golden_route) ||
+    Boolean(j?.visa_category) ||
+    (j?.service?.name_en || '').toLowerCase().includes('golden') ||
+    (j?.service?.name_en || '').toLowerCase().includes('tourist') ||
+    (j?.service?.name_en || '').toLowerCase().includes('global visa') ||
+    (j?.service?.name_en || '').toLowerCase().includes('schengen');
+
+  const isGoldenVisaJob = (j: any) =>
+    j?.migrate_category === 'golden_visa' ||
+    Boolean(j?.golden_route) ||
+    (j?.service?.name_en || '').toLowerCase().includes('golden');
+
+  const isGlobalVisaJob = (j: any) =>
+    j?.migrate_category === 'global_visa' ||
+    Boolean(j?.visa_category) ||
+    (!isGoldenVisaJob(j) && (
+      (j?.service?.name_en || '').toLowerCase().includes('tourist') ||
+      (j?.service?.name_en || '').toLowerCase().includes('schengen') ||
+      (j?.service?.name_en || '').toLowerCase().includes('global visa')
+    ));
+
+  const allMigrateJobs = useMemo(() => {
+    return (allBranchesData || []).filter(isMigrateJob);
+  }, [allBranchesData]);
+
+  const goldenVisaJobs = useMemo(() => {
+    return allMigrateJobs.filter(isGoldenVisaJob);
+  }, [allMigrateJobs]);
+
+  const globalVisaJobs = useMemo(() => {
+    return allMigrateJobs.filter(isGlobalVisaJob);
+  }, [allMigrateJobs]);
+
+  const goldenBilled = goldenVisaJobs.reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+  const goldenCollected = goldenVisaJobs.reduce((sum, j) => sum + (Number(j.advance_amount) || 0), 0);
+  const goldenOutstanding = goldenVisaJobs.reduce((sum, j) => sum + Math.max(0, Number(j.remaining_amount) || 0), 0);
+
+  const globalBilled = globalVisaJobs.reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+  const globalCollected = globalVisaJobs.reduce((sum, j) => sum + (Number(j.advance_amount) || 0), 0);
+  const globalOutstanding = globalVisaJobs.reduce((sum, j) => sum + Math.max(0, Number(j.remaining_amount) || 0), 0);
+
+  const totalMigrateBilled = goldenBilled + globalBilled;
+  const goldenPct = totalMigrateBilled > 0 ? (goldenBilled / totalMigrateBilled) * 100 : 0;
+  const globalPct = totalMigrateBilled > 0 ? (globalBilled / totalMigrateBilled) * 100 : 0;
+
+  const displayedJobs = useMemo(() => {
+    if (isMigrateScope) return allMigrateJobs;
+    return accountsData || [];
+  }, [isMigrateScope, allMigrateJobs, accountsData]);
+
   // Fetch pending payments (scoped by selected branch or full list if all)
   const { data: pendingPayments, isLoading: loadingPayments, refetch: refetchPayments } = useQuery({
-    queryKey: ['pending_payments', selectedBranchId || 'all'],
+    queryKey: ['pending_payments', isMigrateScope ? 'migrate' : (selectedBranchId || 'all')],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('job_payments')
@@ -236,12 +292,42 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
         totalOutstanding,
         collectionRate,
         netMargin: Math.max(0, totalBilled - totalSpent),
-        pendingCount: (pendingPayments || []).filter((p: any) => !p.job?.branch_id).length
+        pendingCount: (pendingPayments || []).filter((p: any) => !p.job?.branch_id).length,
+        isMigrateDivision: false
+      });
+    }
+
+    // OSBIC Migrate Division Matrix Row
+    if (allMigrateJobs.length > 0) {
+      const migrateBilled = allMigrateJobs.reduce((sum, j) => sum + (Number(j.total_fee) || 0), 0);
+      const migrateCollected = allMigrateJobs.reduce((sum, j) => sum + (Number(j.advance_amount) || 0), 0);
+      const migrateSpent = allMigrateJobs.reduce((sum, j) => sum + (Number(j.total_spent) || 0), 0);
+      const migrateOutstanding = allMigrateJobs.reduce((sum, j) => sum + Math.max(0, (Number(j.remaining_amount) || 0)), 0);
+      const migrateRate = migrateBilled > 0 ? (migrateCollected / migrateBilled) * 100 : 0;
+
+      results.push({
+        id: 'migrate_division',
+        name: 'OSBIC Migrate Division',
+        code: 'MIG',
+        phone: null,
+        address: 'Central Executive Desk • Golden & Global Visas',
+        jobCount: allMigrateJobs.length,
+        webJobsCount: allMigrateJobs.length,
+        offlineIncomeCount: 0,
+        incomeBilled: 0,
+        totalBilled: migrateBilled,
+        totalCollected: migrateCollected,
+        totalSpent: migrateSpent,
+        totalOutstanding: migrateOutstanding,
+        collectionRate: migrateRate,
+        netMargin: Math.max(0, migrateBilled - migrateSpent),
+        pendingCount: (pendingPayments || []).filter((p: any) => isMigrateJob(p.job)).length,
+        isMigrateDivision: true
       });
     }
 
     return results;
-  }, [allJobsReportAll, allBranchesData, branches, pendingPayments, allBranchIncome]);
+  }, [allJobsReportAll, allBranchesData, branches, pendingPayments, allBranchIncome, allMigrateJobs]);
 
   const grandTotalBilled = branchBreakdown.reduce((s, b) => s + b.totalBilled, 0);
   const grandTotalCollected = branchBreakdown.reduce((s, b) => s + b.totalCollected, 0);
@@ -483,14 +569,25 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
   };
 
   // Branch Income Aggregations for Active Scope
-  const branchIncomeBilled = currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
-  const branchIncomeMinistry = currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.ministry_fee) || 0), 0);
+  const branchIncomeBilled = isMigrateScope ? 0 : currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+  const branchIncomeMinistry = isMigrateScope ? 0 : currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.ministry_fee) || 0), 0);
 
-  // KPI Calculations (combining web jobs ledger + recorded direct branch incomes)
-  const totalBilled = (accountsData?.reduce((sum, job) => sum + (job.total_fee || 0), 0) || 0) + branchIncomeBilled;
-  const totalVerified = (accountsData?.reduce((sum, job) => sum + (job.advance_amount || 0), 0) || 0) + branchIncomeBilled;
-  const totalSpent = (accountsData?.reduce((sum, job) => sum + (job.total_spent || 0), 0) || 0) + branchIncomeMinistry;
-  const totalOutstanding = accountsData?.reduce((sum, job) => sum + Math.max(0, job.remaining_amount || 0), 0) || 0;
+  // KPI Calculations (combining web jobs ledger + recorded direct branch incomes, or scoped strictly to Migrate Division)
+  const totalBilled = isMigrateScope
+    ? totalMigrateBilled
+    : (accountsData?.reduce((sum, job) => sum + (job.total_fee || 0), 0) || 0) + branchIncomeBilled;
+
+  const totalVerified = isMigrateScope
+    ? (goldenCollected + globalCollected)
+    : (accountsData?.reduce((sum, job) => sum + (job.advance_amount || 0), 0) || 0) + branchIncomeBilled;
+
+  const totalSpent = isMigrateScope
+    ? allMigrateJobs.reduce((sum, job) => sum + (job.total_spent || 0), 0)
+    : (accountsData?.reduce((sum, job) => sum + (job.total_spent || 0), 0) || 0) + branchIncomeMinistry;
+
+  const totalOutstanding = isMigrateScope
+    ? (goldenOutstanding + globalOutstanding)
+    : (accountsData?.reduce((sum, job) => sum + Math.max(0, job.remaining_amount || 0), 0) || 0);
 
   return (
     <div className={hideHeader ? "space-y-8" : "p-6 md:p-10 max-w-[1600px] mx-auto space-y-8"}>
@@ -509,39 +606,48 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
       {/* Navigation Suite */}
       <AccountsNavHeader activePage="overview" selectedBranchId={selectedBranchId} onBranchChange={setSelectedBranchId} />
 
-      {/* Scope / Branch Selector Bar */}
+      {/* Scope / Branch & Division Selector Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-3xl shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground pr-2">
             <Building2 size={15} className="text-primary" />
-            <span>Branch Scope:</span>
+            <span>Scope:</span>
           </div>
+
+          {/* All Branches Consolidated Pill */}
           <button
-            onClick={() => setSelectedBranchId(null)}
+            onClick={() => {
+              setIsMigrateScope(false);
+              setSelectedBranchId(null);
+            }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              !selectedBranchId
+              !selectedBranchId && !isMigrateScope
                 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-black'
                 : 'bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60'
             }`}
           >
             <Globe size={13} />
             <span>All Branches (Consolidated)</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${!selectedBranchId ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${!selectedBranchId && !isMigrateScope ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
               {(allBranchesData?.length || 0) + allBranchIncome.reduce((s: number, e: any) => s + (Number(e.deals_count) || 1), 0)} Deals
             </span>
           </button>
 
+          {/* Branch Pills */}
           {branches.filter(b => b.is_active).map(b => {
             const webCount = (allBranchesData || []).filter(j => j.branch_id === b.id).length;
             const branchIncomeDeals = allBranchIncome
               .filter((e: any) => e.branch_id === b.id)
               .reduce((s: number, e: any) => s + (Number(e.deals_count) || 1), 0);
             const count = webCount + branchIncomeDeals;
-            const isSel = selectedBranchId === b.id;
+            const isSel = selectedBranchId === b.id && !isMigrateScope;
             return (
               <button
                 key={b.id}
-                onClick={() => setSelectedBranchId(b.id)}
+                onClick={() => {
+                  setIsMigrateScope(false);
+                  setSelectedBranchId(b.id);
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                   isSel
                     ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-black'
@@ -558,6 +664,24 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
               </button>
             );
           })}
+
+          {/* 👑 OSBIC MIGRATE DIVISION PILL */}
+          <button
+            onClick={() => {
+              setIsMigrateScope(true);
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+              isMigrateScope
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-lg shadow-amber-500/25 border-amber-400'
+                : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/30'
+            }`}
+          >
+            <Crown size={14} className={isMigrateScope ? 'text-slate-950' : 'text-amber-400'} />
+            <span>👑 OSBIC Migrate</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${isMigrateScope ? 'bg-black/30 text-white' : 'bg-amber-500/20 text-amber-300'}`}>
+              {allMigrateJobs.length} Deals
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -569,7 +693,19 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
             <span>+ Record Branch Income</span>
           </button>
 
-          {selectedBranch ? (
+          {isMigrateScope ? (
+            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-2xl font-bold">
+              <Crown size={13} />
+              <span>Viewing: <strong>OSBIC Migrate (Golden & Global)</strong></span>
+              <button
+                onClick={() => setIsMigrateScope(false)}
+                className="p-1 hover:bg-amber-500/20 rounded-lg text-amber-400 transition-colors"
+                title="Exit Migrate view"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : selectedBranch ? (
             <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-2xl font-bold">
               <span>Viewing: <strong>{selectedBranch.name}</strong></span>
               <button
@@ -588,6 +724,142 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           )}
         </div>
       </div>
+
+      {/* 👑 MIGRATE DIVISION: GOLDEN VISA VS GLOBAL VISA REVENUE ANALYSIS WIDGET */}
+      {isMigrateScope && (
+        <div className="bg-gradient-to-br from-card via-card to-amber-500/5 border border-amber-500/30 rounded-3xl p-6 shadow-md space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/80 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  REVENUE INTELLIGENCE
+                </span>
+                <span className="text-xs text-muted-foreground">Migrate Division Program Portfolio</span>
+              </div>
+              <h2 className="text-xl font-syne font-black text-foreground mt-1 flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-400" />
+                Golden Visa vs. Global Visa Revenue Analysis
+              </h2>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider block">Leading Revenue Area</span>
+                <span className="text-sm font-bold text-amber-400">
+                  {goldenBilled >= globalBilled ? `🏆 Golden Visa (${goldenPct.toFixed(1)}%)` : `🏆 Global Visa (${globalPct.toFixed(1)}%)`}
+                </span>
+              </div>
+              <button
+                onClick={() => navigate(`${window.location.pathname.startsWith('/admin') ? '/admin' : '/employee'}/migrate`)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                <Globe size={14} /> Open Full Migrate Hub →
+              </button>
+            </div>
+          </div>
+
+          {/* Visual Percentage Share Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-bold">
+              <span className="text-amber-400 flex items-center gap-1">
+                <Crown size={13} /> Golden Visa Share: {goldenPct.toFixed(1)}% ({goldenBilled.toFixed(3)} OMR)
+              </span>
+              <span className="text-sky-400 flex items-center gap-1">
+                <Plane size={13} /> Global Visa Share: {globalPct.toFixed(1)}% ({globalBilled.toFixed(3)} OMR)
+              </span>
+            </div>
+            <div className="w-full h-3 rounded-full bg-muted/40 overflow-hidden flex">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500"
+                style={{ width: `${goldenPct}%` }}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-sky-500 to-blue-500 transition-all duration-500"
+                style={{ width: `${globalPct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Side by side program comparison cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Golden Visa Card */}
+            <div className="p-5 rounded-2xl bg-amber-500/[0.04] border border-amber-500/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                    <Crown size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground">Golden Visa (Invest Oman)</h3>
+                    <p className="text-xs text-muted-foreground">5-Year & 10-Year Investor Residency</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  {goldenVisaJobs.length} Investor Files
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-card border border-border p-2.5 rounded-xl">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Invoiced</span>
+                  <span className="font-mono font-black text-amber-400 text-sm">{goldenBilled.toFixed(3)}</span>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-emerald-400 uppercase font-bold block">Collected</span>
+                  <span className="font-mono font-black text-emerald-400 text-sm">{goldenCollected.toFixed(3)}</span>
+                </div>
+                <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-amber-400 uppercase font-bold block">Balance Due</span>
+                  <span className="font-mono font-black text-amber-400 text-sm">{goldenOutstanding.toFixed(3)}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between">
+                <span>Avg Deal Ticket: <strong className="text-foreground">{goldenVisaJobs.length > 0 ? (goldenBilled / goldenVisaJobs.length).toFixed(3) : '0.000'} OMR</strong></span>
+                <span className="text-emerald-400 font-bold">High Net Margin Portfolio</span>
+              </div>
+            </div>
+
+            {/* Global Visa Card */}
+            <div className="p-5 rounded-2xl bg-sky-500/[0.04] border border-sky-500/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">
+                    <Plane size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground">Global Travel & Tourist Visas</h3>
+                    <p className="text-xs text-muted-foreground">Schengen, UK, USA, Canada & Worldwide</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/40">
+                  {globalVisaJobs.length} Applications
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-card border border-border p-2.5 rounded-xl">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Invoiced</span>
+                  <span className="font-mono font-black text-sky-400 text-sm">{globalBilled.toFixed(3)}</span>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-emerald-400 uppercase font-bold block">Collected</span>
+                  <span className="font-mono font-black text-emerald-400 text-sm">{globalCollected.toFixed(3)}</span>
+                </div>
+                <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-amber-400 uppercase font-bold block">Balance Due</span>
+                  <span className="font-mono font-black text-amber-400 text-sm">{globalOutstanding.toFixed(3)}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between">
+                <span>Avg Deal Ticket: <strong className="text-foreground">{globalVisaJobs.length > 0 ? (globalBilled / globalVisaJobs.length).toFixed(3) : '0.000'} OMR</strong></span>
+                <span className="text-sky-400 font-bold">High Volume Velocity</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -791,7 +1063,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   >
                     <span>All Ledger Activity</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${ledgerViewMode === 'all' ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
-                      {(accountsData?.length || 0) + currentBranchIncome.length}
+                      {(displayedJobs?.length || 0) + currentBranchIncome.length}
                     </span>
                   </button>
 
@@ -803,9 +1075,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                     }`}
                   >
-                    <span>System Web Jobs</span>
+                    <span>{isMigrateScope ? 'Migrate Investor Files' : 'System Web Jobs'}</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${ledgerViewMode === 'jobs' ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
-                      {accountsData?.length || 0}
+                      {displayedJobs?.length || 0}
                     </span>
                   </button>
 
@@ -834,14 +1106,14 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                 </button>
               </div>
 
-              {/* Web Jobs Ledger Table */}
+              {/* Web Jobs & Migrate Ledger Table */}
               {(ledgerViewMode === 'all' || ledgerViewMode === 'jobs') && (
-                accountsData && accountsData.length > 0 ? (
+                displayedJobs && displayedJobs.length > 0 ? (
                   <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
                     {ledgerViewMode === 'all' && currentBranchIncome.length > 0 && (
                       <div className="p-3.5 px-6 border-b border-border bg-muted/10 flex items-center justify-between">
                         <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          System Web Jobs ({accountsData.length})
+                          {isMigrateScope ? `Migrate Investor Files (${displayedJobs.length})` : `System Web Jobs (${displayedJobs.length})`}
                         </span>
                       </div>
                     )}
@@ -849,8 +1121,8 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                       <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                           <tr className="border-b border-border bg-muted/20">
-                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Details</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Team</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job / Investor File</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Attribution</th>
                             <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Billed</th>
                             <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Verified Paid</th>
                             <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Ops Spent</th>
@@ -867,18 +1139,31 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                               </td>
                             </tr>
                           ) : (
-                            accountsData?.map((job) => (
+                            displayedJobs?.map((job) => (
                               <tr key={job.id} className="hover:bg-muted/10 transition-colors group cursor-pointer" onClick={() => { setJobDetailsTarget(job); setJobDetailsModalOpen(true); }}>
                                 <td className="px-6 py-4">
                                   <div className="font-syne font-bold text-foreground flex items-center gap-2">
                                     {job.job_code}
                                     <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
                                   </div>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                     <span className="text-[10px] text-muted-foreground">{format(new Date(job.created_at), 'MMM d, yyyy')}</span>
-                                    {job.branch?.name && (
+                                    {isGoldenVisaJob(job) ? (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                        <Crown size={10} /> Golden Visa
+                                      </span>
+                                    ) : isGlobalVisaJob(job) ? (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 flex items-center gap-1">
+                                        <Plane size={10} /> Global Visa
+                                      </span>
+                                    ) : job.branch?.name ? (
                                       <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
                                         {job.branch.name}
+                                      </span>
+                                    ) : null}
+                                    {(job.destination_country || job.visa_category || job.golden_route) && (
+                                      <span className="text-[9px] font-mono text-muted-foreground">
+                                        • {job.destination_country || job.visa_category || job.golden_route?.replace('_', ' ')}
                                       </span>
                                     )}
                                   </div>
@@ -889,6 +1174,11 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                                     {job.client?.full_name || 'Unknown'}
                                   </div>
                                   <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
+                                    {isMigrateJob(job) && job.branch?.name && (
+                                      <span className="text-primary font-semibold flex items-center gap-1">
+                                        <MapPin size={10} /> Referred by: {job.branch.name}
+                                      </span>
+                                    )}
                                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Sales: {job.sales?.full_name || 'None'}</span>
                                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Ops: {job.ops?.full_name || 'Unassigned'}</span>
                                   </div>
@@ -924,7 +1214,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   </div>
                 ) : ledgerViewMode === 'jobs' ? (
                   <div className="bg-card border border-border rounded-3xl p-12 text-center text-muted-foreground shadow-sm">
-                    No system web jobs found for this branch scope.
+                    No jobs found for this scope.
                   </div>
                 ) : null
               )}
@@ -1093,27 +1383,27 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                 {branchBreakdown.map((b) => (
                   <div
                     key={b.id}
-                    className="p-6 rounded-3xl bg-card border border-border hover:border-primary/40 transition-all shadow-sm space-y-4 group relative overflow-hidden"
+                    className={`p-6 rounded-3xl bg-card border ${b.isMigrateDivision ? 'border-amber-500/40 bg-amber-500/[0.02]' : 'border-border'} hover:border-primary/40 transition-all shadow-sm space-y-4 group relative overflow-hidden`}
                   >
                     <div className="absolute top-0 right-0 w-28 h-28 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all pointer-events-none" />
 
                     {/* Header */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
-                          <Building2 size={20} />
+                        <div className={`w-11 h-11 rounded-2xl ${b.isMigrateDivision ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400' : 'bg-primary/10 border border-primary/20 text-primary'} flex items-center justify-center font-bold`}>
+                          {b.isMigrateDivision ? <Crown size={20} /> : <Building2 size={20} />}
                         </div>
                         <div>
                           <h4 className="font-bold text-foreground text-base group-hover:text-primary transition-colors flex items-center gap-2">
                             {b.name}
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase">
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md ${b.isMigrateDivision ? 'bg-amber-500/20 text-amber-300' : 'bg-muted text-muted-foreground'} uppercase font-bold`}>
                               {b.code}
                             </span>
                           </h4>
-                          <p className="text-xs text-muted-foreground">{b.city || 'Oman'} Branch</p>
+                          <p className="text-xs text-muted-foreground">{b.address || 'Executive Division'}</p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full ${b.isMigrateDivision ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-primary/10 text-primary border border-primary/20'}`}>
                         {b.jobCount} deals
                       </span>
                     </div>
@@ -1159,10 +1449,16 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                       </span>
                       <button
                         onClick={() => {
-                          setSelectedBranchId(b.id === 'unassigned' ? null : b.id);
-                          setActiveTab('overview');
+                          if (b.isMigrateDivision) {
+                            setIsMigrateScope(true);
+                            setActiveTab('overview');
+                          } else {
+                            setIsMigrateScope(false);
+                            setSelectedBranchId(b.id === 'unassigned' ? null : b.id);
+                            setActiveTab('overview');
+                          }
                         }}
-                        className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground text-xs font-bold transition-all flex items-center gap-1.5"
+                        className={`px-3 py-1.5 rounded-xl ${b.isMigrateDivision ? 'bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black' : 'bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground'} text-xs font-bold transition-all flex items-center gap-1.5`}
                       >
                         Focus Ledger <ArrowRight size={13} />
                       </button>
