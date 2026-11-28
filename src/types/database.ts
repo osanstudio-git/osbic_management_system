@@ -1000,6 +1000,29 @@ export interface Database {
         notes: string | null
         created_at: string
       }, 'id' | 'created_at', 'assigned_at' | 'handover_condition' | 'employee_acknowledged'>
+
+      branch_income_entries: TableDef<{
+        id: string
+        branch_id: string
+        entry_date: string
+        entry_mode: 'single' | 'daily_summary'
+        amount: number
+        payment_mode: 'cash' | 'card' | 'bank_transfer'
+        client_name: string | null
+        client_phone: string | null
+        service_category: string
+        work_description: string | null
+        ministry_fee: number
+        net_profit: number
+        receipt_number: string | null
+        deals_count: number
+        receipt_url: string | null
+        notes: string | null
+        recorded_by: string | null
+        status: 'verified' | 'pending_audit'
+        created_at: string
+        updated_at: string
+      }, 'id' | 'created_at' | 'updated_at', 'entry_date' | 'entry_mode' | 'payment_mode' | 'ministry_fee' | 'net_profit' | 'deals_count' | 'status'>
     }
     Views: {
       [_ in never]: never

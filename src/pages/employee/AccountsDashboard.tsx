@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
-import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar, Globe, ArrowRight } from 'lucide-react';
+import { Wallet, CheckCircle2, AlertCircle, RefreshCw, FileText, Lock, Building2, ExternalLink, Activity, DollarSign, Users, ChevronRight, BarChart4, LayoutDashboard, History, X, Download, Eye, CreditCard, Phone, Calendar, Globe, ArrowRight, PlusCircle, Banknote, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useExpenses } from '../../hooks/employee/useExpenses';
 import { useAccountsOverview } from '../../hooks/employee/useAccountsOverview';
+import { useBranchIncome, useDeleteBranchIncome } from '../../hooks/employee/useBranchIncome';
+import RecordBranchIncomeModal from '../../components/employee/RecordBranchIncomeModal';
 import { useNavigate } from 'react-router-dom';
 import { downloadInvoice, downloadReceipt } from '../../utils/invoiceGenerator';
 import { getPaymentReceivedDate, formatPaymentReceivedDate } from '../../utils/paymentUtils';
@@ -63,6 +65,17 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
 
   // Receivables Sub-tab State
   const [receivablesSubTab, setReceivablesSubTab] = useState<'due' | 'surplus'>('due');
+
+  // Branch Direct Income State & Hook
+  const [isRecordIncomeOpen, setIsRecordIncomeOpen] = useState(false);
+  const [ledgerViewMode, setLedgerViewMode] = useState<'all' | 'jobs' | 'branch_income'>('all');
+  const { data: allBranchIncome = [], isLoading: loadingBranchIncome } = useBranchIncome(null);
+  const deleteBranchIncomeMutation = useDeleteBranchIncome();
+
+  const currentBranchIncome = useMemo(() => {
+    if (!selectedBranchId) return allBranchIncome;
+    return allBranchIncome.filter((entry: any) => entry.branch_id === selectedBranchId);
+  }, [allBranchIncome, selectedBranchId]);
 
   const { pendingExpenses, loadingPending, updateExpenseStatus } = useExpenses();
   const { data: accountsData, isLoading: loadingOverview } = useAccountsOverview(selectedBranchId);
@@ -163,9 +176,15 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
     
     const results = branches.filter(b => b.is_active).map(b => {
       const bJobs = jobs.filter((j: any) => j.branch_id === b.id);
-      const totalBilled = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_fee) || 0), 0);
-      const totalCollected = bJobs.reduce((sum: number, j: any) => sum + (Number(j.advance_amount) || 0), 0);
-      const totalSpent = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_spent) || 0), 0);
+      const bIncome = allBranchIncome.filter((e: any) => e.branch_id === b.id);
+
+      const incomeBilled = bIncome.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+      const incomeMinistry = bIncome.reduce((sum: number, e: any) => sum + (Number(e.ministry_fee) || 0), 0);
+      const incomeDealsCount = bIncome.reduce((sum: number, e: any) => sum + (Number(e.deals_count) || 1), 0);
+
+      const totalBilled = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_fee) || 0), 0) + incomeBilled;
+      const totalCollected = bJobs.reduce((sum: number, j: any) => sum + (Number(j.advance_amount) || 0), 0) + incomeBilled;
+      const totalSpent = bJobs.reduce((sum: number, j: any) => sum + (Number(j.total_spent) || 0), 0) + incomeMinistry;
       const totalOutstanding = bJobs.reduce((sum: number, j: any) => sum + Math.max(0, (Number(j.remaining_amount) || 0)), 0);
       const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
       const netMargin = Math.max(0, totalBilled - totalSpent);
@@ -178,7 +197,10 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
         code: b.code,
         phone: b.phone,
         address: b.address,
-        jobCount: bJobs.length,
+        jobCount: bJobs.length + incomeDealsCount,
+        webJobsCount: bJobs.length,
+        offlineIncomeCount: bIncome.length,
+        incomeBilled,
         totalBilled,
         totalCollected,
         totalSpent,
@@ -205,6 +227,9 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
         phone: null,
         address: null,
         jobCount: unassignedJobs.length,
+        webJobsCount: unassignedJobs.length,
+        offlineIncomeCount: 0,
+        incomeBilled: 0,
         totalBilled,
         totalCollected,
         totalSpent,
@@ -216,7 +241,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
     }
 
     return results;
-  }, [allJobsReportAll, allBranchesData, branches, pendingPayments]);
+  }, [allJobsReportAll, allBranchesData, branches, pendingPayments, allBranchIncome]);
 
   const grandTotalBilled = branchBreakdown.reduce((s, b) => s + b.totalBilled, 0);
   const grandTotalCollected = branchBreakdown.reduce((s, b) => s + b.totalCollected, 0);
@@ -269,6 +294,7 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ['accounts_overview'] });
+    qc.invalidateQueries({ queryKey: ['branch_income_entries'] });
     qc.invalidateQueries({ queryKey: ['job'] });
     qc.invalidateQueries({ queryKey: ['employee', 'jobs'] });
     qc.invalidateQueries({ queryKey: ['history_payments'] });
@@ -456,10 +482,14 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
     }
   };
 
-  // KPI Calculations
-  const totalBilled = accountsData?.reduce((sum, job) => sum + (job.total_fee || 0), 0) || 0;
-  const totalVerified = accountsData?.reduce((sum, job) => sum + (job.advance_amount || 0), 0) || 0;
-  const totalSpent = accountsData?.reduce((sum, job) => sum + (job.total_spent || 0), 0) || 0;
+  // Branch Income Aggregations for Active Scope
+  const branchIncomeBilled = currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+  const branchIncomeMinistry = currentBranchIncome.reduce((sum: number, e: any) => sum + (Number(e.ministry_fee) || 0), 0);
+
+  // KPI Calculations (combining web jobs ledger + recorded direct branch incomes)
+  const totalBilled = (accountsData?.reduce((sum, job) => sum + (job.total_fee || 0), 0) || 0) + branchIncomeBilled;
+  const totalVerified = (accountsData?.reduce((sum, job) => sum + (job.advance_amount || 0), 0) || 0) + branchIncomeBilled;
+  const totalSpent = (accountsData?.reduce((sum, job) => sum + (job.total_spent || 0), 0) || 0) + branchIncomeMinistry;
   const totalOutstanding = accountsData?.reduce((sum, job) => sum + Math.max(0, job.remaining_amount || 0), 0) || 0;
 
   return (
@@ -496,13 +526,17 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           >
             <Globe size={13} />
             <span>All Branches (Consolidated)</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${!selectedBranchId ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
-              {allBranchesData?.length || 0}
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${!selectedBranchId ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+              {(allBranchesData?.length || 0) + allBranchIncome.reduce((s: number, e: any) => s + (Number(e.deals_count) || 1), 0)} Deals
             </span>
           </button>
 
           {branches.filter(b => b.is_active).map(b => {
-            const count = (allBranchesData || []).filter(j => j.branch_id === b.id).length;
+            const webCount = (allBranchesData || []).filter(j => j.branch_id === b.id).length;
+            const branchIncomeDeals = allBranchIncome
+              .filter((e: any) => e.branch_id === b.id)
+              .reduce((s: number, e: any) => s + (Number(e.deals_count) || 1), 0);
+            const count = webCount + branchIncomeDeals;
             const isSel = selectedBranchId === b.id;
             return (
               <button
@@ -518,31 +552,41 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   {b.code.slice(0, 2)}
                 </span>
                 <span>{b.name}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${isSel ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
-                  {count}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${isSel ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+                  {count} Deals
                 </span>
               </button>
             );
           })}
         </div>
 
-        {selectedBranch ? (
-          <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-2xl font-bold">
-            <span>Viewing: <strong>{selectedBranch.name}</strong></span>
-            <button
-              onClick={() => setSelectedBranchId(null)}
-              className="p-1 hover:bg-primary/20 rounded-lg text-primary transition-colors"
-              title="Clear branch filter (Show all branches)"
-            >
-              <X size={13} />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-2xl font-bold">
-            <CheckCircle2 size={13} />
-            <span>Consolidated Sultanate Accounts (All Branches)</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsRecordIncomeOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <PlusCircle size={15} />
+            <span>+ Record Branch Income</span>
+          </button>
+
+          {selectedBranch ? (
+            <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/25 px-3 py-1.5 rounded-2xl font-bold">
+              <span>Viewing: <strong>{selectedBranch.name}</strong></span>
+              <button
+                onClick={() => setSelectedBranchId(null)}
+                className="p-1 hover:bg-primary/20 rounded-lg text-primary transition-colors"
+                title="Clear branch filter (Show all branches)"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-2xl font-bold">
+              <CheckCircle2 size={13} />
+              <span>Consolidated Sultanate Accounts (All Branches)</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -652,8 +696,14 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
               }`}
           >
             <RefreshCw size={16} /> Verifications
-            {pendingPayments && pendingPayments.length > 0 && (
-              <span className="ml-1 bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingPayments.length}</span>
+            {pendingPayments && pendingPayments.length > 0 ? (
+              <span className="ml-1 bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold animate-pulse">
+                {pendingPayments.length} Pending
+              </span>
+            ) : (
+              <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium bg-muted/60 text-muted-foreground border border-border/50">
+                0
+              </span>
             )}
           </button>
           <button
@@ -727,89 +777,311 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
         >
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Details</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Team</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Billed</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Verified Paid</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Ops Spent</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Balance Due</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {loadingOverview ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-                          Loading ledger data...
-                        </td>
-                      </tr>
-                    ) : accountsData?.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                          No jobs found in the ledger.
-                        </td>
-                      </tr>
-                    ) : (
-                      accountsData?.map((job) => (
-                        <tr key={job.id} className="hover:bg-muted/10 transition-colors group cursor-pointer" onClick={() => { setJobDetailsTarget(job); setJobDetailsModalOpen(true); }}>
-                          <td className="px-6 py-4">
-                            <div className="font-syne font-bold text-foreground flex items-center gap-2">
-                              {job.job_code}
-                              <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[10px] text-muted-foreground">{format(new Date(job.created_at), 'MMM d, yyyy')}</span>
-                              {job.branch?.name && (
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                  {job.branch.name}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                              <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                              {job.client?.full_name || 'Unknown'}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
-                              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Sales: {job.sales?.full_name || 'None'}</span>
-                              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Ops: {job.ops?.full_name || 'Unassigned'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="font-mono text-sm font-bold text-emerald-500">{(job.advance_amount || 0).toFixed(3)}</span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="font-mono text-sm font-bold text-rose-500">{(job.total_spent || 0) > 0 ? (job.total_spent || 0).toFixed(3) : '-'}</span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className={`font-mono text-sm font-bold ${(job.remaining_amount || 0) > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                              {(job.remaining_amount || 0).toFixed(3)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                              job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                              }`}>
-                              {job.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            <div className="space-y-6">
+              {/* Ledger Sub-Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3.5 rounded-3xl shadow-sm">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setLedgerViewMode('all')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                      ledgerViewMode === 'all'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                  >
+                    <span>All Ledger Activity</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${ledgerViewMode === 'all' ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+                      {(accountsData?.length || 0) + currentBranchIncome.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setLedgerViewMode('jobs')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                      ledgerViewMode === 'jobs'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                  >
+                    <span>System Web Jobs</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${ledgerViewMode === 'jobs' ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+                      {accountsData?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setLedgerViewMode('branch_income')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                      ledgerViewMode === 'branch_income'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                  >
+                    <Banknote size={14} />
+                    <span>Branch Direct Income</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${ledgerViewMode === 'branch_income' ? 'bg-black/25 text-white' : 'bg-muted text-muted-foreground'}`}>
+                      {currentBranchIncome.length}
+                    </span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setIsRecordIncomeOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/25 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <PlusCircle size={14} />
+                  <span>Record Branch Income</span>
+                </button>
               </div>
+
+              {/* Web Jobs Ledger Table */}
+              {(ledgerViewMode === 'all' || ledgerViewMode === 'jobs') && (
+                accountsData && accountsData.length > 0 ? (
+                  <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                    {ledgerViewMode === 'all' && currentBranchIncome.length > 0 && (
+                      <div className="p-3.5 px-6 border-b border-border bg-muted/10 flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          System Web Jobs ({accountsData.length})
+                        </span>
+                      </div>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Job Details</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Team</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Billed</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Verified Paid</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Ops Spent</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Balance Due</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {loadingOverview ? (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                Loading ledger data...
+                              </td>
+                            </tr>
+                          ) : (
+                            accountsData?.map((job) => (
+                              <tr key={job.id} className="hover:bg-muted/10 transition-colors group cursor-pointer" onClick={() => { setJobDetailsTarget(job); setJobDetailsModalOpen(true); }}>
+                                <td className="px-6 py-4">
+                                  <div className="font-syne font-bold text-foreground flex items-center gap-2">
+                                    {job.job_code}
+                                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[10px] text-muted-foreground">{format(new Date(job.created_at), 'MMM d, yyyy')}</span>
+                                    {job.branch?.name && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                        {job.branch.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                    {job.client?.full_name || 'Unknown'}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
+                                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Sales: {job.sales?.full_name || 'None'}</span>
+                                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Ops: {job.ops?.full_name || 'Unassigned'}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className="font-mono text-sm font-bold text-foreground">{(job.total_fee || 0).toFixed(3)}</span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className="font-mono text-sm font-bold text-emerald-500">{(job.advance_amount || 0).toFixed(3)}</span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className="font-mono text-sm font-bold text-rose-500">{(job.total_spent || 0) > 0 ? (job.total_spent || 0).toFixed(3) : '-'}</span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className={`font-mono text-sm font-bold ${(job.remaining_amount || 0) > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                    {(job.remaining_amount || 0).toFixed(3)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                    job.status === 'draft' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                      'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                    }`}>
+                                    {job.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : ledgerViewMode === 'jobs' ? (
+                  <div className="bg-card border border-border rounded-3xl p-12 text-center text-muted-foreground shadow-sm">
+                    No system web jobs found for this branch scope.
+                  </div>
+                ) : null
+              )}
+
+              {/* Direct Branch Income Entries Table */}
+              {(ledgerViewMode === 'all' || ledgerViewMode === 'branch_income') && (
+                currentBranchIncome.length > 0 ? (
+                  <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                    <div className="p-4 px-6 border-b border-border bg-emerald-500/5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Banknote className="w-5 h-5 text-emerald-400" />
+                        <h3 className="font-syne font-bold text-foreground">Direct Branch Income Receipts</h3>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                          {currentBranchIncome.length} Entries
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        Direct Income Total: <strong className="text-emerald-400 font-bold">{branchIncomeBilled.toFixed(3)} OMR</strong>
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date & Branch</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Client & Service</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payment Mode</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Income Billed</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Ministry / Cost</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Net Profit</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Receipt Proof</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Recorded By</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {currentBranchIncome.map((entry: any) => (
+                            <tr key={entry.id} className="hover:bg-muted/10 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-mono font-bold text-foreground text-sm">
+                                  {format(new Date(entry.entry_date), 'MMM d, yyyy')}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                    {entry.branch?.name || 'Branch'}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground capitalize">
+                                    {entry.entry_mode === 'daily_summary' ? `${entry.deals_count || 1} Deals Closing` : 'Single Deal'}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm font-bold text-foreground">
+                                  {entry.client_name || entry.work_description || 'Direct Income'}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                    {entry.service_category?.replace('_', ' ')}
+                                  </span>
+                                  {entry.client_phone && (
+                                    <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-0.5">
+                                      <Phone size={10} /> {entry.client_phone}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                                  entry.payment_mode === 'cash' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                  entry.payment_mode === 'card' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                  'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                }`}>
+                                  {entry.payment_mode?.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="font-mono text-sm font-bold text-emerald-400">
+                                  {Number(entry.amount).toFixed(3)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="font-mono text-sm font-bold text-rose-400">
+                                  {Number(entry.ministry_fee || 0).toFixed(3)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="font-mono text-sm font-bold text-foreground">
+                                  {Number(entry.net_profit || entry.amount).toFixed(3)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                {entry.receipt_url ? (
+                                  <button
+                                    onClick={() => handleViewReceipt(entry.receipt_url)}
+                                    className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye size={12} /> {entry.receipt_number || 'View Slip'}
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground font-mono">
+                                    {entry.receipt_number || '—'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="text-xs text-muted-foreground">
+                                  {entry.recorder?.full_name || 'Accounts Staff'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Are you sure you want to delete this branch income entry?')) {
+                                      deleteBranchIncomeMutation.mutate(entry.id);
+                                    }
+                                  }}
+                                  className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete income entry"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : ledgerViewMode === 'branch_income' ? (
+                  <div className="bg-card border border-border rounded-3xl p-12 text-center text-muted-foreground shadow-sm">
+                    <Banknote className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="font-bold text-foreground">No Direct Branch Income Records Found</p>
+                    <p className="text-xs text-muted-foreground mt-1 mb-4">You have not recorded any offline branch income for this branch yet.</p>
+                    <button
+                      onClick={() => setIsRecordIncomeOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <PlusCircle size={14} /> + Record Branch Income
+                    </button>
+                  </div>
+                ) : null
+              )}
+
+              {/* Complete Empty State when 0 jobs and 0 branch incomes in all mode */}
+              {ledgerViewMode === 'all' && (!accountsData || accountsData.length === 0) && currentBranchIncome.length === 0 && (
+                <div className="bg-card border border-border rounded-3xl p-12 text-center text-muted-foreground shadow-sm">
+                  <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="font-bold text-foreground">No Financial Records Found</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">There are no web jobs or branch income entries recorded for this scope.</p>
+                  <button
+                    onClick={() => setIsRecordIncomeOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle size={14} /> + Record Branch Income
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1003,10 +1275,26 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
                   <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
                 </div>
               ) : pendingPayments?.length === 0 ? (
-                <div className="bg-card/50 border border-border/50 border-dashed rounded-3xl p-16 flex flex-col items-center justify-center text-center">
-                  <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4 opacity-80" />
+                <div className="bg-card/50 border border-border/50 border-dashed rounded-3xl p-16 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
                   <h3 className="text-xl font-bold text-foreground">All Caught Up!</h3>
-                  <p className="text-muted-foreground mt-2">No pending payments waiting for verification.</p>
+                  <p className="text-muted-foreground mt-1.5 text-xs max-w-md">
+                    {selectedBranch
+                      ? `No unverified bank transfer receipts waiting for review in ${selectedBranch.name}.`
+                      : 'No unverified bank transfer receipts waiting for review across all branches.'}
+                  </p>
+                  <div className="mt-5 p-3.5 rounded-2xl bg-muted/20 border border-border/60 text-xs text-muted-foreground flex flex-col sm:flex-row items-center gap-3">
+                    <span>Looking for active client deals or payment ledger?</span>
+                    <button
+                      onClick={() => setActiveTab('overview')}
+                      className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-all flex items-center gap-1.5 shrink-0"
+                    >
+                      <FileText size={13} />
+                      <span>Open Master Ledger</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -2063,6 +2351,13 @@ export default function AccountsDashboard({ hideHeader = false }: AccountsDashbo
           </div>
         )}
       </AnimatePresence>
+
+      {/* Record Direct Branch Income Modal */}
+      <RecordBranchIncomeModal
+        isOpen={isRecordIncomeOpen}
+        onClose={() => setIsRecordIncomeOpen(false)}
+        defaultBranchId={selectedBranchId}
+      />
 
     </div>
   );
